@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clouddicted-keycloak-config-operator"
+version = "0.1.0"
+description = "Kopf-based Kubernetes operator for managing Keycloak configuration."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+  { name = "Clouddicted" },
+]
+dependencies = [
+  "kopf>=1.37,<2",
+  "kubernetes>=31,<34",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "ruff>=0.8,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
