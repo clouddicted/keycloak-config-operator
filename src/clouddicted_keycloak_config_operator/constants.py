@@ -3,3 +3,4 @@
 OPERATOR_NAME = "clouddicted-keycloak-config-operator"
 API_GROUP = "keycloak.clouddicted.com"
 API_VERSION = "v1alpha1"
+KEYCLOAK_TARGET_PLURAL = "keycloaktargets"
