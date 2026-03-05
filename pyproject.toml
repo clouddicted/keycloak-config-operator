@@ -12,6 +12,7 @@ authors = [
   { name = "Clouddicted" },
 ]
 dependencies = [
+  "httpx>=0.27,<1",
   "kopf>=1.37,<2",
   "kubernetes>=31,<34",
 ]
