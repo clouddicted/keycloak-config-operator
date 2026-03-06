@@ -1,5 +1,8 @@
+import base64
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import kopf
 
@@ -10,7 +13,65 @@ from clouddicted_keycloak_config_operator.constants import (
     KEYCLOAK_TARGET_PLURAL,
 )
 from clouddicted_keycloak_config_operator.handlers import keycloak_target
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.keycloak_client import KeycloakAuthenticationError
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_AUTHENTICATED,
+    CONDITION_READY,
+    CONDITION_SECRET_READY,
+    authenticated_condition,
+    ready_condition,
+    secret_ready_condition,
+)
+
+NOW = datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC)
+OLD_NOW = datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC)
+
+
+@dataclass
+class FakeSecret:
+    data: dict[str, str] | None
+
+
+class FakeCoreV1Api:
+    def __init__(self, secrets: dict[tuple[str, str], FakeSecret]) -> None:
+        self.secrets = secrets
+        self.calls: list[tuple[str, str]] = []
+
+    def read_namespaced_secret(self, *, name: str, namespace: str) -> FakeSecret:
+        self.calls.append((namespace, name))
+        return self.secrets[(namespace, name)]
+
+
+class FailingCoreV1Api:
+    def read_namespaced_secret(self, *, name: str, namespace: str) -> FakeSecret:
+        raise AssertionError(f"unexpected Secret read: {namespace}/{name}")
+
+
+class FakeKeycloakClient:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+        self.authenticate_calls = 0
+
+    def authenticate(self) -> None:
+        self.authenticate_calls += 1
+        if self.error is not None:
+            raise self.error
+
+
+class FakeKeycloakClientFactory:
+    def __init__(self, client: FakeKeycloakClient) -> None:
+        self.client = client
+        self.calls: list[dict[str, str]] = []
+
+    def __call__(self, *, base_url: str, username: str, password: str) -> FakeKeycloakClient:
+        self.calls.append(
+            {
+                "base_url": base_url,
+                "username": username,
+                "password": password,
+            }
+        )
+        return self.client
 
 
 def test_keycloak_target_resource_registration_values() -> None:
@@ -37,45 +98,60 @@ def test_configure_sets_operator_settings() -> None:
     assert settings.persistence.diffbase_storage.ignored_fields == ["status"]
 
 
-def test_patch_keycloak_target_status_sets_placeholder_ready_condition() -> None:
-    patch: dict[str, object] = {}
+def test_patch_keycloak_target_status_reports_successful_authentication() -> None:
+    core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
+    keycloak_client = FakeKeycloakClient()
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+    patch: dict[str, Any] = {}
 
     keycloak_target.patch_keycloak_target_status(
-        spec={
-            "url": "https://keycloak.example.com",
-            "adminCredentials": {"secretRef": {"name": "keycloak-admin"}},
-        },
+        spec=_target_spec(),
         status={},
         patch=patch,
-        now=datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC),
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
     )
 
-    assert patch == {
-        "status": {
-            "conditions": [
-                {
-                    "type": CONDITION_READY,
-                    "status": "Unknown",
-                    "reason": keycloak_target.VALIDATION_PENDING_REASON,
-                    "message": "Keycloak connectivity validation is not implemented yet.",
-                    "lastTransitionTime": "2026-05-22T10:30:45Z",
-                },
-            ],
-        },
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_target.RECONCILED_REASON,
+        "message": "KeycloakTarget credentials are valid.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
+    assert conditions[CONDITION_SECRET_READY]["status"] == "True"
+    assert conditions[CONDITION_SECRET_READY]["reason"] == keycloak_target.SECRET_LOADED_REASON
+    assert conditions[CONDITION_AUTHENTICATED]["status"] == "True"
+    assert conditions[CONDITION_AUTHENTICATED]["reason"] == keycloak_target.AUTHENTICATED_REASON
+    assert core_v1_api.calls == [("apps", "keycloak-admin")]
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "kc-admin",
+            "password": "secret-password",
+        }
+    ]
+    assert keycloak_client.authenticate_calls == 1
+    assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
-def test_patch_keycloak_target_status_reports_invalid_minimal_shape() -> None:
-    patch: dict[str, object] = {}
+def test_patch_keycloak_target_status_reports_invalid_spec_without_external_calls() -> None:
+    patch: dict[str, Any] = {}
 
     keycloak_target.patch_keycloak_target_status(
         spec={"adminCredentials": {"secretRef": {}}},
         status={},
         patch=patch,
-        now=datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC),
+        core_v1_api=FailingCoreV1Api(),
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
     )
 
-    assert patch["status"]["conditions"][0] == {
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_target.INVALID_SPEC_REASON,
@@ -85,28 +161,149 @@ def test_patch_keycloak_target_status_reports_invalid_minimal_shape() -> None:
         ),
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
+    assert conditions[CONDITION_SECRET_READY]["status"] == "Unknown"
+    assert conditions[CONDITION_SECRET_READY]["reason"] == keycloak_target.INVALID_SPEC_REASON
+    assert conditions[CONDITION_AUTHENTICATED]["status"] == "Unknown"
+    assert conditions[CONDITION_AUTHENTICATED]["reason"] == keycloak_target.INVALID_SPEC_REASON
 
 
-def test_patch_keycloak_target_status_preserves_stable_ready_transition_time() -> None:
-    existing_ready = ready_condition(
-        "Unknown",
-        "OldReason",
-        "Old message.",
-        now=datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC),
-    )
-    patch: dict[str, object] = {}
+def test_patch_keycloak_target_status_reports_secret_loading_failure() -> None:
+    core_v1_api = FakeCoreV1Api({("apps", "keycloak-admin"): FakeSecret(data=None)})
+    patch: dict[str, Any] = {}
 
     keycloak_target.patch_keycloak_target_status(
-        spec={
-            "url": "https://keycloak.example.com",
-            "adminCredentials": {"secretRef": {"name": "keycloak-admin"}},
-        },
-        status={"conditions": [existing_ready]},
+        spec=_target_spec(),
+        status={},
         patch=patch,
-        now=datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC),
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
     )
 
-    ready = patch["status"]["conditions"][0]
-    assert ready["status"] == "Unknown"
-    assert ready["reason"] == keycloak_target.VALIDATION_PENDING_REASON
-    assert ready["lastTransitionTime"] == "2026-05-22T09:30:45Z"
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_READY]["reason"] == keycloak_target.SECRET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_SECRET_READY]["status"] == "False"
+    assert conditions[CONDITION_SECRET_READY]["reason"] == keycloak_target.SECRET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_AUTHENTICATED]["status"] == "Unknown"
+    assert (
+        conditions[CONDITION_AUTHENTICATED]["reason"]
+        == keycloak_target.SECRET_UNAVAILABLE_REASON
+    )
+    assert core_v1_api.calls == [("apps", "keycloak-admin")]
+
+
+def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values() -> None:
+    core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
+    keycloak_client = FakeKeycloakClient(
+        KeycloakAuthenticationError("invalid credentials for kc-admin: secret-password")
+    )
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+    patch: dict[str, Any] = {}
+
+    keycloak_target.patch_keycloak_target_status(
+        spec=_target_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_READY]["reason"] == keycloak_target.AUTHENTICATION_FAILED_REASON
+    assert conditions[CONDITION_SECRET_READY]["status"] == "True"
+    assert conditions[CONDITION_SECRET_READY]["reason"] == keycloak_target.SECRET_LOADED_REASON
+    assert conditions[CONDITION_AUTHENTICATED]["status"] == "False"
+    assert (
+        conditions[CONDITION_AUTHENTICATED]["reason"]
+        == keycloak_target.AUTHENTICATION_FAILED_REASON
+    )
+    assert keycloak_client.authenticate_calls == 1
+    assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
+
+
+def test_patch_keycloak_target_status_preserves_stable_transition_times() -> None:
+    core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
+    keycloak_client_factory = FakeKeycloakClientFactory(FakeKeycloakClient())
+    patch: dict[str, Any] = {}
+
+    keycloak_target.patch_keycloak_target_status(
+        spec=_target_spec(),
+        status={
+            "conditions": [
+                ready_condition("True", "OldReady", "Old ready message.", now=OLD_NOW),
+                secret_ready_condition("True", "OldSecret", "Old secret message.", now=OLD_NOW),
+                authenticated_condition("True", "OldAuth", "Old auth message.", now=OLD_NOW),
+            ],
+        },
+        patch=patch,
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == keycloak_target.RECONCILED_REASON
+    assert conditions[CONDITION_READY]["lastTransitionTime"] == "2026-05-22T09:30:45Z"
+    assert conditions[CONDITION_SECRET_READY]["reason"] == keycloak_target.SECRET_LOADED_REASON
+    assert (
+        conditions[CONDITION_SECRET_READY]["lastTransitionTime"] == "2026-05-22T09:30:45Z"
+    )
+    assert conditions[CONDITION_AUTHENTICATED]["reason"] == keycloak_target.AUTHENTICATED_REASON
+    assert (
+        conditions[CONDITION_AUTHENTICATED]["lastTransitionTime"] == "2026-05-22T09:30:45Z"
+    )
+
+
+def _core_v1_api(*, username: str, password: str) -> FakeCoreV1Api:
+    return FakeCoreV1Api(
+        {
+            ("apps", "keycloak-admin"): FakeSecret(
+                data={
+                    "username": _b64(username),
+                    "password": _b64(password),
+                }
+            )
+        }
+    )
+
+
+def _target_spec() -> dict[str, Any]:
+    return {
+        "url": "https://keycloak.example.test",
+        "adminCredentials": {"secretRef": {"name": "keycloak-admin"}},
+    }
+
+
+def _conditions_by_type(patch: dict[str, Any]) -> dict[str, dict[str, str]]:
+    return {
+        condition["type"]: condition
+        for condition in patch["status"]["conditions"]
+        if isinstance(condition, dict)
+    }
+
+
+def _condition_messages(patch: dict[str, Any]) -> set[str]:
+    return {
+        word
+        for condition in patch["status"]["conditions"]
+        for word in condition["message"].split()
+    }
+
+
+def _failing_keycloak_client_factory(
+    *,
+    base_url: str,
+    username: str,
+    password: str,
+) -> FakeKeycloakClient:
+    raise AssertionError(f"unexpected Keycloak client: {base_url}, {username}, {password}")
+
+
+def _b64(value: str) -> str:
+    return base64.b64encode(value.encode("utf-8")).decode("ascii")
