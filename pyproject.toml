@@ -25,6 +25,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "integration: opt-in tests that require kind and kubectl",
+]
 
 [tool.ruff]
 line-length = 100
