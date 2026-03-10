@@ -10,6 +10,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakNotAuthenticatedError,
     KeycloakRequestError,
+    KeycloakResourceNotFoundError,
     KeycloakTokenResponseError,
 )
 
@@ -115,6 +116,23 @@ def test_request_raises_clear_error_for_http_failure() -> None:
 
     assert "secret-token" not in str(exc_info.value)
     assert "server failed" not in str(exc_info.value)
+
+
+def test_request_raises_distinct_error_for_not_found() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/protocol/openid-connect/token"):
+            return httpx.Response(200, json={"access_token": "secret-token"})
+
+        return httpx.Response(404, json={"error": "realm not found"})
+
+    client = _client(handler)
+    client.authenticate()
+
+    with pytest.raises(KeycloakResourceNotFoundError, match="HTTP 404") as exc_info:
+        client.request("GET", "realms/missing")
+
+    assert "secret-token" not in str(exc_info.value)
+    assert "realm not found" not in str(exc_info.value)
 
 
 def _client(

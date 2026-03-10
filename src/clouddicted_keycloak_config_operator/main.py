@@ -8,11 +8,11 @@ from typing import Any
 import kopf
 
 from clouddicted_keycloak_config_operator.constants import API_GROUP, OPERATOR_NAME
-from clouddicted_keycloak_config_operator.handlers import keycloak_target
+from clouddicted_keycloak_config_operator.handlers import keycloak_realm, keycloak_target
 
 logger = logging.getLogger(__name__)
 
-REGISTERED_HANDLER_MODULES = (keycloak_target,)
+REGISTERED_HANDLER_MODULES = (keycloak_target, keycloak_realm)
 
 
 @kopf.on.startup()

@@ -1,0 +1,9 @@
+apiVersion: keycloak.clouddicted.com/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: example-realm
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  displayName: Example

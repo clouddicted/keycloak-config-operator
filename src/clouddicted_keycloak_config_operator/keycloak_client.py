@@ -22,6 +22,10 @@ class KeycloakRequestError(KeycloakClientError):
     """Raised when a Keycloak Admin API request fails."""
 
 
+class KeycloakResourceNotFoundError(KeycloakRequestError):
+    """Raised when a Keycloak Admin API resource does not exist."""
+
+
 class KeycloakTokenResponseError(KeycloakClientError):
     """Raised when Keycloak returns an unusable token response."""
 
@@ -113,6 +117,11 @@ class KeycloakAdminClient:
             )
         except httpx.HTTPError as exc:
             raise KeycloakRequestError("Keycloak Admin API request failed") from exc
+
+        if response.status_code == 404:
+            raise KeycloakResourceNotFoundError(
+                "Keycloak Admin API resource was not found with HTTP 404"
+            )
 
         if response.is_error:
             raise KeycloakRequestError(

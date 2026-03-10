@@ -17,6 +17,8 @@ pytestmark = [
 REPO_ROOT = Path(__file__).resolve().parents[2]
 KIND_CONFIG = REPO_ROOT / "tests" / "kind" / "kind.yaml"
 CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloaktargets.yaml"
+REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrealms.yaml"
+REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrealm.yaml"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CLUSTER_NAME = os.getenv("KIND_CLUSTER_NAME", "clouddicted-keycloak-config-operator-it")
 NAMESPACE = "keycloak-operator-test"
@@ -24,12 +26,23 @@ NAMESPACE = "keycloak-operator-test"
 
 def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str, str]) -> None:
     _run(["kubectl", "apply", "--server-side", "-f", str(CRD)], env=kind_cluster_env)
+    _run(["kubectl", "apply", "--server-side", "-f", str(REALM_CRD)], env=kind_cluster_env)
     _run(
         [
             "kubectl",
             "wait",
             "--for=condition=Established",
             "crd/keycloaktargets.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakrealms.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -47,6 +60,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(FIXTURES / "keycloak.yaml"),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(REALM_SAMPLE),
         ],
         env=kind_cluster_env,
     )
