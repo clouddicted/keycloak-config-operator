@@ -1,0 +1,14 @@
+apiVersion: keycloak.clouddicted.com/v1alpha1
+kind: KeycloakClient
+metadata:
+  name: example-web
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientId: example-web
+  displayName: Example Web
+  redirectUris:
+    - https://app.example.com/*
+  webOrigins:
+    - https://app.example.com
