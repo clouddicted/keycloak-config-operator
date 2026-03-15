@@ -9,6 +9,8 @@ from typing import Any, Protocol
 from urllib.parse import quote
 
 import kopf
+from kubernetes import client as kubernetes_client
+from kubernetes.client.exceptions import ApiException
 
 from clouddicted_keycloak_config_operator.constants import (
     API_GROUP,
@@ -25,6 +27,11 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakClientError,
     KeycloakRequestError,
+)
+from clouddicted_keycloak_config_operator.secrets import (
+    DEFAULT_CLIENT_SECRET_KEY,
+    SecretRefError,
+    load_secret_value,
 )
 from clouddicted_keycloak_config_operator.status import (
     Condition,
@@ -43,7 +50,11 @@ CLIENT_CREATED_REASON = "ClientCreated"
 CLIENT_OBSERVED_REASON = "ClientObserved"
 INVALID_SPEC_REASON = "InvalidSpec"
 REQUEST_FAILED_REASON = "RequestFailed"
+SECRET_UNAVAILABLE_REASON = "SecretUnavailable"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+CLIENT_TYPE_PUBLIC = "Public"
+CLIENT_TYPE_CONFIDENTIAL = "Confidential"
+DEFAULT_CLIENT_TYPE = CLIENT_TYPE_PUBLIC
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -72,10 +83,12 @@ class TargetResolver(Protocol):
 
 
 @dataclass(frozen=True)
-class PublicClientSpec:
+class ClientSpec:
     target_name: str
     realm: str
     client_id: str
+    client_type: str
+    secret_ref: Mapping[str, Any] | None = None
     display_name: str | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
@@ -91,7 +104,7 @@ def reconcile_keycloak_client(
     namespace: str | None = None,
     **_: Any,
 ) -> None:
-    """Observe or create a public Keycloak client and patch status."""
+    """Observe or create a Keycloak client and patch status."""
     patch_keycloak_client_status(
         spec=spec,
         status=status,
@@ -107,14 +120,15 @@ def patch_keycloak_client_status(
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
     target_resolver: TargetResolver | None = None,
+    core_v1_api: Any | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
     now: datetime | None = None,
 ) -> None:
-    """Patch KeycloakClient status after observing or creating the public client."""
+    """Patch KeycloakClient status after observing or creating the client."""
     existing_conditions = _existing_conditions(status)
-    public_client_spec = _parse_public_client_spec(spec)
+    client_spec = _parse_client_spec(spec)
 
-    if public_client_spec is None:
+    if client_spec is None:
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -124,7 +138,7 @@ def patch_keycloak_client_status(
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
-        target = resolver(target_name=public_client_spec.target_name, namespace=namespace)
+        target = resolver(target_name=client_spec.target_name, namespace=namespace)
     except TargetResolutionError:
         _set_ready_condition(
             patch,
@@ -139,6 +153,30 @@ def patch_keycloak_client_status(
         )
         return
 
+    client_secret: str | None = None
+    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+        try:
+            secret_value = load_secret_value(
+                core_v1_api or kubernetes_client.CoreV1Api(),
+                namespace,
+                client_spec.secret_ref or {},
+                default_key=DEFAULT_CLIENT_SECRET_KEY,
+            )
+        except (SecretRefError, ApiException):
+            _set_ready_condition(
+                patch,
+                existing_conditions,
+                ready_condition(
+                    "False",
+                    SECRET_UNAVAILABLE_REASON,
+                    "KeycloakClient is not ready because the client Secret could not be loaded.",
+                    now=now,
+                ),
+            )
+            return
+
+        client_secret = secret_value.value
+
     try:
         keycloak_client = keycloak_client_factory(
             base_url=target.url,
@@ -146,7 +184,11 @@ def patch_keycloak_client_status(
             password=target.password,
         )
         keycloak_client.authenticate()
-        client_created = ensure_keycloak_public_client(keycloak_client, public_client_spec)
+        client_created = ensure_keycloak_client(
+            keycloak_client,
+            client_spec,
+            client_secret=client_secret,
+        )
     except KeycloakAuthenticationError:
         _set_ready_condition(
             patch,
@@ -179,7 +221,7 @@ def patch_keycloak_client_status(
             ready_condition(
                 "True",
                 CLIENT_CREATED_REASON,
-                "Keycloak public client was created.",
+                f"Keycloak {_client_type_label(client_spec)} client was created.",
                 now=now,
             ),
         )
@@ -191,50 +233,76 @@ def patch_keycloak_client_status(
         ready_condition(
             "True",
             CLIENT_OBSERVED_REASON,
-            "Keycloak public client already exists.",
+            f"Keycloak {_client_type_label(client_spec)} client already exists.",
             now=now,
         ),
     )
 
 
-def ensure_keycloak_public_client(
+def ensure_keycloak_client(
     client: KeycloakPublicClient,
-    public_client_spec: PublicClientSpec,
+    client_spec: ClientSpec,
+    *,
+    client_secret: str | None = None,
 ) -> bool:
-    """Return True when the public client had to be created."""
+    """Return True when the client had to be created."""
     clients = client.request(
         "GET",
-        _clients_path(public_client_spec.realm),
-        params={"clientId": public_client_spec.client_id},
+        _clients_path(client_spec.realm),
+        params={"clientId": client_spec.client_id},
     )
     if not isinstance(clients, list):
         raise KeycloakRequestError("Keycloak client lookup response was not a list")
 
     if any(
-        isinstance(candidate, Mapping)
-        and candidate.get("clientId") == public_client_spec.client_id
+        isinstance(candidate, Mapping) and candidate.get("clientId") == client_spec.client_id
         for candidate in clients
     ):
         return False
 
-    payload: dict[str, Any] = {
-        "clientId": public_client_spec.client_id,
-        "enabled": True,
-        "protocol": "openid-connect",
-        "publicClient": True,
-    }
-    if public_client_spec.display_name is not None:
-        payload["name"] = public_client_spec.display_name
-    if public_client_spec.redirect_uris:
-        payload["redirectUris"] = list(public_client_spec.redirect_uris)
-    if public_client_spec.web_origins:
-        payload["webOrigins"] = list(public_client_spec.web_origins)
-
-    client.request("POST", _clients_path(public_client_spec.realm), json=payload)
+    client.request(
+        "POST",
+        _clients_path(client_spec.realm),
+        json=_client_payload(client_spec, client_secret=client_secret),
+    )
     return True
 
 
-def _parse_public_client_spec(spec: Mapping[str, Any] | None) -> PublicClientSpec | None:
+def ensure_keycloak_public_client(
+    client: KeycloakPublicClient,
+    public_client_spec: ClientSpec,
+) -> bool:
+    """Return True when the public client had to be created."""
+    return ensure_keycloak_client(client, public_client_spec)
+
+
+def _client_payload(
+    client_spec: ClientSpec,
+    *,
+    client_secret: str | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "clientId": client_spec.client_id,
+        "enabled": True,
+        "protocol": "openid-connect",
+        "publicClient": client_spec.client_type == CLIENT_TYPE_PUBLIC,
+    }
+    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+        if client_secret is None:
+            raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
+        payload["secret"] = client_secret
+
+    if client_spec.display_name is not None:
+        payload["name"] = client_spec.display_name
+    if client_spec.redirect_uris:
+        payload["redirectUris"] = list(client_spec.redirect_uris)
+    if client_spec.web_origins:
+        payload["webOrigins"] = list(client_spec.web_origins)
+
+    return payload
+
+
+def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     if not isinstance(spec, Mapping):
         return None
 
@@ -242,6 +310,8 @@ def _parse_public_client_spec(spec: Mapping[str, Any] | None) -> PublicClientSpe
     target_name = target_ref.get("name") if isinstance(target_ref, Mapping) else None
     realm = spec.get("realm")
     client_id = spec.get("clientId")
+    client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    secret_ref = spec.get("secretRef")
     display_name = spec.get("displayName")
     redirect_uris = spec.get("redirectUris", ())
     web_origins = spec.get("webOrigins", ())
@@ -253,6 +323,22 @@ def _parse_public_client_spec(spec: Mapping[str, Any] | None) -> PublicClientSpe
     ):
         return None
 
+    if not _is_non_empty_string(client_type):
+        return None
+
+    parsed_client_type = client_type.strip()
+    if parsed_client_type not in {CLIENT_TYPE_PUBLIC, CLIENT_TYPE_CONFIDENTIAL}:
+        return None
+
+    parsed_secret_ref = None
+    if parsed_client_type == CLIENT_TYPE_CONFIDENTIAL:
+        if (
+            not isinstance(secret_ref, Mapping)
+            or not _is_non_empty_string(secret_ref.get("name"))
+        ):
+            return None
+        parsed_secret_ref = secret_ref
+
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
 
@@ -261,10 +347,12 @@ def _parse_public_client_spec(spec: Mapping[str, Any] | None) -> PublicClientSpe
     if parsed_redirect_uris is None or parsed_web_origins is None:
         return None
 
-    return PublicClientSpec(
+    return ClientSpec(
         target_name=target_name.strip(),
         realm=realm.strip(),
         client_id=client_id.strip(),
+        client_type=parsed_client_type,
+        secret_ref=parsed_secret_ref,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
         redirect_uris=parsed_redirect_uris,
         web_origins=parsed_web_origins,
@@ -319,6 +407,13 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     if not _is_non_empty_string(spec.get("clientId")):
         missing_fields.append("clientId")
 
+    client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    secret_ref = spec.get("secretRef")
+    secret_name = secret_ref.get("name") if isinstance(secret_ref, Mapping) else None
+
+    if client_type == CLIENT_TYPE_CONFIDENTIAL and not _is_non_empty_string(secret_name):
+        missing_fields.append("secretRef.name")
+
     return missing_fields
 
 
@@ -349,6 +444,10 @@ def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[s
 
 def _clients_path(realm: str) -> str:
     return f"realms/{quote(realm, safe='')}/clients"
+
+
+def _client_type_label(client_spec: ClientSpec) -> str:
+    return "confidential" if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL else "public"
 
 
 def _is_non_empty_string(value: Any) -> bool:

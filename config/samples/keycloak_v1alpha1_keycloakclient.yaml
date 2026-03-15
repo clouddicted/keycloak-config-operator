@@ -7,6 +7,7 @@ spec:
     name: example-keycloak
   realm: example
   clientId: example-web
+  clientType: Public
   displayName: Example Web
   redirectUris:
     - https://app.example.com/*

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-service-client-secret
+type: Opaque
+stringData:
+  clientSecret: not-a-production-secret
+---
+apiVersion: keycloak.clouddicted.com/v1alpha1
+kind: KeycloakClient
+metadata:
+  name: example-service
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientId: example-service
+  clientType: Confidential
+  secretRef:
+    name: example-service-client-secret
+    secretKey: clientSecret

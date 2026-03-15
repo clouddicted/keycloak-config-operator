@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from clouddicted_keycloak_config_operator.secrets import (
+    DEFAULT_CLIENT_SECRET_KEY,
     DEFAULT_PASSWORD_KEY,
     DEFAULT_USERNAME_KEY,
     SecretCredentials,
@@ -11,8 +12,10 @@ from clouddicted_keycloak_config_operator.secrets import (
     SecretKeyMissingError,
     SecretRefNameMissingError,
     SecretRefNamespaceMissingError,
+    SecretValue,
     SecretValueDecodeError,
     load_secret_credentials,
+    load_secret_value,
 )
 
 
@@ -89,6 +92,57 @@ def test_load_secret_credentials_uses_explicit_namespace_and_keys() -> None:
     assert credentials.username_key == "admin-user"
     assert credentials.password_key == "admin-password"
     assert client.calls == [("security", "keycloak-admin")]
+
+
+def test_load_secret_value_uses_default_secret_key() -> None:
+    client = FakeCoreV1Api(
+        {
+            ("apps", "example-client-secret"): FakeSecret(
+                data={DEFAULT_CLIENT_SECRET_KEY: _b64("client-secret-value")},
+            ),
+        }
+    )
+
+    secret_value = load_secret_value(
+        client,
+        "apps",
+        {"name": "example-client-secret"},
+        default_key=DEFAULT_CLIENT_SECRET_KEY,
+    )
+
+    assert secret_value == SecretValue(
+        value="client-secret-value",
+        secret_namespace="apps",
+        secret_name="example-client-secret",
+        secret_key=DEFAULT_CLIENT_SECRET_KEY,
+    )
+    assert client.calls == [("apps", "example-client-secret")]
+
+
+def test_load_secret_value_uses_explicit_namespace_and_key() -> None:
+    client = FakeCoreV1Api(
+        {
+            ("security", "example-client-secret"): FakeSecret(
+                data={"oidc-secret": _b64("client-secret-value")},
+            ),
+        }
+    )
+
+    secret_value = load_secret_value(
+        client,
+        "apps",
+        {
+            "name": "example-client-secret",
+            "namespace": "security",
+            "secretKey": "oidc-secret",
+        },
+        default_key=DEFAULT_CLIENT_SECRET_KEY,
+    )
+
+    assert secret_value.value == "client-secret-value"
+    assert secret_value.secret_namespace == "security"
+    assert secret_value.secret_key == "oidc-secret"
+    assert client.calls == [("security", "example-client-secret")]
 
 
 def test_load_secret_credentials_requires_secret_name() -> None:

@@ -10,6 +10,7 @@ from typing import Any
 
 DEFAULT_USERNAME_KEY = "username"
 DEFAULT_PASSWORD_KEY = "password"
+DEFAULT_CLIENT_SECRET_KEY = "clientSecret"
 
 
 class SecretRefError(ValueError):
@@ -46,6 +47,16 @@ class SecretCredentials:
     secret_name: str
     username_key: str
     password_key: str
+
+
+@dataclass(frozen=True)
+class SecretValue:
+    """Decoded single value from a Kubernetes Secret."""
+
+    value: str
+    secret_namespace: str
+    secret_name: str
+    secret_key: str
 
 
 def load_secret_credentials(
@@ -96,6 +107,48 @@ def load_secret_credentials(
         secret_name=secret_name,
         username_key=username_key,
         password_key=password_key,
+    )
+
+
+def load_secret_value(
+    core_v1_api: Any,
+    resource_namespace: str | None,
+    secret_ref: Mapping[str, Any],
+    *,
+    default_key: str,
+) -> SecretValue:
+    """Load and decode one value from a Kubernetes Secret."""
+    secret_name = _required_string(secret_ref.get("name"))
+    if secret_name is None:
+        raise SecretRefNameMissingError("secretRef.name is required")
+
+    secret_namespace = _optional_string(secret_ref.get("namespace"))
+    if secret_namespace is None:
+        secret_namespace = _optional_string(resource_namespace)
+    if secret_namespace is None:
+        raise SecretRefNamespaceMissingError(
+            "secretRef.namespace is required when the resource namespace is missing"
+        )
+
+    secret_key = _optional_string(secret_ref.get("secretKey")) or default_key
+
+    secret = core_v1_api.read_namespaced_secret(name=secret_name, namespace=secret_namespace)
+    data = _secret_data(secret)
+    if not data:
+        raise SecretDataMissingError(
+            f"Secret {secret_namespace}/{secret_name} does not contain data"
+        )
+
+    return SecretValue(
+        value=_decode_secret_value(
+            data,
+            key=secret_key,
+            secret_namespace=secret_namespace,
+            secret_name=secret_name,
+        ),
+        secret_namespace=secret_namespace,
+        secret_name=secret_name,
+        secret_key=secret_key,
     )
 
 

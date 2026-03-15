@@ -25,6 +25,9 @@ spec:
         - name: Realm
           type: string
           jsonPath: .spec.realm
+        - name: Type
+          type: string
+          jsonPath: .spec.clientType
         - name: Target
           type: string
           jsonPath: .spec.targetRef.name
@@ -56,9 +59,29 @@ spec:
                 clientId:
                   type: string
                   minLength: 1
+                clientType:
+                  type: string
+                  default: Public
+                  enum:
+                    - Public
+                    - Confidential
                 displayName:
                   type: string
                   minLength: 1
+                secretRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    namespace:
+                      type: string
+                      minLength: 1
+                    secretKey:
+                      type: string
+                      minLength: 1
                 redirectUris:
                   type: array
                   items:

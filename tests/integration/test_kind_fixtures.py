@@ -21,6 +21,9 @@ REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrea
 CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
 REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrealm.yaml"
 CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient.yaml"
+CONFIDENTIAL_CLIENT_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient_confidential.yaml"
+)
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CLUSTER_NAME = os.getenv("KIND_CLUSTER_NAME", "clouddicted-keycloak-config-operator-it")
 NAMESPACE = "keycloak-operator-test"
@@ -73,6 +76,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(FIXTURES / "keycloak.yaml"),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(CONFIDENTIAL_CLIENT_SAMPLE),
         ],
         env=kind_cluster_env,
     )
