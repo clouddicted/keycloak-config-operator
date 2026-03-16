@@ -49,11 +49,13 @@ class FakeKeycloakClient:
         auth_error: Exception | None = None,
         get_error: Exception | None = None,
         post_error: Exception | None = None,
+        put_error: Exception | None = None,
     ) -> None:
         self.lookup_result = [] if lookup_result is None else lookup_result
         self.auth_error = auth_error
         self.get_error = get_error
         self.post_error = post_error
+        self.put_error = put_error
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -73,6 +75,11 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            return None
+
+        if method == "PUT":
+            if self.put_error is not None:
+                raise self.put_error
             return None
 
         raise AssertionError(f"unexpected request: {method} {path}")
@@ -176,11 +183,9 @@ def test_patch_keycloak_client_status_requires_confidential_secret_ref() -> None
     }
 
 
-def test_patch_keycloak_client_status_observes_existing_public_client() -> None:
+def test_patch_keycloak_client_status_observes_matching_public_client_without_put() -> None:
     resolver = _target_resolver()
-    keycloak_client = FakeKeycloakClient(
-        lookup_result=[{"id": "client-uuid", "clientId": "example-web", "publicClient": True}]
-    )
+    keycloak_client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
     patch: dict[str, Any] = {}
 
@@ -199,7 +204,7 @@ def test_patch_keycloak_client_status_observes_existing_public_client() -> None:
         "type": CONDITION_READY,
         "status": "True",
         "reason": keycloak_client_handler.CLIENT_OBSERVED_REASON,
-        "message": "Keycloak public client already exists.",
+        "message": "Keycloak public client already matches desired state.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
@@ -219,6 +224,167 @@ def test_patch_keycloak_client_status_observes_existing_public_client() -> None:
         )
     ]
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
+
+
+def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_fields() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(
+                enabled=False,
+                name="Old display name",
+                redirectUris=["https://old.example.com/*"],
+                webOrigins=["https://old.example.com"],
+                standardFlowEnabled=True,
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            display_name="Example Web",
+            redirect_uris=["https://app.example.com/*"],
+            web_origins=["https://app.example.com"],
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_client_handler.CLIENT_UPDATED_REASON,
+        "message": "Keycloak public client was updated.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
+        (
+            "PUT",
+            "realms/example/clients/client-uuid",
+            {
+                "json": {
+                    "id": "client-uuid",
+                    "clientId": "example-web",
+                    "enabled": True,
+                    "protocol": "openid-connect",
+                    "publicClient": True,
+                    "name": "Example Web",
+                    "redirectUris": ["https://app.example.com/*"],
+                    "webOrigins": ["https://app.example.com"],
+                    "standardFlowEnabled": True,
+                }
+            },
+        ),
+    ]
+
+
+def test_patch_keycloak_client_status_updates_confidential_client_without_secret_leak() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_confidential_client(
+                clientId="example-service",
+                enabled=False,
+                secret="existing-keycloak-secret",
+                serviceAccountsEnabled=True,
+            )
+        ]
+    )
+    core_v1_api = _client_secret_core_v1_api()
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            secret_ref={"name": "example-client-secret"},
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "True"
+    assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.CLIENT_UPDATED_REASON
+    assert conditions[CONDITION_READY]["message"] == "Keycloak confidential client was updated."
+    assert core_v1_api.calls == []
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-service"}},
+        ),
+        (
+            "PUT",
+            "realms/example/clients/client-uuid",
+            {
+                "json": {
+                    "id": "client-uuid",
+                    "clientId": "example-service",
+                    "enabled": True,
+                    "protocol": "openid-connect",
+                    "publicClient": False,
+                    "serviceAccountsEnabled": True,
+                }
+            },
+        ),
+    ]
+    put_payload = keycloak_client.requests[1][2]["json"]
+    assert "secret" not in put_payload
+    assert _condition_messages(patch).isdisjoint(
+        {"client-secret-value", "existing-keycloak-secret"}
+    )
+
+
+def test_patch_keycloak_client_status_reports_failure_for_drift_without_id() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(id=None, enabled=False),
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_handler.REQUEST_FAILED_REASON,
+        "message": (
+            "KeycloakClient reconciliation failed while calling the Keycloak Admin API."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
 
 
 def test_patch_keycloak_client_status_creates_missing_public_client() -> None:
@@ -353,8 +519,14 @@ def test_patch_keycloak_client_status_reports_missing_client_secret_without_secr
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
     assert core_v1_api.calls == [("apps", "example-client-secret")]
-    assert keycloak_client.authenticate_calls == 0
-    assert keycloak_client.requests == []
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
     assert _condition_messages(patch).isdisjoint({"client-secret-value"})
 
 
@@ -478,7 +650,7 @@ def test_patch_keycloak_client_status_preserves_stable_transition_time() -> None
         namespace="apps",
         target_resolver=_target_resolver(),
         keycloak_client_factory=FakeKeycloakClientFactory(
-            FakeKeycloakClient(lookup_result=[{"clientId": "example-web"}])
+            FakeKeycloakClient(lookup_result=[_existing_public_client()])
         ),
         now=NOW,
     )
@@ -524,6 +696,30 @@ def _client_spec(
         spec["webOrigins"] = web_origins
 
     return spec
+
+
+def _existing_public_client(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": "client-uuid",
+        "clientId": "example-web",
+        "enabled": True,
+        "protocol": "openid-connect",
+        "publicClient": True,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _existing_confidential_client(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": "client-uuid",
+        "clientId": "example-service",
+        "enabled": True,
+        "protocol": "openid-connect",
+        "publicClient": False,
+    }
+    payload.update(overrides)
+    return payload
 
 
 def _client_secret_core_v1_api() -> FakeCoreV1Api:

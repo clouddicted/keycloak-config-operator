@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -48,6 +48,7 @@ KEYCLOAK_CLIENT_RESOURCE = {
 AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 CLIENT_CREATED_REASON = "ClientCreated"
 CLIENT_OBSERVED_REASON = "ClientObserved"
+CLIENT_UPDATED_REASON = "ClientUpdated"
 INVALID_SPEC_REASON = "InvalidSpec"
 REQUEST_FAILED_REASON = "RequestFailed"
 SECRET_UNAVAILABLE_REASON = "SecretUnavailable"
@@ -153,30 +154,6 @@ def patch_keycloak_client_status(
         )
         return
 
-    client_secret: str | None = None
-    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
-        try:
-            secret_value = load_secret_value(
-                core_v1_api or kubernetes_client.CoreV1Api(),
-                namespace,
-                client_spec.secret_ref or {},
-                default_key=DEFAULT_CLIENT_SECRET_KEY,
-            )
-        except (SecretRefError, ApiException):
-            _set_ready_condition(
-                patch,
-                existing_conditions,
-                ready_condition(
-                    "False",
-                    SECRET_UNAVAILABLE_REASON,
-                    "KeycloakClient is not ready because the client Secret could not be loaded.",
-                    now=now,
-                ),
-            )
-            return
-
-        client_secret = secret_value.value
-
     try:
         keycloak_client = keycloak_client_factory(
             base_url=target.url,
@@ -184,10 +161,14 @@ def patch_keycloak_client_status(
             password=target.password,
         )
         keycloak_client.authenticate()
-        client_created = ensure_keycloak_client(
+        reconcile_reason = ensure_keycloak_client(
             keycloak_client,
             client_spec,
-            client_secret=client_secret,
+            client_secret_loader=_client_secret_loader(
+                core_v1_api=core_v1_api,
+                namespace=namespace,
+                client_spec=client_spec,
+            ),
         )
     except KeycloakAuthenticationError:
         _set_ready_condition(
@@ -197,6 +178,18 @@ def patch_keycloak_client_status(
                 "False",
                 AUTHENTICATION_FAILED_REASON,
                 "KeycloakClient is not ready because Keycloak authentication failed.",
+                now=now,
+            ),
+        )
+        return
+    except (SecretRefError, ApiException):
+        _set_ready_condition(
+            patch,
+            existing_conditions,
+            ready_condition(
+                "False",
+                SECRET_UNAVAILABLE_REASON,
+                "KeycloakClient is not ready because the client Secret could not be loaded.",
                 now=now,
             ),
         )
@@ -214,28 +207,10 @@ def patch_keycloak_client_status(
         )
         return
 
-    if client_created:
-        _set_ready_condition(
-            patch,
-            existing_conditions,
-            ready_condition(
-                "True",
-                CLIENT_CREATED_REASON,
-                f"Keycloak {_client_type_label(client_spec)} client was created.",
-                now=now,
-            ),
-        )
-        return
-
     _set_ready_condition(
         patch,
         existing_conditions,
-        ready_condition(
-            "True",
-            CLIENT_OBSERVED_REASON,
-            f"Keycloak {_client_type_label(client_spec)} client already exists.",
-            now=now,
-        ),
+        _client_ready_condition(reconcile_reason, client_spec, now=now),
     )
 
 
@@ -243,9 +218,9 @@ def ensure_keycloak_client(
     client: KeycloakPublicClient,
     client_spec: ClientSpec,
     *,
-    client_secret: str | None = None,
-) -> bool:
-    """Return True when the client had to be created."""
+    client_secret_loader: Callable[[], str] | None = None,
+) -> str:
+    """Create, update, or observe a Keycloak client and return the Ready reason."""
     clients = client.request(
         "GET",
         _clients_path(client_spec.realm),
@@ -254,43 +229,65 @@ def ensure_keycloak_client(
     if not isinstance(clients, list):
         raise KeycloakRequestError("Keycloak client lookup response was not a list")
 
-    if any(
-        isinstance(candidate, Mapping) and candidate.get("clientId") == client_spec.client_id
-        for candidate in clients
-    ):
-        return False
+    existing_client = _matching_client(clients, client_spec.client_id)
+    if existing_client is not None:
+        if not _has_modeled_drift(existing_client, client_spec):
+            return CLIENT_OBSERVED_REASON
+
+        internal_id = existing_client.get("id")
+        if not _is_non_empty_string(internal_id):
+            raise KeycloakRequestError("Keycloak client lookup response did not include id")
+
+        client.request(
+            "PUT",
+            _client_path(client_spec.realm, internal_id.strip()),
+            json=_client_update_payload(existing_client, client_spec),
+        )
+        return CLIENT_UPDATED_REASON
+
+    client_secret: str | None = None
+    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+        if client_secret_loader is None:
+            raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
+        client_secret = client_secret_loader()
 
     client.request(
         "POST",
         _clients_path(client_spec.realm),
-        json=_client_payload(client_spec, client_secret=client_secret),
+        json=_client_create_payload(client_spec, client_secret=client_secret),
     )
-    return True
+    return CLIENT_CREATED_REASON
 
 
 def ensure_keycloak_public_client(
     client: KeycloakPublicClient,
     public_client_spec: ClientSpec,
-) -> bool:
-    """Return True when the public client had to be created."""
+) -> str:
+    """Create, update, or observe a public Keycloak client and return the Ready reason."""
     return ensure_keycloak_client(client, public_client_spec)
 
 
-def _client_payload(
+def _client_create_payload(
     client_spec: ClientSpec,
     *,
     client_secret: str | None,
 ) -> dict[str, Any]:
+    payload = _modeled_client_payload(client_spec)
+    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+        if client_secret is None:
+            raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
+        payload["secret"] = client_secret
+
+    return payload
+
+
+def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "clientId": client_spec.client_id,
         "enabled": True,
         "protocol": "openid-connect",
         "publicClient": client_spec.client_type == CLIENT_TYPE_PUBLIC,
     }
-    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
-        if client_secret is None:
-            raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
-        payload["secret"] = client_secret
 
     if client_spec.display_name is not None:
         payload["name"] = client_spec.display_name
@@ -299,6 +296,87 @@ def _client_payload(
     if client_spec.web_origins:
         payload["webOrigins"] = list(client_spec.web_origins)
 
+    return payload
+
+
+def _client_secret_loader(
+    *,
+    core_v1_api: Any | None,
+    namespace: str | None,
+    client_spec: ClientSpec,
+) -> Callable[[], str] | None:
+    if client_spec.client_type != CLIENT_TYPE_CONFIDENTIAL:
+        return None
+
+    def load_client_secret() -> str:
+        secret_value = load_secret_value(
+            core_v1_api or kubernetes_client.CoreV1Api(),
+            namespace,
+            client_spec.secret_ref or {},
+            default_key=DEFAULT_CLIENT_SECRET_KEY,
+        )
+        return secret_value.value
+
+    return load_client_secret
+
+
+def _client_ready_condition(
+    reconcile_reason: str,
+    client_spec: ClientSpec,
+    *,
+    now: datetime | None,
+) -> Condition:
+    client_label = _client_type_label(client_spec)
+    if reconcile_reason == CLIENT_CREATED_REASON:
+        message = f"Keycloak {client_label} client was created."
+    elif reconcile_reason == CLIENT_UPDATED_REASON:
+        message = f"Keycloak {client_label} client was updated."
+    else:
+        message = f"Keycloak {client_label} client already matches desired state."
+
+    return ready_condition("True", reconcile_reason, message, now=now)
+
+
+def _matching_client(
+    clients: Sequence[Any],
+    client_id: str,
+) -> Mapping[str, Any] | None:
+    for candidate in clients:
+        if isinstance(candidate, Mapping) and candidate.get("clientId") == client_id:
+            return candidate
+
+    return None
+
+
+def _has_modeled_drift(
+    existing_client: Mapping[str, Any],
+    client_spec: ClientSpec,
+) -> bool:
+    desired_payload = _modeled_client_payload(client_spec)
+    return any(
+        not _modeled_value_matches(existing_client.get(field), desired_value)
+        for field, desired_value in desired_payload.items()
+    )
+
+
+def _modeled_value_matches(existing_value: Any, desired_value: Any) -> bool:
+    if isinstance(desired_value, list):
+        return (
+            isinstance(existing_value, Sequence)
+            and not isinstance(existing_value, str | bytes)
+            and list(existing_value) == desired_value
+        )
+
+    return existing_value == desired_value
+
+
+def _client_update_payload(
+    existing_client: Mapping[str, Any],
+    client_spec: ClientSpec,
+) -> dict[str, Any]:
+    payload = dict(existing_client)
+    payload.pop("secret", None)
+    payload.update(_modeled_client_payload(client_spec))
     return payload
 
 
@@ -444,6 +522,10 @@ def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[s
 
 def _clients_path(realm: str) -> str:
     return f"realms/{quote(realm, safe='')}/clients"
+
+
+def _client_path(realm: str, internal_id: str) -> str:
+    return f"{_clients_path(realm)}/{quote(internal_id, safe='')}"
 
 
 def _client_type_label(client_spec: ClientSpec) -> str:
