@@ -18,7 +18,12 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
 )
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_DRIFT_DETECTED,
+    CONDITION_READY,
+    drift_detected_condition,
+    ready_condition,
+)
 
 NOW = datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC)
@@ -262,6 +267,13 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
         "message": "Keycloak public client was updated.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_client_handler.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak client has no modeled drift.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
     assert keycloak_client.requests == [
         (
             "GET",
@@ -285,6 +297,141 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
                 }
             },
         ),
+    ]
+
+
+def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(
+                enabled=False,
+                name="Old display name",
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
+            display_name="Example Web",
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_client_handler.CLIENT_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak public client has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_client_handler.CLIENT_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak client differs from desired state and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
+
+
+def test_patch_keycloak_client_status_reports_observe_only_matching_client_without_drift() -> None:
+    keycloak_client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "True"
+    assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.CLIENT_OBSERVED_REASON
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_client_handler.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak client has no modeled drift.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
+
+
+def test_patch_keycloak_client_status_reports_observe_only_missing_client_without_post() -> None:
+    keycloak_client = FakeKeycloakClient()
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_handler.CLIENT_MISSING_REASON,
+        "message": (
+            "Keycloak public client is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_client_handler.CLIENT_MISSING_REASON,
+        "message": (
+            "Keycloak client is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
     ]
 
 
@@ -660,6 +807,45 @@ def test_patch_keycloak_client_status_preserves_stable_transition_time() -> None
     assert ready["lastTransitionTime"] == "2026-05-22T09:30:45Z"
 
 
+def test_patch_keycloak_client_status_preserves_stable_drift_transition_time() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
+            display_name="Example Web",
+        ),
+        status={
+            "conditions": [
+                drift_detected_condition(
+                    "True",
+                    "OldDrift",
+                    "Old drift message.",
+                    now=OLD_NOW,
+                ),
+            ],
+        },
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(
+            FakeKeycloakClient(
+                lookup_result=[
+                    _existing_public_client(
+                        enabled=False,
+                        name="Old display name",
+                    )
+                ]
+            )
+        ),
+        now=NOW,
+    )
+
+    drift = _conditions_by_type(patch)[CONDITION_DRIFT_DETECTED]
+    assert drift["reason"] == keycloak_client_handler.CLIENT_DRIFT_DETECTED_REASON
+    assert drift["lastTransitionTime"] == "2026-05-22T09:30:45Z"
+
+
 def _target_resolver() -> FakeTargetResolver:
     return FakeTargetResolver(
         keycloak_client_handler.TargetConnection(
@@ -674,6 +860,7 @@ def _client_spec(
     *,
     client_id: str = "example-web",
     client_type: str | None = None,
+    management_policy: str | None = None,
     secret_ref: dict[str, str] | None = None,
     display_name: str | None = None,
     redirect_uris: list[str] | None = None,
@@ -686,6 +873,8 @@ def _client_spec(
     }
     if client_type is not None:
         spec["clientType"] = client_type
+    if management_policy is not None:
+        spec["managementPolicy"] = management_policy
     if secret_ref is not None:
         spec["secretRef"] = secret_ref
     if display_name is not None:

@@ -35,6 +35,7 @@ from clouddicted_keycloak_config_operator.secrets import (
 )
 from clouddicted_keycloak_config_operator.status import (
     Condition,
+    drift_detected_condition,
     ready_condition,
     upsert_condition,
 )
@@ -47,15 +48,21 @@ KEYCLOAK_CLIENT_RESOURCE = {
 
 AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 CLIENT_CREATED_REASON = "ClientCreated"
+CLIENT_DRIFT_DETECTED_REASON = "ClientDriftDetected"
+CLIENT_MISSING_REASON = "ClientMissing"
 CLIENT_OBSERVED_REASON = "ClientObserved"
 CLIENT_UPDATED_REASON = "ClientUpdated"
 INVALID_SPEC_REASON = "InvalidSpec"
+NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
 REQUEST_FAILED_REASON = "RequestFailed"
 SECRET_UNAVAILABLE_REASON = "SecretUnavailable"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
 CLIENT_TYPE_PUBLIC = "Public"
 CLIENT_TYPE_CONFIDENTIAL = "Confidential"
 DEFAULT_CLIENT_TYPE = CLIENT_TYPE_PUBLIC
+MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
+MANAGEMENT_POLICY_RECONCILE = "Reconcile"
+DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -89,10 +96,18 @@ class ClientSpec:
     realm: str
     client_id: str
     client_type: str
+    management_policy: str
     secret_ref: Mapping[str, Any] | None = None
     display_name: str | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ClientReconcileResult:
+    ready_status: str
+    ready_reason: str
+    drift_detected: bool
 
 
 @kopf.on.create(**KEYCLOAK_CLIENT_RESOURCE)
@@ -161,7 +176,7 @@ def patch_keycloak_client_status(
             password=target.password,
         )
         keycloak_client.authenticate()
-        reconcile_reason = ensure_keycloak_client(
+        reconcile_result = ensure_keycloak_client(
             keycloak_client,
             client_spec,
             client_secret_loader=_client_secret_loader(
@@ -207,10 +222,13 @@ def patch_keycloak_client_status(
         )
         return
 
-    _set_ready_condition(
+    _set_conditions(
         patch,
         existing_conditions,
-        _client_ready_condition(reconcile_reason, client_spec, now=now),
+        (
+            _client_ready_condition(reconcile_result, client_spec, now=now),
+            _client_drift_condition(reconcile_result, now=now),
+        ),
     )
 
 
@@ -219,8 +237,8 @@ def ensure_keycloak_client(
     client_spec: ClientSpec,
     *,
     client_secret_loader: Callable[[], str] | None = None,
-) -> str:
-    """Create, update, or observe a Keycloak client and return the Ready reason."""
+) -> ClientReconcileResult:
+    """Create, update, or observe a Keycloak client and return the result."""
     clients = client.request(
         "GET",
         _clients_path(client_spec.realm),
@@ -232,7 +250,10 @@ def ensure_keycloak_client(
     existing_client = _matching_client(clients, client_spec.client_id)
     if existing_client is not None:
         if not _has_modeled_drift(existing_client, client_spec):
-            return CLIENT_OBSERVED_REASON
+            return ClientReconcileResult("True", CLIENT_OBSERVED_REASON, False)
+
+        if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+            return ClientReconcileResult("True", CLIENT_DRIFT_DETECTED_REASON, True)
 
         internal_id = existing_client.get("id")
         if not _is_non_empty_string(internal_id):
@@ -243,7 +264,10 @@ def ensure_keycloak_client(
             _client_path(client_spec.realm, internal_id.strip()),
             json=_client_update_payload(existing_client, client_spec),
         )
-        return CLIENT_UPDATED_REASON
+        return ClientReconcileResult("True", CLIENT_UPDATED_REASON, False)
+
+    if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+        return ClientReconcileResult("False", CLIENT_MISSING_REASON, True)
 
     client_secret: str | None = None
     if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
@@ -256,14 +280,14 @@ def ensure_keycloak_client(
         _clients_path(client_spec.realm),
         json=_client_create_payload(client_spec, client_secret=client_secret),
     )
-    return CLIENT_CREATED_REASON
+    return ClientReconcileResult("True", CLIENT_CREATED_REASON, False)
 
 
 def ensure_keycloak_public_client(
     client: KeycloakPublicClient,
     public_client_spec: ClientSpec,
-) -> str:
-    """Create, update, or observe a public Keycloak client and return the Ready reason."""
+) -> ClientReconcileResult:
+    """Create, update, or observe a public Keycloak client and return the result."""
     return ensure_keycloak_client(client, public_client_spec)
 
 
@@ -321,20 +345,67 @@ def _client_secret_loader(
 
 
 def _client_ready_condition(
-    reconcile_reason: str,
+    reconcile_result: ClientReconcileResult,
     client_spec: ClientSpec,
     *,
     now: datetime | None,
 ) -> Condition:
     client_label = _client_type_label(client_spec)
-    if reconcile_reason == CLIENT_CREATED_REASON:
+    if reconcile_result.ready_reason == CLIENT_CREATED_REASON:
         message = f"Keycloak {client_label} client was created."
-    elif reconcile_reason == CLIENT_UPDATED_REASON:
+    elif reconcile_result.ready_reason == CLIENT_UPDATED_REASON:
         message = f"Keycloak {client_label} client was updated."
+    elif reconcile_result.ready_reason == CLIENT_DRIFT_DETECTED_REASON:
+        message = (
+            f"Keycloak {client_label} client has modeled drift and was not changed "
+            "because managementPolicy is ObserveOnly."
+        )
+    elif reconcile_result.ready_reason == CLIENT_MISSING_REASON:
+        message = (
+            f"Keycloak {client_label} client is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        )
     else:
         message = f"Keycloak {client_label} client already matches desired state."
 
-    return ready_condition("True", reconcile_reason, message, now=now)
+    return ready_condition(
+        reconcile_result.ready_status,
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
+
+
+def _client_drift_condition(
+    reconcile_result: ClientReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if not reconcile_result.drift_detected:
+        return drift_detected_condition(
+            "False",
+            NO_DRIFT_DETECTED_REASON,
+            "Keycloak client has no modeled drift.",
+            now=now,
+        )
+
+    if reconcile_result.ready_reason == CLIENT_MISSING_REASON:
+        message = (
+            "Keycloak client is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        )
+    else:
+        message = (
+            "Keycloak client differs from desired state and was not changed because "
+            "managementPolicy is ObserveOnly."
+        )
+
+    return drift_detected_condition(
+        "True",
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
 
 
 def _matching_client(
@@ -389,6 +460,7 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     realm = spec.get("realm")
     client_id = spec.get("clientId")
     client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     secret_ref = spec.get("secretRef")
     display_name = spec.get("displayName")
     redirect_uris = spec.get("redirectUris", ())
@@ -406,6 +478,16 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
 
     parsed_client_type = client_type.strip()
     if parsed_client_type not in {CLIENT_TYPE_PUBLIC, CLIENT_TYPE_CONFIDENTIAL}:
+        return None
+
+    if not _is_non_empty_string(management_policy):
+        return None
+
+    parsed_management_policy = management_policy.strip()
+    if parsed_management_policy not in {
+        MANAGEMENT_POLICY_OBSERVE_ONLY,
+        MANAGEMENT_POLICY_RECONCILE,
+    }:
         return None
 
     parsed_secret_ref = None
@@ -430,6 +512,7 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         realm=realm.strip(),
         client_id=client_id.strip(),
         client_type=parsed_client_type,
+        management_policy=parsed_management_policy,
         secret_ref=parsed_secret_ref,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
         redirect_uris=parsed_redirect_uris,
@@ -500,8 +583,20 @@ def _set_ready_condition(
     existing_conditions: Sequence[Mapping[str, str]],
     condition: Mapping[str, str],
 ) -> None:
+    _set_conditions(patch, existing_conditions, (condition,))
+
+
+def _set_conditions(
+    patch: MutableMapping[str, Any],
+    existing_conditions: Sequence[Mapping[str, str]],
+    conditions: Sequence[Mapping[str, str]],
+) -> None:
     status_patch = patch.setdefault("status", {})
-    status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+    updated_conditions = list(existing_conditions)
+    for condition in conditions:
+        updated_conditions = upsert_condition(updated_conditions, condition)
+
+    status_patch["conditions"] = updated_conditions
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:
