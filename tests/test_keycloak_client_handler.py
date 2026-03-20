@@ -212,6 +212,13 @@ def test_patch_keycloak_client_status_observes_matching_public_client_without_pu
         "message": "Keycloak public client already matches desired state.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_client_handler.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak client has no modeled drift.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
     assert keycloak_client_factory.calls == [
         {
