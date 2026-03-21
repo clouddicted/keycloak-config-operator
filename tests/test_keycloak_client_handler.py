@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+import kopf
+import pytest
 from kubernetes.client.exceptions import ApiException
 
 from clouddicted_keycloak_config_operator import main
@@ -55,12 +57,14 @@ class FakeKeycloakClient:
         get_error: Exception | None = None,
         post_error: Exception | None = None,
         put_error: Exception | None = None,
+        delete_error: Exception | None = None,
     ) -> None:
         self.lookup_result = [] if lookup_result is None else lookup_result
         self.auth_error = auth_error
         self.get_error = get_error
         self.post_error = post_error
         self.put_error = put_error
+        self.delete_error = delete_error
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -85,6 +89,11 @@ class FakeKeycloakClient:
         if method == "PUT":
             if self.put_error is not None:
                 raise self.put_error
+            return None
+
+        if method == "DELETE":
+            if self.delete_error is not None:
+                raise self.delete_error
             return None
 
         raise AssertionError(f"unexpected request: {method} {path}")
@@ -790,6 +799,155 @@ def test_patch_keycloak_client_status_reports_confidential_request_failure_safel
     assert _condition_messages(patch).isdisjoint({"client-secret-value", "token"})
 
 
+def test_delete_keycloak_client_resource_orphan_noop_without_external_calls() -> None:
+    keycloak_client_handler.delete_keycloak_client_resource(
+        spec=_client_spec(),
+        namespace="apps",
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+    )
+
+
+def test_delete_keycloak_client_resource_delete_removes_existing_client() -> None:
+    resolver = _target_resolver()
+    keycloak_client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+
+    keycloak_client_handler.delete_keycloak_client_resource(
+        spec=_client_spec(
+            deletion_policy=keycloak_client_handler.DELETION_POLICY_DELETE,
+        ),
+        namespace="apps",
+        target_resolver=resolver,
+        keycloak_client_factory=keycloak_client_factory,
+    )
+
+    assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "kc-admin",
+            "password": "secret-password",
+        }
+    ]
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
+        ("DELETE", "realms/example/clients/client-uuid", {}),
+    ]
+
+
+def test_delete_keycloak_client_resource_delete_missing_client_noop() -> None:
+    keycloak_client = FakeKeycloakClient()
+
+    keycloak_client_handler.delete_keycloak_client_resource(
+        spec=_client_spec(
+            deletion_policy=keycloak_client_handler.DELETION_POLICY_DELETE,
+        ),
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+    )
+
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
+
+
+def test_delete_keycloak_client_resource_delete_missing_id_safe_failure() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[_existing_public_client(id=None)],
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_handler.delete_keycloak_client_resource(
+            spec=_client_spec(
+                deletion_policy=keycloak_client_handler.DELETION_POLICY_DELETE,
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClient deletion failed while calling the Keycloak Admin API."
+    )
+    assert "secret-password" not in str(exc_info.value)
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
+
+
+def test_delete_keycloak_client_resource_auth_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        auth_error=KeycloakAuthenticationError("bad kc-admin secret-password token")
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_handler.delete_keycloak_client_resource(
+            spec=_client_spec(
+                deletion_policy=keycloak_client_handler.DELETION_POLICY_DELETE,
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClient deletion failed because Keycloak authentication failed."
+    )
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == []
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
+def test_delete_keycloak_client_resource_request_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[_existing_public_client()],
+        delete_error=KeycloakRequestError("failed for kc-admin secret-password token"),
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_handler.delete_keycloak_client_resource(
+            spec=_client_spec(
+                deletion_policy=keycloak_client_handler.DELETION_POLICY_DELETE,
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClient deletion failed while calling the Keycloak Admin API."
+    )
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
+        ("DELETE", "realms/example/clients/client-uuid", {}),
+    ]
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
 def test_patch_keycloak_client_status_preserves_stable_transition_time() -> None:
     patch: dict[str, Any] = {}
 
@@ -868,6 +1026,7 @@ def _client_spec(
     client_id: str = "example-web",
     client_type: str | None = None,
     management_policy: str | None = None,
+    deletion_policy: str | None = None,
     secret_ref: dict[str, str] | None = None,
     display_name: str | None = None,
     redirect_uris: list[str] | None = None,
@@ -882,6 +1041,8 @@ def _client_spec(
         spec["clientType"] = client_type
     if management_policy is not None:
         spec["managementPolicy"] = management_policy
+    if deletion_policy is not None:
+        spec["deletionPolicy"] = deletion_policy
     if secret_ref is not None:
         spec["secretRef"] = secret_ref
     if display_name is not None:

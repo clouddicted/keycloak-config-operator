@@ -71,6 +71,12 @@ spec:
                   enum:
                     - Reconcile
                     - ObserveOnly
+                deletionPolicy:
+                  type: string
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
                 displayName:
                   type: string
                   minLength: 1

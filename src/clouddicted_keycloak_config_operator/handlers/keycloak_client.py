@@ -63,6 +63,10 @@ DEFAULT_CLIENT_TYPE = CLIENT_TYPE_PUBLIC
 MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
 MANAGEMENT_POLICY_RECONCILE = "Reconcile"
 DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
+DELETION_POLICY_ORPHAN = "Orphan"
+DELETION_POLICY_DELETE = "Delete"
+DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
+DELETE_RETRY_DELAY_SECONDS = 30
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -97,6 +101,7 @@ class ClientSpec:
     client_id: str
     client_type: str
     management_policy: str
+    deletion_policy: str
     secret_ref: Mapping[str, Any] | None = None
     display_name: str | None = None
     redirect_uris: tuple[str, ...] = ()
@@ -127,6 +132,57 @@ def reconcile_keycloak_client(
         patch=patch,
         namespace=namespace,
     )
+
+
+@kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
+def delete_keycloak_client(
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    **_: Any,
+) -> None:
+    """Delete the remote Keycloak client when requested by policy."""
+    delete_keycloak_client_resource(spec=spec, namespace=namespace)
+
+
+def delete_keycloak_client_resource(
+    *,
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    target_resolver: TargetResolver | None = None,
+    keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
+) -> None:
+    """Delete the remote Keycloak client when deletionPolicy is Delete."""
+    client_spec = _parse_client_spec(spec)
+    if client_spec is None:
+        raise kopf.PermanentError("KeycloakClient deletion skipped because spec is invalid.")
+
+    if client_spec.deletion_policy == DELETION_POLICY_ORPHAN:
+        return
+
+    resolver = target_resolver or KubernetesTargetResolver()
+    try:
+        target = resolver(target_name=client_spec.target_name, namespace=namespace)
+    except TargetResolutionError:
+        raise _delete_temporary_error(
+            "KeycloakClient deletion is waiting for the referenced KeycloakTarget."
+        ) from None
+
+    try:
+        keycloak_client = keycloak_client_factory(
+            base_url=target.url,
+            username=target.username,
+            password=target.password,
+        )
+        keycloak_client.authenticate()
+        delete_keycloak_client_if_exists(keycloak_client, client_spec)
+    except KeycloakAuthenticationError:
+        raise _delete_temporary_error(
+            "KeycloakClient deletion failed because Keycloak authentication failed."
+        ) from None
+    except KeycloakClientError:
+        raise _delete_temporary_error(
+            "KeycloakClient deletion failed while calling the Keycloak Admin API."
+        ) from None
 
 
 def patch_keycloak_client_status(
@@ -289,6 +345,30 @@ def ensure_keycloak_public_client(
 ) -> ClientReconcileResult:
     """Create, update, or observe a public Keycloak client and return the result."""
     return ensure_keycloak_client(client, public_client_spec)
+
+
+def delete_keycloak_client_if_exists(
+    client: KeycloakPublicClient,
+    client_spec: ClientSpec,
+) -> None:
+    """Delete an existing Keycloak client or no-op when it is already missing."""
+    clients = client.request(
+        "GET",
+        _clients_path(client_spec.realm),
+        params={"clientId": client_spec.client_id},
+    )
+    if not isinstance(clients, list):
+        raise KeycloakRequestError("Keycloak client lookup response was not a list")
+
+    existing_client = _matching_client(clients, client_spec.client_id)
+    if existing_client is None:
+        return
+
+    internal_id = existing_client.get("id")
+    if not _is_non_empty_string(internal_id):
+        raise KeycloakRequestError("Keycloak client lookup response did not include id")
+
+    client.request("DELETE", _client_path(client_spec.realm, internal_id.strip()))
 
 
 def _client_create_payload(
@@ -461,6 +541,7 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     client_id = spec.get("clientId")
     client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
     management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
+    deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     secret_ref = spec.get("secretRef")
     display_name = spec.get("displayName")
     redirect_uris = spec.get("redirectUris", ())
@@ -490,6 +571,13 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     }:
         return None
 
+    if not _is_non_empty_string(deletion_policy):
+        return None
+
+    parsed_deletion_policy = deletion_policy.strip()
+    if parsed_deletion_policy not in {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE}:
+        return None
+
     parsed_secret_ref = None
     if parsed_client_type == CLIENT_TYPE_CONFIDENTIAL:
         if (
@@ -513,6 +601,7 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         client_id=client_id.strip(),
         client_type=parsed_client_type,
         management_policy=parsed_management_policy,
+        deletion_policy=parsed_deletion_policy,
         secret_ref=parsed_secret_ref,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
         redirect_uris=parsed_redirect_uris,
@@ -625,6 +714,10 @@ def _client_path(realm: str, internal_id: str) -> str:
 
 def _client_type_label(client_spec: ClientSpec) -> str:
     return "confidential" if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL else "public"
+
+
+def _delete_temporary_error(message: str) -> kopf.TemporaryError:
+    return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
 
 
 def _is_non_empty_string(value: Any) -> bool:
