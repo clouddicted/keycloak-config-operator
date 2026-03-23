@@ -19,8 +19,10 @@ KIND_CONFIG = REPO_ROOT / "tests" / "kind" / "kind.yaml"
 CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloaktargets.yaml"
 REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrealms.yaml"
 CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
+ROLE_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakroles.yaml"
 REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrealm.yaml"
 CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient.yaml"
+ROLE_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrole.yaml"
 CONFIDENTIAL_CLIENT_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient_confidential.yaml"
 )
@@ -33,6 +35,7 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
     _run(["kubectl", "apply", "--server-side", "-f", str(CRD)], env=kind_cluster_env)
     _run(["kubectl", "apply", "--server-side", "-f", str(REALM_CRD)], env=kind_cluster_env)
     _run(["kubectl", "apply", "--server-side", "-f", str(CLIENT_CRD)], env=kind_cluster_env)
+    _run(["kubectl", "apply", "--server-side", "-f", str(ROLE_CRD)], env=kind_cluster_env)
     _run(
         [
             "kubectl",
@@ -59,6 +62,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloakclients.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakroles.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -109,6 +122,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(REALM_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(ROLE_SAMPLE),
         ],
         env=kind_cluster_env,
     )

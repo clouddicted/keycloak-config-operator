@@ -11,12 +11,13 @@ from clouddicted_keycloak_config_operator.constants import API_GROUP, OPERATOR_N
 from clouddicted_keycloak_config_operator.handlers import (
     keycloak_client,
     keycloak_realm,
+    keycloak_role,
     keycloak_target,
 )
 
 logger = logging.getLogger(__name__)
 
-REGISTERED_HANDLER_MODULES = (keycloak_target, keycloak_realm, keycloak_client)
+REGISTERED_HANDLER_MODULES = (keycloak_target, keycloak_realm, keycloak_client, keycloak_role)
 
 
 @kopf.on.startup()

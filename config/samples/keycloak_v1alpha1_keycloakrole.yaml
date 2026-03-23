@@ -1,0 +1,10 @@
+apiVersion: keycloak.clouddicted.com/v1alpha1
+kind: KeycloakRole
+metadata:
+  name: example-admin
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: example-admin
+  description: Example administrator role
