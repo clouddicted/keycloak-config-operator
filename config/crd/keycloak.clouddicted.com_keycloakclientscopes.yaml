@@ -1,0 +1,106 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keycloakclientscopes.keycloak.clouddicted.com
+spec:
+  group: keycloak.clouddicted.com
+  scope: Namespaced
+  names:
+    kind: KeycloakClientScope
+    plural: keycloakclientscopes
+    singular: keycloakclientscope
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Scope
+          type: string
+          jsonPath: .spec.name
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Protocol
+          type: string
+          jsonPath: .spec.protocol
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - targetRef
+                - realm
+                - name
+              properties:
+                targetRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                realm:
+                  type: string
+                  minLength: 1
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  minLength: 1
+                protocol:
+                  type: string
+                  default: openid-connect
+                  minLength: 1
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                        minLength: 1
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                        minLength: 1
+                      message:
+                        type: string

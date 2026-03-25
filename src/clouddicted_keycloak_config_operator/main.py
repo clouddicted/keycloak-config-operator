@@ -10,6 +10,7 @@ import kopf
 from clouddicted_keycloak_config_operator.constants import API_GROUP, OPERATOR_NAME
 from clouddicted_keycloak_config_operator.handlers import (
     keycloak_client,
+    keycloak_client_scope,
     keycloak_realm,
     keycloak_role,
     keycloak_target,
@@ -17,7 +18,13 @@ from clouddicted_keycloak_config_operator.handlers import (
 
 logger = logging.getLogger(__name__)
 
-REGISTERED_HANDLER_MODULES = (keycloak_target, keycloak_realm, keycloak_client, keycloak_role)
+REGISTERED_HANDLER_MODULES = (
+    keycloak_target,
+    keycloak_realm,
+    keycloak_client,
+    keycloak_role,
+    keycloak_client_scope,
+)
 
 
 @kopf.on.startup()
