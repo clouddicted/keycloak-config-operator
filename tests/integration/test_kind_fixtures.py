@@ -22,11 +22,17 @@ CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakcl
 CLIENT_SCOPE_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientscopes.yaml"
 )
+PROTOCOL_MAPPER_CRD = (
+    REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakprotocolmappers.yaml"
+)
 ROLE_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakroles.yaml"
 REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrealm.yaml"
 CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient.yaml"
 CLIENT_SCOPE_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclientscope.yaml"
+)
+PROTOCOL_MAPPER_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakprotocolmapper.yaml"
 )
 ROLE_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrole.yaml"
 CONFIDENTIAL_CLIENT_SAMPLE = (
@@ -47,6 +53,10 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
         env=kind_cluster_env,
     )
     _run(
+        ["kubectl", "apply", "--server-side", "-f", str(PROTOCOL_MAPPER_CRD)],
+        env=kind_cluster_env,
+    )
+    _run(
         [
             "kubectl",
             "wait",
@@ -62,6 +72,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloakclientscopes.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakprotocolmappers.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -120,6 +140,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(CLIENT_SCOPE_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(PROTOCOL_MAPPER_SAMPLE),
         ],
         env=kind_cluster_env,
     )

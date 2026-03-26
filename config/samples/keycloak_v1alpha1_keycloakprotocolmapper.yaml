@@ -1,0 +1,21 @@
+apiVersion: keycloak.clouddicted.com/v1alpha1
+kind: KeycloakProtocolMapper
+metadata:
+  name: example-profile-email
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: email
+  mapperType: oidc-usermodel-property-mapper
+  parent:
+    type: ClientScope
+    clientScopeRef:
+      name: example-profile
+  config:
+    user.attribute: email
+    claim.name: email
+    jsonType.label: String
+    id.token.claim: "true"
+    access.token.claim: "true"
+    userinfo.token.claim: "true"
