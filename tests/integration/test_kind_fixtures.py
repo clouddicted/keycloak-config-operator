@@ -16,6 +16,7 @@ pytestmark = [
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 KIND_CONFIG = REPO_ROOT / "tests" / "kind" / "kind.yaml"
+INSTALL_KUSTOMIZATION = REPO_ROOT / "config" / "install"
 CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloaktargets.yaml"
 REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrealms.yaml"
 CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
@@ -41,6 +42,24 @@ CONFIDENTIAL_CLIENT_SAMPLE = (
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CLUSTER_NAME = os.getenv("KIND_CLUSTER_NAME", "clouddicted-keycloak-config-operator-it")
 NAMESPACE = "keycloak-operator-test"
+
+
+def test_install_manifests_server_side_dry_run(kind_cluster_env: dict[str, str]) -> None:
+    _run(
+        ["kubectl", "apply", "-f", str(INSTALL_KUSTOMIZATION / "namespace.yaml")],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-k",
+            str(INSTALL_KUSTOMIZATION),
+        ],
+        env=kind_cluster_env,
+    )
 
 
 def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str, str]) -> None:

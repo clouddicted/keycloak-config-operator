@@ -24,3 +24,41 @@ Run the operator locally:
 ```bash
 .venv/bin/kopf run -m clouddicted_keycloak_config_operator.main --all-namespaces
 ```
+
+## Local Kubernetes Install
+
+Install the CRDs, RBAC, ServiceAccount, and Deployment:
+
+```bash
+kubectl apply -k config/install
+```
+
+The default Deployment image is a placeholder for the first packaged release:
+`ghcr.io/clouddicted/keycloak-config-operator:v0.1.0`. For local testing, replace it
+with an image you built and loaded into the cluster:
+
+```bash
+kubectl -n keycloak-config-operator-system set image \
+  deployment/keycloak-config-operator \
+  manager=<your-operator-image>
+```
+
+Create Keycloak admin credentials before applying a `KeycloakTarget`:
+
+```bash
+kubectl create secret generic keycloak-admin-credentials \
+  --from-literal=username=<admin-user> \
+  --from-literal=password=<admin-password>
+```
+
+Apply only the CRDs:
+
+```bash
+kubectl apply -k config/crd
+```
+
+Apply the sample resources:
+
+```bash
+kubectl apply -k config/samples
+```

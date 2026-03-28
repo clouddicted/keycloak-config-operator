@@ -1,0 +1,77 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-config-operator
+  labels:
+    app.kubernetes.io/name: keycloak-config-operator
+    app.kubernetes.io/part-of: clouddicted-keycloak-config-operator
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets
+      - keycloakrealms
+      - keycloakclients
+      - keycloakroles
+      - keycloakclientscopes
+      - keycloakprotocolmappers
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets/status
+      - keycloakrealms/status
+      - keycloakclients/status
+      - keycloakroles/status
+      - keycloakclientscopes/status
+      - keycloakprotocolmappers/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets/finalizers
+      - keycloakrealms/finalizers
+      - keycloakclients/finalizers
+      - keycloakroles/finalizers
+      - keycloakclientscopes/finalizers
+      - keycloakprotocolmappers/finalizers
+    verbs:
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keycloak-config-operator
+  labels:
+    app.kubernetes.io/name: keycloak-config-operator
+    app.kubernetes.io/part-of: clouddicted-keycloak-config-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keycloak-config-operator
+subjects:
+  - kind: ServiceAccount
+    name: keycloak-config-operator
+    namespace: keycloak-config-operator-system
