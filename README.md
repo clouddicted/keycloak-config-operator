@@ -19,6 +19,17 @@ Run checks:
 .venv/bin/pytest
 ```
 
+Run the opt-in kind integration and e2e tests:
+
+```bash
+RUN_KIND_INTEGRATION=1 .venv/bin/pytest tests/integration/test_kind_fixtures.py -q
+```
+
+The e2e test builds the operator image, loads it into kind, deploys that same tag
+with `imagePullPolicy: Never`, creates sample Keycloak CRs, and verifies the
+created Keycloak entities through the Keycloak Admin API. Override the image tag
+used by the test with `KIND_OPERATOR_IMAGE`.
+
 Run the operator locally:
 
 ```bash

@@ -36,6 +36,12 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /realms/master
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
 ---
 apiVersion: v1
 kind: Service
