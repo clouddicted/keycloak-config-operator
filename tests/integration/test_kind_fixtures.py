@@ -270,31 +270,10 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
 def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, str]) -> None:
     realm = f"e2e-{int(time.time())}"
 
-    _require_tool("docker")
-    _build_operator_image(OPERATOR_IMAGE)
-    _load_operator_image(kind_cluster_env, OPERATOR_IMAGE)
-    _apply_operator_install(kind_cluster_env, OPERATOR_IMAGE)
     _wait_for_crds(kind_cluster_env)
     _wait_for_deployment(kind_cluster_env, OPERATOR_NAMESPACE, OPERATOR_DEPLOYMENT)
-
-    _run(["kubectl", "apply", "-f", str(FIXTURES / "namespace.yaml")], env=kind_cluster_env)
-    _run(
-        ["kubectl", "apply", "-f", str(FIXTURES / "keycloak-admin-secret.yaml")],
-        env=kind_cluster_env,
-    )
-    _run(["kubectl", "apply", "-f", str(FIXTURES / "keycloak.yaml")], env=kind_cluster_env)
-    _run(
-        [
-            "kubectl",
-            "rollout",
-            "status",
-            "deployment/keycloak",
-            "--namespace",
-            NAMESPACE,
-            f"--timeout={KEYCLOAK_TIMEOUT_SECONDS}s",
-        ],
-        env=kind_cluster_env,
-    )
+    _assert_operator_uses_loaded_image(kind_cluster_env, OPERATOR_IMAGE)
+    _wait_for_deployment(kind_cluster_env, NAMESPACE, "keycloak")
 
     with _port_forward_keycloak(kind_cluster_env) as keycloak_url:
         _apply_document(kind_cluster_env, _keycloak_target())
@@ -335,44 +314,28 @@ def kind_cluster_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[
     _require_tool("kind")
     _require_tool("kubectl")
 
+    if CLUSTER_NAME not in _kind_clusters(os.environ.copy()):
+        pytest.fail(
+            f"kind cluster {CLUSTER_NAME!r} was not found; "
+            "run `.venv/bin/python tests/kind/e2e.py prepare` first."
+        )
+
     kubeconfig = tmp_path_factory.mktemp("kind-kubeconfig") / "config"
     env = {**os.environ, "KUBECONFIG": str(kubeconfig)}
-    cluster_exists = CLUSTER_NAME in _kind_clusters(env)
+    _run(
+        [
+            "kind",
+            "export",
+            "kubeconfig",
+            "--name",
+            CLUSTER_NAME,
+            "--kubeconfig",
+            str(kubeconfig),
+        ],
+        env=env,
+    )
 
-    if cluster_exists:
-        _run(
-            [
-                "kind",
-                "export",
-                "kubeconfig",
-                "--name",
-                CLUSTER_NAME,
-                "--kubeconfig",
-                str(kubeconfig),
-            ],
-            env=env,
-        )
-    else:
-        _run(
-            [
-                "kind",
-                "create",
-                "cluster",
-                "--name",
-                CLUSTER_NAME,
-                "--config",
-                str(KIND_CONFIG),
-                "--kubeconfig",
-                str(kubeconfig),
-            ],
-            env=env,
-        )
-
-    try:
-        yield env
-    finally:
-        if not cluster_exists:
-            _run(["kind", "delete", "cluster", "--name", CLUSTER_NAME], env=env)
+    yield env
 
 
 def _apply_crds(env: dict[str, str]) -> None:
@@ -444,6 +407,26 @@ def _wait_for_deployment(env: dict[str, str], namespace: str, name: str) -> None
         ],
         env=env,
     )
+
+
+def _assert_operator_uses_loaded_image(env: dict[str, str], image: str) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "deployment",
+            OPERATOR_DEPLOYMENT,
+            "--namespace",
+            OPERATOR_NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    deployment = json.loads(result.stdout)
+    [container] = deployment["spec"]["template"]["spec"]["containers"]
+
+    assert container["image"] == image
+    assert container["imagePullPolicy"] == "Never"
 
 
 def _document_by_kind(

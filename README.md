@@ -19,16 +19,25 @@ Run checks:
 .venv/bin/pytest
 ```
 
-Run the opt-in kind integration and e2e tests:
+Run the opt-in kind integration and e2e tests in three independent steps:
 
 ```bash
-RUN_KIND_INTEGRATION=1 .venv/bin/pytest tests/integration/test_kind_fixtures.py -q
+.venv/bin/python tests/kind/e2e.py prepare
+.venv/bin/python tests/kind/e2e.py test
+.venv/bin/python tests/kind/e2e.py cleanup
 ```
 
-The e2e test builds the operator image, loads it into kind, deploys that same tag
-with `imagePullPolicy: Never`, creates sample Keycloak CRs, and verifies the
-created Keycloak entities through the Keycloak Admin API. Override the image tag
-used by the test with `KIND_OPERATOR_IMAGE`.
+The prepare step builds the operator image, loads it into kind, deploys that same
+tag with `imagePullPolicy: Never`, and starts the Keycloak fixture. The test step
+creates sample Keycloak CRs and verifies the created Keycloak entities through
+the Keycloak Admin API. The cleanup step deletes the kind cluster. Override the
+image tag with `KIND_OPERATOR_IMAGE`.
+
+After prepare, inspect the cluster with:
+
+```bash
+kubectl --context kind-clouddicted-keycloak-config-operator-it get pods -A
+```
 
 Run the operator locally:
 
