@@ -100,6 +100,13 @@ def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:
     event_rule = _rule_for(rules, api_group="", resources={"events"})
     assert set(event_rule["verbs"]) == {"create", "patch"}
 
+    crd_rule = _rule_for(
+        rules,
+        api_group="apiextensions.k8s.io",
+        resources={"customresourcedefinitions"},
+    )
+    assert set(crd_rule["verbs"]) == {"list", "watch"}
+
     resource_rule = _rule_for(rules, api_group=API_GROUP, resources=CUSTOM_RESOURCES)
     assert set(resource_rule["verbs"]) == {"get", "list", "watch", "patch", "update"}
 
