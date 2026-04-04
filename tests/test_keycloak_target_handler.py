@@ -200,6 +200,7 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         KeycloakAuthenticationError("invalid credentials for kc-admin: secret-password")
     )
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+    events: list[tuple[str, str]] = []
     patch: dict[str, Any] = {}
 
     keycloak_target.patch_keycloak_target_status(
@@ -209,6 +210,7 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         namespace="apps",
         core_v1_api=core_v1_api,
         keycloak_client_factory=keycloak_client_factory,
+        event_recorder=lambda reason, message: events.append((reason, message)),
         now=NOW,
     )
 
@@ -222,8 +224,40 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         conditions[CONDITION_AUTHENTICATED]["reason"]
         == keycloak_target.AUTHENTICATION_FAILED_REASON
     )
+    assert conditions[CONDITION_AUTHENTICATED]["message"] == (
+        "Keycloak authentication failed: invalid credentials for <redacted>: <redacted>."
+    )
+    assert events == [
+        (
+            keycloak_target.AUTHENTICATION_FAILED_REASON,
+            conditions[CONDITION_AUTHENTICATED]["message"],
+        )
+    ]
     assert keycloak_client.authenticate_calls == 1
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
+    assert all("kc-admin" not in message for _, message in events)
+    assert all("secret-password" not in message for _, message in events)
+
+
+def test_patch_keycloak_target_status_reports_auth_failure_cause() -> None:
+    core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
+    keycloak_client = FakeKeycloakClient(_authentication_error_with_cause())
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+    patch: dict[str, Any] = {}
+
+    keycloak_target.patch_keycloak_target_status(
+        spec=_target_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
+    )
+
+    message = _conditions_by_type(patch)[CONDITION_AUTHENTICATED]["message"]
+    assert "Keycloak authentication request failed" in message
+    assert "WRONG_VERSION_NUMBER" in message
 
 
 def test_patch_keycloak_target_status_preserves_stable_transition_times() -> None:
@@ -307,3 +341,15 @@ def _failing_keycloak_client_factory(
 
 def _b64(value: str) -> str:
     return base64.b64encode(value.encode("utf-8")).decode("ascii")
+
+
+def _authentication_error_with_cause() -> KeycloakAuthenticationError:
+    try:
+        try:
+            raise OSError("[SSL: WRONG_VERSION_NUMBER] wrong version number")
+        except OSError as exc:
+            raise KeycloakAuthenticationError(
+                "Keycloak authentication request failed"
+            ) from exc
+    except KeycloakAuthenticationError as exc:
+        return exc
