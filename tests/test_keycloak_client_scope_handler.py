@@ -8,7 +8,10 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
 )
-from clouddicted_keycloak_config_operator.handlers import keycloak_client_scope
+from clouddicted_keycloak_config_operator.handlers import (
+    keycloak_client_scope,
+    reconciliation,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
@@ -129,6 +132,28 @@ def test_patch_keycloak_client_scope_status_reports_invalid_spec_without_externa
         ),
         "lastTransitionTime": "2026-05-24T10:30:45Z",
     }
+
+
+def test_patch_keycloak_client_scope_status_reports_target_resolution_failure() -> None:
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_client_scope.patch_keycloak_client_scope_status(
+        spec=_client_scope_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_unavailable_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    ready = _conditions_by_type(patch)[CONDITION_READY]
+    assert ready["status"] == "False"
+    assert ready["reason"] == keycloak_client_scope.TARGET_UNAVAILABLE_REASON
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_scope.TARGET_UNAVAILABLE_REASON,
+        ready["message"],
+    )
 
 
 def test_patch_keycloak_client_scope_status_observes_existing_matching_scope() -> None:
@@ -272,7 +297,7 @@ def test_patch_keycloak_client_scope_status_reports_auth_failure_without_secret_
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_scope.patch_keycloak_client_scope_status(
+    retry = keycloak_client_scope.patch_keycloak_client_scope_status(
         spec=_client_scope_spec(),
         status={},
         patch=patch,
@@ -283,6 +308,10 @@ def test_patch_keycloak_client_scope_status_reports_auth_failure_without_secret_
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_scope.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert (
         conditions[CONDITION_READY]["reason"]
@@ -299,7 +328,7 @@ def test_patch_keycloak_client_scope_status_reports_request_failure_without_secr
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_scope.patch_keycloak_client_scope_status(
+    retry = keycloak_client_scope.patch_keycloak_client_scope_status(
         spec=_client_scope_spec(),
         status={},
         patch=patch,
@@ -310,6 +339,10 @@ def test_patch_keycloak_client_scope_status_reports_request_failure_without_secr
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_scope.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_client_scope.REQUEST_FAILED_REASON
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
@@ -399,6 +432,16 @@ def _failing_target_resolver(
     namespace: str | None,
 ) -> keycloak_client_scope.TargetConnection:
     raise AssertionError(f"unexpected target resolution: {namespace}/{target_name}")
+
+
+def _unavailable_target_resolver(
+    *,
+    target_name: str,
+    namespace: str | None,
+) -> keycloak_client_scope.TargetConnection:
+    raise keycloak_client_scope.TargetResolutionError(
+        f"target unavailable: {namespace}/{target_name}"
+    )
 
 
 def _failing_keycloak_client_factory(

@@ -8,7 +8,7 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_REALM_PLURAL,
 )
-from clouddicted_keycloak_config_operator.handlers import keycloak_realm
+from clouddicted_keycloak_config_operator.handlers import keycloak_realm, reconciliation
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
@@ -121,13 +121,35 @@ def test_patch_keycloak_realm_status_reports_invalid_spec_without_external_calls
     }
 
 
+def test_patch_keycloak_realm_status_reports_target_resolution_failure() -> None:
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_realm.patch_keycloak_realm_status(
+        spec=_realm_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_unavailable_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    ready = _conditions_by_type(patch)[CONDITION_READY]
+    assert ready["status"] == "False"
+    assert ready["reason"] == keycloak_realm.TARGET_UNAVAILABLE_REASON
+    assert retry == reconciliation.RetryRequest(
+        keycloak_realm.TARGET_UNAVAILABLE_REASON,
+        ready["message"],
+    )
+
+
 def test_patch_keycloak_realm_status_observes_existing_realm() -> None:
     resolver = _target_resolver()
     keycloak_client = FakeKeycloakClient()
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
     patch: dict[str, Any] = {}
 
-    keycloak_realm.patch_keycloak_realm_status(
+    retry = keycloak_realm.patch_keycloak_realm_status(
         spec=_realm_spec(),
         status={},
         patch=patch,
@@ -138,6 +160,7 @@ def test_patch_keycloak_realm_status_observes_existing_realm() -> None:
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "True",
@@ -194,7 +217,7 @@ def test_patch_keycloak_realm_status_reports_auth_failure_without_secret_values(
     )
     patch: dict[str, Any] = {}
 
-    keycloak_realm.patch_keycloak_realm_status(
+    retry = keycloak_realm.patch_keycloak_realm_status(
         spec=_realm_spec(),
         status={},
         patch=patch,
@@ -205,6 +228,10 @@ def test_patch_keycloak_realm_status_reports_auth_failure_without_secret_values(
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_realm.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_realm.AUTHENTICATION_FAILED_REASON
     assert keycloak_client.authenticate_calls == 1
@@ -218,7 +245,7 @@ def test_patch_keycloak_realm_status_reports_request_failure_without_secret_valu
     )
     patch: dict[str, Any] = {}
 
-    keycloak_realm.patch_keycloak_realm_status(
+    retry = keycloak_realm.patch_keycloak_realm_status(
         spec=_realm_spec(),
         status={},
         patch=patch,
@@ -229,6 +256,10 @@ def test_patch_keycloak_realm_status_reports_request_failure_without_secret_valu
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_realm.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_realm.REQUEST_FAILED_REASON
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
@@ -299,6 +330,16 @@ def _failing_target_resolver(
     namespace: str | None,
 ) -> keycloak_realm.TargetConnection:
     raise AssertionError(f"unexpected target resolution: {namespace}/{target_name}")
+
+
+def _unavailable_target_resolver(
+    *,
+    target_name: str,
+    namespace: str | None,
+) -> keycloak_realm.TargetConnection:
+    raise keycloak_realm.TargetResolutionError(
+        f"target unavailable: {namespace}/{target_name}"
+    )
 
 
 def _failing_keycloak_client_factory(

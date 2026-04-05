@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import kopf
+import pytest
 
 from clouddicted_keycloak_config_operator import main
 from clouddicted_keycloak_config_operator.constants import (
@@ -12,7 +13,7 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_TARGET_PLURAL,
 )
-from clouddicted_keycloak_config_operator.handlers import keycloak_target
+from clouddicted_keycloak_config_operator.handlers import keycloak_target, reconciliation
 from clouddicted_keycloak_config_operator.keycloak_client import KeycloakAuthenticationError
 from clouddicted_keycloak_config_operator.status import (
     CONDITION_AUTHENTICATED,
@@ -98,13 +99,53 @@ def test_configure_sets_operator_settings() -> None:
     assert settings.persistence.diffbase_storage.ignored_fields == ["status"]
 
 
+def test_reconcile_keycloak_target_requeues_retryable_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch: dict[str, Any] = {}
+    calls: list[dict[str, Any]] = []
+    events: list[tuple[str, str]] = []
+
+    def fake_patch_keycloak_target_status(**kwargs: Any) -> reconciliation.RetryRequest:
+        calls.append(kwargs)
+        return reconciliation.RetryRequest("RetryReason", "retry message")
+
+    monkeypatch.setattr(
+        keycloak_target,
+        "patch_keycloak_target_status",
+        fake_patch_keycloak_target_status,
+    )
+    monkeypatch.setattr(
+        reconciliation.kopf,
+        "warn",
+        lambda body, reason, message: events.append((reason, message)),
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_target.reconcile_keycloak_target(
+            body={"metadata": {"name": "example-keycloak", "namespace": "apps"}},
+            spec={},
+            status={},
+            patch=patch,
+            namespace="apps",
+        )
+
+    assert str(exc_info.value) == "retry message"
+    assert exc_info.value.delay == reconciliation.DEFAULT_RETRY_DELAY_SECONDS
+    assert events == [("RetryReason", "retry message")]
+    assert calls[0]["spec"] == {}
+    assert calls[0]["status"] == {}
+    assert calls[0]["patch"] is patch
+    assert calls[0]["namespace"] == "apps"
+
+
 def test_patch_keycloak_target_status_reports_successful_authentication() -> None:
     core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
     keycloak_client = FakeKeycloakClient()
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec=_target_spec(),
         status={},
         patch=patch,
@@ -114,6 +155,7 @@ def test_patch_keycloak_target_status_reports_successful_authentication() -> Non
         now=NOW,
     )
 
+    assert retry is None
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
@@ -141,7 +183,7 @@ def test_patch_keycloak_target_status_reports_successful_authentication() -> Non
 def test_patch_keycloak_target_status_reports_invalid_spec_without_external_calls() -> None:
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec={"adminCredentials": {"secretRef": {}}},
         status={},
         patch=patch,
@@ -150,6 +192,7 @@ def test_patch_keycloak_target_status_reports_invalid_spec_without_external_call
         now=NOW,
     )
 
+    assert retry is None
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
@@ -171,7 +214,7 @@ def test_patch_keycloak_target_status_reports_secret_loading_failure() -> None:
     core_v1_api = FakeCoreV1Api({("apps", "keycloak-admin"): FakeSecret(data=None)})
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec=_target_spec(),
         status={},
         patch=patch,
@@ -181,6 +224,10 @@ def test_patch_keycloak_target_status_reports_secret_loading_failure() -> None:
         now=NOW,
     )
 
+    assert retry == reconciliation.RetryRequest(
+        keycloak_target.SECRET_UNAVAILABLE_REASON,
+        "KeycloakTarget credentials could not be loaded.",
+    )
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_target.SECRET_UNAVAILABLE_REASON
@@ -200,21 +247,23 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         KeycloakAuthenticationError("invalid credentials for kc-admin: secret-password")
     )
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
-    events: list[tuple[str, str]] = []
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec=_target_spec(),
         status={},
         patch=patch,
         namespace="apps",
         core_v1_api=core_v1_api,
         keycloak_client_factory=keycloak_client_factory,
-        event_recorder=lambda reason, message: events.append((reason, message)),
         now=NOW,
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_target.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_AUTHENTICATED]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_target.AUTHENTICATION_FAILED_REASON
     assert conditions[CONDITION_SECRET_READY]["status"] == "True"
@@ -225,18 +274,11 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         == keycloak_target.AUTHENTICATION_FAILED_REASON
     )
     assert conditions[CONDITION_AUTHENTICATED]["message"] == (
-        "Keycloak authentication failed: invalid credentials for <redacted>: <redacted>."
+        "KeycloakTarget authentication failed: invalid credentials for "
+        "<redacted>: <redacted>."
     )
-    assert events == [
-        (
-            keycloak_target.AUTHENTICATION_FAILED_REASON,
-            conditions[CONDITION_AUTHENTICATED]["message"],
-        )
-    ]
     assert keycloak_client.authenticate_calls == 1
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
-    assert all("kc-admin" not in message for _, message in events)
-    assert all("secret-password" not in message for _, message in events)
 
 
 def test_patch_keycloak_target_status_reports_auth_failure_cause() -> None:
@@ -245,7 +287,7 @@ def test_patch_keycloak_target_status_reports_auth_failure_cause() -> None:
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec=_target_spec(),
         status={},
         patch=patch,
@@ -256,6 +298,11 @@ def test_patch_keycloak_target_status_reports_auth_failure_cause() -> None:
     )
 
     message = _conditions_by_type(patch)[CONDITION_AUTHENTICATED]["message"]
+    assert retry == reconciliation.RetryRequest(
+        keycloak_target.AUTHENTICATION_FAILED_REASON,
+        message,
+    )
+    assert message.startswith("KeycloakTarget authentication failed:")
     assert "Keycloak authentication request failed" in message
     assert "WRONG_VERSION_NUMBER" in message
 
@@ -265,7 +312,7 @@ def test_patch_keycloak_target_status_preserves_stable_transition_times() -> Non
     keycloak_client_factory = FakeKeycloakClientFactory(FakeKeycloakClient())
     patch: dict[str, Any] = {}
 
-    keycloak_target.patch_keycloak_target_status(
+    retry = keycloak_target.patch_keycloak_target_status(
         spec=_target_spec(),
         status={
             "conditions": [
@@ -281,6 +328,7 @@ def test_patch_keycloak_target_status_preserves_stable_transition_times() -> Non
         now=NOW,
     )
 
+    assert retry is None
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY]["reason"] == keycloak_target.RECONCILED_REASON
     assert conditions[CONDITION_READY]["lastTransitionTime"] == "2026-05-22T09:30:45Z"

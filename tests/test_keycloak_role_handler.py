@@ -8,7 +8,7 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_ROLE_PLURAL,
 )
-from clouddicted_keycloak_config_operator.handlers import keycloak_role
+from clouddicted_keycloak_config_operator.handlers import keycloak_role, reconciliation
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
@@ -132,6 +132,28 @@ def test_patch_keycloak_role_status_reports_invalid_spec_without_external_calls(
     }
 
 
+def test_patch_keycloak_role_status_reports_target_resolution_failure() -> None:
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_role.patch_keycloak_role_status(
+        spec=_role_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_unavailable_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    ready = _conditions_by_type(patch)[CONDITION_READY]
+    assert ready["status"] == "False"
+    assert ready["reason"] == keycloak_role.TARGET_UNAVAILABLE_REASON
+    assert retry == reconciliation.RetryRequest(
+        keycloak_role.TARGET_UNAVAILABLE_REASON,
+        ready["message"],
+    )
+
+
 def test_patch_keycloak_role_status_observes_existing_matching_role() -> None:
     resolver = _target_resolver()
     keycloak_client = FakeKeycloakClient(
@@ -249,7 +271,7 @@ def test_patch_keycloak_role_status_reports_auth_failure_without_secret_values()
     )
     patch: dict[str, Any] = {}
 
-    keycloak_role.patch_keycloak_role_status(
+    retry = keycloak_role.patch_keycloak_role_status(
         spec=_role_spec(),
         status={},
         patch=patch,
@@ -260,6 +282,10 @@ def test_patch_keycloak_role_status_reports_auth_failure_without_secret_values()
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_role.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_role.AUTHENTICATION_FAILED_REASON
     assert keycloak_client.authenticate_calls == 1
@@ -273,7 +299,7 @@ def test_patch_keycloak_role_status_reports_request_failure_without_secret_value
     )
     patch: dict[str, Any] = {}
 
-    keycloak_role.patch_keycloak_role_status(
+    retry = keycloak_role.patch_keycloak_role_status(
         spec=_role_spec(),
         status={},
         patch=patch,
@@ -284,6 +310,10 @@ def test_patch_keycloak_role_status_reports_request_failure_without_secret_value
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_role.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_role.REQUEST_FAILED_REASON
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
@@ -369,6 +399,14 @@ def _failing_target_resolver(
     namespace: str | None,
 ) -> keycloak_role.TargetConnection:
     raise AssertionError(f"unexpected target resolution: {namespace}/{target_name}")
+
+
+def _unavailable_target_resolver(
+    *,
+    target_name: str,
+    namespace: str | None,
+) -> keycloak_role.TargetConnection:
+    raise keycloak_role.TargetResolutionError(f"target unavailable: {namespace}/{target_name}")
 
 
 def _failing_keycloak_client_factory(

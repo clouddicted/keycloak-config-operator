@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,6 +22,10 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
     KubernetesTargetResolver,
     TargetConnection,
     TargetResolutionError,
+)
+from clouddicted_keycloak_config_operator.handlers.reconciliation import (
+    RetryRequest,
+    raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
@@ -119,19 +124,22 @@ class ClientReconcileResult:
 @kopf.on.update(**KEYCLOAK_CLIENT_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_CLIENT_RESOURCE)
 def reconcile_keycloak_client(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     status: Mapping[str, Any] | None,
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
+    logger: logging.Logger | None = None,
     **_: Any,
 ) -> None:
     """Observe or create a Keycloak client and patch status."""
-    patch_keycloak_client_status(
+    retry = patch_keycloak_client_status(
         spec=spec,
         status=status,
         patch=patch,
         namespace=namespace,
     )
+    raise_for_retry(retry, body=body, logger=logger)
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
@@ -195,7 +203,7 @@ def patch_keycloak_client_status(
     core_v1_api: Any | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
     now: datetime | None = None,
-) -> None:
+) -> RetryRequest | None:
     """Patch KeycloakClient status after observing or creating the client."""
     existing_conditions = _existing_conditions(status)
     client_spec = _parse_client_spec(spec)
@@ -206,24 +214,28 @@ def patch_keycloak_client_status(
             existing_conditions,
             _invalid_spec_condition(spec, now=now),
         )
-        return
+        return None
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
         target = resolver(target_name=client_spec.target_name, namespace=namespace)
     except TargetResolutionError:
+        retry = RetryRequest(
+            TARGET_UNAVAILABLE_REASON,
+            "KeycloakClient is not ready because the referenced KeycloakTarget "
+            "could not be resolved.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                TARGET_UNAVAILABLE_REASON,
-                "KeycloakClient is not ready because the referenced KeycloakTarget "
-                "could not be resolved.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
 
     try:
         keycloak_client = keycloak_client_factory(
@@ -242,41 +254,53 @@ def patch_keycloak_client_status(
             ),
         )
     except KeycloakAuthenticationError:
+        retry = RetryRequest(
+            AUTHENTICATION_FAILED_REASON,
+            "KeycloakClient is not ready because Keycloak authentication failed.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                AUTHENTICATION_FAILED_REASON,
-                "KeycloakClient is not ready because Keycloak authentication failed.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
     except (SecretRefError, ApiException):
+        retry = RetryRequest(
+            SECRET_UNAVAILABLE_REASON,
+            "KeycloakClient is not ready because the client Secret could not be loaded.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                SECRET_UNAVAILABLE_REASON,
-                "KeycloakClient is not ready because the client Secret could not be loaded.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
     except KeycloakClientError:
+        retry = RetryRequest(
+            REQUEST_FAILED_REASON,
+            "KeycloakClient reconciliation failed while calling the Keycloak Admin API.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                REQUEST_FAILED_REASON,
-                "KeycloakClient reconciliation failed while calling the Keycloak Admin API.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
 
     _set_conditions(
         patch,
@@ -286,6 +310,7 @@ def patch_keycloak_client_status(
             _client_drift_condition(reconcile_result, now=now),
         ),
     )
+    return None
 
 
 def ensure_keycloak_client(

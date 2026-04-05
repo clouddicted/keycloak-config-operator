@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,6 +18,10 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_REALM_PLURAL,
     KEYCLOAK_TARGET_PLURAL,
+)
+from clouddicted_keycloak_config_operator.handlers.reconciliation import (
+    RetryRequest,
+    raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
@@ -92,19 +97,22 @@ class TargetResolutionError(RuntimeError):
 @kopf.on.update(**KEYCLOAK_REALM_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_REALM_RESOURCE)
 def reconcile_keycloak_realm(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     status: Mapping[str, Any] | None,
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
+    logger: logging.Logger | None = None,
     **_: Any,
 ) -> None:
     """Observe or create a Keycloak realm and patch status."""
-    patch_keycloak_realm_status(
+    retry = patch_keycloak_realm_status(
         spec=spec,
         status=status,
         patch=patch,
         namespace=namespace,
     )
+    raise_for_retry(retry, body=body, logger=logger)
 
 
 def patch_keycloak_realm_status(
@@ -116,31 +124,35 @@ def patch_keycloak_realm_status(
     target_resolver: TargetResolver | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
     now: datetime | None = None,
-) -> None:
+) -> RetryRequest | None:
     """Patch KeycloakRealm status after observing or creating the realm."""
     existing_conditions = _existing_conditions(status)
     realm_spec = _parse_realm_spec(spec)
 
     if realm_spec is None:
         _set_ready_condition(patch, existing_conditions, _invalid_spec_condition(spec, now=now))
-        return
+        return None
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
         target = resolver(target_name=realm_spec.target_name, namespace=namespace)
     except TargetResolutionError:
+        retry = RetryRequest(
+            TARGET_UNAVAILABLE_REASON,
+            "KeycloakRealm is not ready because the referenced KeycloakTarget "
+            "could not be resolved.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                TARGET_UNAVAILABLE_REASON,
-                "KeycloakRealm is not ready because the referenced KeycloakTarget "
-                "could not be resolved.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
 
     try:
         keycloak_client = keycloak_client_factory(
@@ -151,29 +163,37 @@ def patch_keycloak_realm_status(
         keycloak_client.authenticate()
         realm_created = ensure_keycloak_realm(keycloak_client, realm_spec)
     except KeycloakAuthenticationError:
+        retry = RetryRequest(
+            AUTHENTICATION_FAILED_REASON,
+            "KeycloakRealm is not ready because Keycloak authentication failed.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                AUTHENTICATION_FAILED_REASON,
-                "KeycloakRealm is not ready because Keycloak authentication failed.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
     except KeycloakClientError:
+        retry = RetryRequest(
+            REQUEST_FAILED_REASON,
+            "KeycloakRealm reconciliation failed while calling the Keycloak Admin API.",
+        )
         _set_ready_condition(
             patch,
             existing_conditions,
             ready_condition(
                 "False",
-                REQUEST_FAILED_REASON,
-                "KeycloakRealm reconciliation failed while calling the Keycloak Admin API.",
+                retry.reason,
+                retry.message,
                 now=now,
             ),
         )
-        return
+        return retry
 
     if realm_created:
         _set_ready_condition(
@@ -198,6 +218,7 @@ def patch_keycloak_realm_status(
             now=now,
         ),
     )
+    return None
 
 
 def ensure_keycloak_realm(client: KeycloakRealmClient, realm_spec: RealmSpec) -> bool:

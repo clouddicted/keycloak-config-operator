@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -16,6 +16,10 @@ from clouddicted_keycloak_config_operator.constants import (
     API_GROUP,
     API_VERSION,
     KEYCLOAK_TARGET_PLURAL,
+)
+from clouddicted_keycloak_config_operator.handlers.reconciliation import (
+    RetryRequest,
+    raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
@@ -49,7 +53,6 @@ SECRET_LOADED_REASON = "SecretLoaded"
 SECRET_UNAVAILABLE_REASON = "SecretUnavailable"
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 _MAX_FAILURE_DETAIL_LENGTH = 300
-EventRecorder = Callable[[str, str], None]
 
 
 class KeycloakAuthenticator(Protocol):
@@ -87,18 +90,13 @@ def reconcile_keycloak_target(
     **_: Any,
 ) -> None:
     """Validate KeycloakTarget credentials and patch status."""
-    patch_keycloak_target_status(
+    retry = patch_keycloak_target_status(
         spec=spec,
         status=status,
         patch=patch,
         namespace=namespace,
-        event_recorder=lambda reason, message: kopf.warn(
-            body,
-            reason=reason,
-            message=message,
-        ),
-        logger=logger,
     )
+    raise_for_retry(retry, body=body, logger=logger)
 
 
 def patch_keycloak_target_status(
@@ -109,11 +107,9 @@ def patch_keycloak_target_status(
     namespace: str | None = None,
     core_v1_api: Any | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
-    event_recorder: EventRecorder | None = None,
-    logger: logging.Logger | None = None,
     now: datetime | None = None,
-) -> None:
-    """Patch KeycloakTarget status after checking Secret credentials and authentication."""
+) -> RetryRequest | None:
+    """Patch KeycloakTarget status and return a retry message for transient failures."""
     existing_conditions = _existing_conditions(status)
     conditions = list(existing_conditions)
 
@@ -138,7 +134,7 @@ def patch_keycloak_target_status(
                 ),
             ],
         )
-        return
+        return None
 
     try:
         credentials = load_secret_credentials(
@@ -171,7 +167,10 @@ def patch_keycloak_target_status(
                 ),
             ],
         )
-        return
+        return RetryRequest(
+            SECRET_UNAVAILABLE_REASON,
+            "KeycloakTarget credentials could not be loaded.",
+        )
 
     try:
         keycloak_client = keycloak_client_factory(
@@ -182,12 +181,6 @@ def patch_keycloak_target_status(
         keycloak_client.authenticate()
     except KeycloakClientError as exc:
         failure_message = _authentication_failure_message(exc, credentials)
-        _report_warning(
-            event_recorder,
-            logger,
-            reason=AUTHENTICATION_FAILED_REASON,
-            message=failure_message,
-        )
         _set_conditions(
             patch,
             conditions,
@@ -212,7 +205,7 @@ def patch_keycloak_target_status(
                 ),
             ],
         )
-        return
+        return RetryRequest(AUTHENTICATION_FAILED_REASON, failure_message)
 
     _set_conditions(
         patch,
@@ -238,6 +231,7 @@ def patch_keycloak_target_status(
             ),
         ],
     )
+    return None
 
 
 def _invalid_spec_ready_condition(
@@ -302,7 +296,7 @@ def _authentication_failure_message(
         detail,
         (credentials.username, credentials.password),
     )
-    return f"Keycloak authentication failed: {redacted_detail}."
+    return f"KeycloakTarget authentication failed: {redacted_detail}."
 
 
 def _failure_detail(error: BaseException) -> str:
@@ -319,20 +313,6 @@ def _truncate(value: str) -> str:
         return value
 
     return f"{value[: _MAX_FAILURE_DETAIL_LENGTH - 3]}..."
-
-
-def _report_warning(
-    event_recorder: EventRecorder | None,
-    logger: logging.Logger | None,
-    *,
-    reason: str,
-    message: str,
-) -> None:
-    if logger is not None:
-        logger.warning("%s: %s", reason, message)
-
-    if event_recorder is not None:
-        event_recorder(reason, message)
 
 
 def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:

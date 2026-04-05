@@ -16,6 +16,7 @@ from clouddicted_keycloak_config_operator.constants import (
 from clouddicted_keycloak_config_operator.handlers import (
     keycloak_client as keycloak_client_handler,
 )
+from clouddicted_keycloak_config_operator.handlers import reconciliation
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
@@ -197,13 +198,35 @@ def test_patch_keycloak_client_status_requires_confidential_secret_ref() -> None
     }
 
 
+def test_patch_keycloak_client_status_reports_target_resolution_failure() -> None:
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_unavailable_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    ready = _conditions_by_type(patch)[CONDITION_READY]
+    assert ready["status"] == "False"
+    assert ready["reason"] == keycloak_client_handler.TARGET_UNAVAILABLE_REASON
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.TARGET_UNAVAILABLE_REASON,
+        ready["message"],
+    )
+
+
 def test_patch_keycloak_client_status_observes_matching_public_client_without_put() -> None:
     resolver = _target_resolver()
     keycloak_client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
     keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(),
         status={},
         patch=patch,
@@ -214,6 +237,7 @@ def test_patch_keycloak_client_status_observes_matching_public_client_without_pu
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "True",
@@ -261,7 +285,7 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             display_name="Example Web",
             redirect_uris=["https://app.example.com/*"],
@@ -276,6 +300,7 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "True",
@@ -327,7 +352,7 @@ def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
             display_name="Example Web",
@@ -341,6 +366,7 @@ def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "True",
@@ -374,7 +400,7 @@ def test_patch_keycloak_client_status_reports_observe_only_matching_client_witho
     keycloak_client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
         ),
@@ -387,6 +413,7 @@ def test_patch_keycloak_client_status_reports_observe_only_matching_client_witho
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY]["status"] == "True"
     assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.CLIENT_OBSERVED_REASON
     assert conditions[CONDITION_DRIFT_DETECTED] == {
@@ -409,7 +436,7 @@ def test_patch_keycloak_client_status_reports_observe_only_missing_client_withou
     keycloak_client = FakeKeycloakClient()
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
         ),
@@ -422,6 +449,7 @@ def test_patch_keycloak_client_status_reports_observe_only_missing_client_withou
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry is None
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
@@ -521,7 +549,7 @@ def test_patch_keycloak_client_status_reports_failure_for_drift_without_id() -> 
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(),
         status={},
         patch=patch,
@@ -532,6 +560,10 @@ def test_patch_keycloak_client_status_reports_failure_for_drift_without_id() -> 
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
@@ -699,7 +731,7 @@ def test_patch_keycloak_client_status_reports_auth_failure_without_secret_values
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(),
         status={},
         patch=patch,
@@ -710,6 +742,10 @@ def test_patch_keycloak_client_status_reports_auth_failure_without_secret_values
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert (
         conditions[CONDITION_READY]["reason"]
@@ -726,7 +762,7 @@ def test_patch_keycloak_client_status_reports_request_failure_without_secret_val
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(),
         status={},
         patch=patch,
@@ -737,6 +773,10 @@ def test_patch_keycloak_client_status_reports_request_failure_without_secret_val
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.REQUEST_FAILED_REASON
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
@@ -748,7 +788,7 @@ def test_patch_keycloak_client_status_reports_confidential_auth_failure_safely()
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
             secret_ref={"name": "example-client-secret"},
@@ -763,6 +803,10 @@ def test_patch_keycloak_client_status_reports_confidential_auth_failure_safely()
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.AUTHENTICATION_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert (
         conditions[CONDITION_READY]["reason"]
@@ -779,7 +823,7 @@ def test_patch_keycloak_client_status_reports_confidential_request_failure_safel
     )
     patch: dict[str, Any] = {}
 
-    keycloak_client_handler.patch_keycloak_client_status(
+    retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
             secret_ref={"name": "example-client-secret"},
@@ -794,6 +838,10 @@ def test_patch_keycloak_client_status_reports_confidential_request_failure_safel
     )
 
     conditions = _conditions_by_type(patch)
+    assert retry == reconciliation.RetryRequest(
+        keycloak_client_handler.REQUEST_FAILED_REASON,
+        conditions[CONDITION_READY]["message"],
+    )
     assert conditions[CONDITION_READY]["status"] == "False"
     assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.REQUEST_FAILED_REASON
     assert _condition_messages(patch).isdisjoint({"client-secret-value", "token"})
@@ -1111,6 +1159,16 @@ def _failing_target_resolver(
     namespace: str | None,
 ) -> keycloak_client_handler.TargetConnection:
     raise AssertionError(f"unexpected target resolution: {namespace}/{target_name}")
+
+
+def _unavailable_target_resolver(
+    *,
+    target_name: str,
+    namespace: str | None,
+) -> keycloak_client_handler.TargetConnection:
+    raise keycloak_client_handler.TargetResolutionError(
+        f"target unavailable: {namespace}/{target_name}"
+    )
 
 
 def _failing_keycloak_client_factory(
