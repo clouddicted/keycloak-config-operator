@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 
 import kopf
@@ -23,14 +22,10 @@ def raise_for_retry(
     retry: RetryRequest | None,
     *,
     body: kopf.Body,
-    logger: logging.Logger | None,
 ) -> None:
     """Emit a Warning Event and raise a delayed Kopf retry when requested."""
     if retry is None:
         return
 
-    if logger is not None:
-        logger.warning("%s: %s", retry.reason, retry.message)
-
-    kopf.warn(body, reason=retry.reason, message=retry.message)
+    kopf.event(body, type="Warning", reason=retry.reason, message=retry.message)
     raise kopf.TemporaryError(retry.message, delay=retry.delay)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -95,7 +94,6 @@ def reconcile_keycloak_role(
     status: Mapping[str, Any] | None,
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
-    logger: logging.Logger | None = None,
     **_: Any,
 ) -> None:
     """Observe, create, or update a realm role and patch status."""
@@ -105,7 +103,7 @@ def reconcile_keycloak_role(
         patch=patch,
         namespace=namespace,
     )
-    raise_for_retry(retry, body=body, logger=logger)
+    raise_for_retry(retry, body=body)
 
 
 def patch_keycloak_role_status(

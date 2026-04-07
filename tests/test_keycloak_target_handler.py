@@ -117,8 +117,8 @@ def test_reconcile_keycloak_target_requeues_retryable_failures(
     )
     monkeypatch.setattr(
         reconciliation.kopf,
-        "warn",
-        lambda body, reason, message: events.append((reason, message)),
+        "event",
+        lambda body, type, reason, message: events.append((type, reason, message)),
     )
 
     with pytest.raises(kopf.TemporaryError) as exc_info:
@@ -132,7 +132,7 @@ def test_reconcile_keycloak_target_requeues_retryable_failures(
 
     assert str(exc_info.value) == "retry message"
     assert exc_info.value.delay == reconciliation.DEFAULT_RETRY_DELAY_SECONDS
-    assert events == [("RetryReason", "retry message")]
+    assert events == [("Warning", "RetryReason", "retry message")]
     assert calls[0]["spec"] == {}
     assert calls[0]["status"] == {}
     assert calls[0]["patch"] is patch

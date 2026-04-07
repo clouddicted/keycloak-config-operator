@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -129,7 +128,6 @@ def reconcile_keycloak_client(
     status: Mapping[str, Any] | None,
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
-    logger: logging.Logger | None = None,
     **_: Any,
 ) -> None:
     """Observe or create a Keycloak client and patch status."""
@@ -139,7 +137,7 @@ def reconcile_keycloak_client(
         patch=patch,
         namespace=namespace,
     )
-    raise_for_retry(retry, body=body, logger=logger)
+    raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
