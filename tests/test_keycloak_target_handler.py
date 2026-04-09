@@ -99,6 +99,41 @@ def test_configure_sets_operator_settings() -> None:
     assert settings.persistence.diffbase_storage.ignored_fields == ["status"]
 
 
+def test_configure_presents_framework_logs_under_operator_name() -> None:
+    handler = logging.NullHandler()
+    original_handlers = logging.getLogger().handlers[:]
+
+    try:
+        logging.getLogger().handlers[:] = [handler]
+        main.configure(kopf.OperatorSettings())
+
+        kopf_record = logging.LogRecord(
+            "kopf.objects",
+            logging.ERROR,
+            __file__,
+            1,
+            "message",
+            (),
+            None,
+        )
+        app_record = logging.LogRecord(
+            "clouddicted_keycloak_config_operator.main",
+            logging.INFO,
+            __file__,
+            1,
+            "message",
+            (),
+            None,
+        )
+
+        assert handler.filter(kopf_record)
+        assert handler.filter(app_record)
+        assert kopf_record.name == main.LOG_RECORD_NAME
+        assert app_record.name == "clouddicted_keycloak_config_operator.main"
+    finally:
+        logging.getLogger().handlers[:] = original_handlers
+
+
 def test_reconcile_keycloak_target_requeues_retryable_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

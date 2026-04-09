@@ -17,7 +17,9 @@ from clouddicted_keycloak_config_operator.handlers import (
     keycloak_target,
 )
 
-logger = logging.getLogger(__name__)
+LOG_RECORD_NAME = "keycloak-operator"
+_KOPF_LOGGER_PREFIX = "kopf"
+logger = logging.getLogger(LOG_RECORD_NAME)
 
 REGISTERED_HANDLER_MODULES = (
     keycloak_target,
@@ -32,6 +34,7 @@ REGISTERED_HANDLER_MODULES = (
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
     """Configure process-wide Kopf settings before handlers start."""
+    _configure_log_record_names()
     settings.posting.level = logging.INFO
     settings.persistence.finalizer = f"{API_GROUP}/finalizer"
     settings.persistence.progress_storage = kopf.AnnotationsProgressStorage(prefix=API_GROUP)
@@ -40,3 +43,25 @@ def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
         ignored_fields=["status"],
     )
     logger.info("%s started", OPERATOR_NAME)
+
+
+class OperatorLogRecordNameFilter(logging.Filter):
+    """Present framework-originated logs under the operator name."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name == _KOPF_LOGGER_PREFIX or record.name.startswith(
+            f"{_KOPF_LOGGER_PREFIX}.",
+        ):
+            record.name = LOG_RECORD_NAME
+
+        return True
+
+
+def _configure_log_record_names() -> None:
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if not any(
+            isinstance(log_filter, OperatorLogRecordNameFilter)
+            for log_filter in handler.filters
+        ):
+            handler.addFilter(OperatorLogRecordNameFilter())
