@@ -1,0 +1,8 @@
+The {{ .Chart.Name }} release is installed in namespace {{ .Release.Namespace }}.
+
+CRDs are installed from the chart crds/ directory. Create a Keycloak credentials
+Secret and then apply KeycloakTarget plus the desired Keycloak resource CRs.
+
+Check the operator rollout with:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "keycloak-config-operator.fullname" . }}

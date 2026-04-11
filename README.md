@@ -53,6 +53,26 @@ Install the CRDs, RBAC, ServiceAccount, and Deployment:
 kubectl apply -k config/install
 ```
 
+Install with Helm:
+
+```bash
+helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --create-namespace
+```
+
+The Helm chart installs CRDs from `charts/keycloak-config-operator/crds`.
+For a local kind image, load the image into kind and install with the same tag:
+
+```bash
+helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --create-namespace \
+  --set image.repository=clouddicted-keycloak-config-operator \
+  --set image.tag=e2e \
+  --set image.pullPolicy=Never
+```
+
 The default Deployment image is a placeholder for the first packaged release:
 `ghcr.io/clouddicted/keycloak-config-operator:v0.1.0`. For local testing, replace it
 with an image you built and loaded into the cluster:

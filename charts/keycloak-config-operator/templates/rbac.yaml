@@ -1,0 +1,84 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "keycloak-config-operator.fullname" . }}
+  labels:
+    {{- include "keycloak-config-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets
+      - keycloakrealms
+      - keycloakclients
+      - keycloakroles
+      - keycloakclientscopes
+      - keycloakprotocolmappers
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets/status
+      - keycloakrealms/status
+      - keycloakclients/status
+      - keycloakroles/status
+      - keycloakclientscopes/status
+      - keycloakprotocolmappers/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - keycloak.clouddicted.com
+    resources:
+      - keycloaktargets/finalizers
+      - keycloakrealms/finalizers
+      - keycloakclients/finalizers
+      - keycloakroles/finalizers
+      - keycloakclientscopes/finalizers
+      - keycloakprotocolmappers/finalizers
+    verbs:
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "keycloak-config-operator.fullname" . }}
+  labels:
+    {{- include "keycloak-config-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "keycloak-config-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "keycloak-config-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
