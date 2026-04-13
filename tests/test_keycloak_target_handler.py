@@ -97,6 +97,7 @@ def test_configure_sets_operator_settings() -> None:
     assert isinstance(settings.persistence.progress_storage, kopf.AnnotationsProgressStorage)
     assert isinstance(settings.persistence.diffbase_storage, kopf.AnnotationsDiffBaseStorage)
     assert settings.persistence.diffbase_storage.ignored_fields == ["status"]
+    assert logging.getLogger("kopf.objects").level == logging.WARNING
 
 
 def test_configure_presents_framework_logs_under_operator_name() -> None:

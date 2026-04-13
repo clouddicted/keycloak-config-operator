@@ -19,6 +19,7 @@ from clouddicted_keycloak_config_operator.handlers import (
 
 LOG_RECORD_NAME = "keycloak-operator"
 _KOPF_LOGGER_PREFIX = "kopf"
+_KOPF_OBJECTS_LOGGER_NAME = "kopf.objects"
 logger = logging.getLogger(LOG_RECORD_NAME)
 
 REGISTERED_HANDLER_MODULES = (
@@ -58,6 +59,7 @@ class OperatorLogRecordNameFilter(logging.Filter):
 
 
 def _configure_log_record_names() -> None:
+    logging.getLogger(_KOPF_OBJECTS_LOGGER_NAME).setLevel(logging.WARNING)
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
         if not any(
