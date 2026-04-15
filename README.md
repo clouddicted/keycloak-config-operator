@@ -2,6 +2,8 @@
 
 Minimal Kopf-based Kubernetes operator for managing Keycloak configuration.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release flow.
+
 ## Development
 
 Create a local environment and install the project:
