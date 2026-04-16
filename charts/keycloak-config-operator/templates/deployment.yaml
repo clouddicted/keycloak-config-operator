@@ -44,7 +44,14 @@ spec:
             - run
             - -m
             - clouddicted_keycloak_config_operator.main
+            {{- if .Values.watchNamespaces }}
+            {{- range .Values.watchNamespaces }}
+            - --namespace
+            - {{ . | quote }}
+            {{- end }}
+            {{- else }}
             - --all-namespaces
+            {{- end }}
             {{- with .Values.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -12,4 +12,5 @@ RUN useradd --uid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sb
 
 USER 10001
 
-ENTRYPOINT ["kopf", "run", "-m", "clouddicted_keycloak_config_operator.main", "--all-namespaces"]
+ENTRYPOINT ["kopf", "run", "-m", "clouddicted_keycloak_config_operator.main"]
+CMD ["--all-namespaces"]

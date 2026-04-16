@@ -64,6 +64,20 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 ```
 
 The Helm chart installs CRDs from `charts/keycloak-config-operator/crds`.
+By default, the operator watches Keycloak resources in all namespaces. To restrict
+the watch scope, set `watchNamespaces`:
+
+```bash
+helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --create-namespace \
+  --set 'watchNamespaces[0]=team-a' \
+  --set 'watchNamespaces[1]=team-b'
+```
+
+When `watchNamespaces` is set, the chart creates namespace-scoped RBAC in each
+listed namespace. Those namespaces must already exist or be managed separately.
+
 For a local kind image, load the image into kind and install with the same tag:
 
 ```bash
@@ -84,6 +98,10 @@ kubectl -n keycloak-config-operator-system set image \
   deployment/keycloak-config-operator \
   manager=<your-operator-image>
 ```
+
+For the plain Kubernetes manifests, all namespaces are watched by default. To
+restrict the scope, replace the Deployment `--all-namespaces` argument with
+repeated `--namespace <namespace>` arguments.
 
 Create Keycloak admin credentials before applying a `KeycloakTarget`:
 

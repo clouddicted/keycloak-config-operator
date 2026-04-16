@@ -74,7 +74,11 @@ jobs:
         run: helm lint "$CHART_PATH"
 
       - name: Render chart
-        run: helm template keycloak-config-operator "$CHART_PATH" --include-crds
+        run: |
+          helm template keycloak-config-operator "$CHART_PATH" --include-crds
+          helm template keycloak-config-operator "$CHART_PATH" \
+            --set 'watchNamespaces[0]=team-a' \
+            --set 'watchNamespaces[1]=team-b'
 
       - name: Package chart
         run: |

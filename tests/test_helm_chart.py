@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,7 @@ def test_helm_values_default_to_operator_installation() -> None:
     assert values["serviceAccount"]["create"] is True
     assert values["serviceAccount"]["automount"] is True
     assert values["rbac"]["create"] is True
+    assert values["watchNamespaces"] == []
     assert values["podSecurityContext"] == {
         "runAsNonRoot": True,
         "seccompProfile": {"type": "RuntimeDefault"},
@@ -43,6 +45,16 @@ def test_helm_values_default_to_operator_installation() -> None:
         "allowPrivilegeEscalation": False,
         "capabilities": {"drop": ["ALL"]},
     }
+
+
+def test_helm_values_schema_validates_watch_namespaces() -> None:
+    schema = json.loads((CHART_DIR / "values.schema.json").read_text())
+    watch_namespaces = schema["properties"]["watchNamespaces"]
+
+    assert watch_namespaces["type"] == "array"
+    assert watch_namespaces["default"] == []
+    assert watch_namespaces["uniqueItems"] is True
+    assert watch_namespaces["items"] == {"type": "string", "minLength": 1}
 
 
 def test_helm_chart_packages_current_crds() -> None:
@@ -79,10 +91,23 @@ def test_helm_deployment_template_runs_kopf_operator() -> None:
     assert "- kopf" in deployment_template
     assert "- clouddicted_keycloak_config_operator.main" in deployment_template
     assert "- --all-namespaces" in deployment_template
+    assert "range .Values.watchNamespaces" in deployment_template
+    assert "- --namespace" in deployment_template
     assert "name: PYTHONUNBUFFERED" in deployment_template
     assert "containerPort" not in deployment_template
     assert "livenessProbe" not in deployment_template
     assert "readinessProbe" not in deployment_template
+
+
+def test_helm_rbac_template_limits_selected_namespace_permissions() -> None:
+    rbac_template = (CHART_DIR / "templates" / "rbac.yaml").read_text()
+
+    assert "if not .Values.watchNamespaces" in rbac_template
+    assert "range $namespace := .Values.watchNamespaces" in rbac_template
+    assert "kind: ClusterRole" in rbac_template
+    assert "customresourcedefinitions" in rbac_template
+    assert "kind: Role" in rbac_template
+    assert "kind: RoleBinding" in rbac_template
 
 
 def _load_one(path: Path) -> dict[str, Any]:

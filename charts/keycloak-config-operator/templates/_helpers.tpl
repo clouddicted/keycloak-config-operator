@@ -61,3 +61,62 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Rules for namespace-scoped objects managed by the operator.
+*/}}
+{{- define "keycloak-config-operator.namespacedRules" -}}
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+- apiGroups:
+    - keycloak.clouddicted.com
+  resources:
+    - keycloaktargets
+    - keycloakrealms
+    - keycloakclients
+    - keycloakroles
+    - keycloakclientscopes
+    - keycloakprotocolmappers
+  verbs:
+    - get
+    - list
+    - watch
+    - patch
+    - update
+- apiGroups:
+    - keycloak.clouddicted.com
+  resources:
+    - keycloaktargets/status
+    - keycloakrealms/status
+    - keycloakclients/status
+    - keycloakroles/status
+    - keycloakclientscopes/status
+    - keycloakprotocolmappers/status
+  verbs:
+    - get
+    - patch
+    - update
+- apiGroups:
+    - keycloak.clouddicted.com
+  resources:
+    - keycloaktargets/finalizers
+    - keycloakrealms/finalizers
+    - keycloakclients/finalizers
+    - keycloakroles/finalizers
+    - keycloakclientscopes/finalizers
+    - keycloakprotocolmappers/finalizers
+  verbs:
+    - patch
+    - update
+{{- end }}

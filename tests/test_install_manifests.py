@@ -86,6 +86,16 @@ def test_deployment_uses_kopf_module_entrypoint() -> None:
     assert container["args"] == OPERATOR_ARGS
 
 
+def test_dockerfile_defaults_to_all_namespaces_with_overridable_args() -> None:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+
+    assert (
+        'ENTRYPOINT ["kopf", "run", "-m", '
+        '"clouddicted_keycloak_config_operator.main"]'
+    ) in dockerfile
+    assert 'CMD ["--all-namespaces"]' in dockerfile
+
+
 def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:
     rules = _cluster_role()["rules"]
 
