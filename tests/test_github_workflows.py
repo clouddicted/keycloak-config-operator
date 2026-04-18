@@ -32,6 +32,8 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     assert "python tests/kind/e2e.py prepare" in _job_run_commands(jobs["kind"])
     assert "python tests/kind/e2e.py test" in _job_run_commands(jobs["kind"])
     assert "kind delete cluster" in _job_run_commands(jobs["kind"])
+    assert "if" not in jobs["kind"]
+    assert jobs["kind"]["needs"] == ["python", "helm", "image"]
 
 
 def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
@@ -40,6 +42,7 @@ def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
     uses = _job_uses(release)
 
     assert release["if"] == "github.event_name == 'push' && github.ref_type == 'tag'"
+    assert release["needs"] == ["python", "helm", "image", "kind"]
     assert release["permissions"] == {"contents": "write", "packages": "write"}
     assert "docker/login-action@v3" in uses
     assert "docker/build-push-action@v6" in uses
@@ -55,6 +58,9 @@ def test_contributing_documents_minimal_gitflow_and_local_file_rules() -> None:
     assert "`feature/<short-name>`" in text
     assert "`hotfix/<short-name>`" in text
     assert "`chore/<short-name>`" in text
+    assert "Wait for the CI workflow on `main` to pass" in text
+    assert "including the `kind e2e tests` job" in text
+    assert "Protect `develop` and `main` in GitHub" in text
     assert "Never commit `internal/` or `.codex`" in text
     assert "Do not add them to `.gitignore`" in text
 

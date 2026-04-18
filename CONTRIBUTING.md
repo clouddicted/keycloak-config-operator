@@ -46,17 +46,22 @@ Docker image behavior, or Helm chart installation:
 Product iterations are Git tags created from `main`.
 
 1. Merge `develop` to `main`.
-2. Keep `pyproject.toml`, `charts/keycloak-config-operator/Chart.yaml`, and the operator image references aligned with the release version.
-3. Create and push a semver tag:
+2. Wait for the CI workflow on `main` to pass, including the `kind e2e tests` job.
+3. Keep `pyproject.toml`, `charts/keycloak-config-operator/Chart.yaml`, and the operator image references aligned with the release version.
+4. Create and push a semver tag from the green `main` commit:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The tag workflow runs linting, unit tests, Helm checks, the kind e2e suite, publishes
-the operator image to GitHub Container Registry, packages the Helm chart, and attaches
-the chart package to the GitHub Release.
+The tag workflow repeats linting, unit tests, Helm checks, and the kind e2e suite
+before publishing. If the tag workflow fails, fix the issue on a branch, merge through
+`develop` and `main`, wait for `main` CI to pass again, then create a new tag.
+
+Protect `develop` and `main` in GitHub so pull requests cannot merge until the CI
+workflow passes. At minimum, require the `Python lint and tests`, `Helm lint and
+package`, `Container image build`, and `kind e2e tests` jobs.
 
 ## Local Files
 
