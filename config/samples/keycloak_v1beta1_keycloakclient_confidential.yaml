@@ -6,7 +6,7 @@ type: Opaque
 stringData:
   clientSecret: not-a-production-secret
 ---
-apiVersion: keycloak.clouddicted.com/v1alpha1
+apiVersion: keycloak.clouddicted.com/v1beta1
 kind: KeycloakClient
 metadata:
   name: example-service

@@ -49,6 +49,8 @@ Run the operator locally:
 
 ## Local Kubernetes Install
 
+The `v0.1.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
+
 Install the CRDs, RBAC, ServiceAccount, and Deployment:
 
 ```bash

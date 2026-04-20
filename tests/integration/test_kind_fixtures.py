@@ -34,17 +34,17 @@ PROTOCOL_MAPPER_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakprotocolmappers.yaml"
 )
 ROLE_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakroles.yaml"
-REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrealm.yaml"
-CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient.yaml"
+REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakrealm.yaml"
+CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient.yaml"
 CLIENT_SCOPE_SAMPLE = (
-    REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclientscope.yaml"
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientscope.yaml"
 )
 PROTOCOL_MAPPER_SAMPLE = (
-    REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakprotocolmapper.yaml"
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakprotocolmapper.yaml"
 )
-ROLE_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakrole.yaml"
+ROLE_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakrole.yaml"
 CONFIDENTIAL_CLIENT_SAMPLE = (
-    REPO_ROOT / "config" / "samples" / "keycloak_v1alpha1_keycloakclient_confidential.yaml"
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient_confidential.yaml"
 )
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CLUSTER_NAME = os.getenv("KIND_CLUSTER_NAME", "clouddicted-keycloak-config-operator-it")
@@ -532,7 +532,7 @@ def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
 
 def _keycloak_target() -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakTarget",
         "metadata": {"name": TARGET_NAME, "namespace": NAMESPACE},
         "spec": {
@@ -550,7 +550,7 @@ def _keycloak_target() -> dict[str, Any]:
 
 def _keycloak_realm(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakRealm",
         "metadata": {"name": "example-realm", "namespace": NAMESPACE},
         "spec": {
@@ -563,7 +563,7 @@ def _keycloak_realm(realm: str) -> dict[str, Any]:
 
 def _keycloak_client_scope(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakClientScope",
         "metadata": {"name": CLIENT_SCOPE_NAME, "namespace": NAMESPACE},
         "spec": {
@@ -577,7 +577,7 @@ def _keycloak_client_scope(realm: str) -> dict[str, Any]:
 
 def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakProtocolMapper",
         "metadata": {"name": "example-profile-email", "namespace": NAMESPACE},
         "spec": {
@@ -603,7 +603,7 @@ def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
 
 def _keycloak_role(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakRole",
         "metadata": {"name": ROLE_NAME, "namespace": NAMESPACE},
         "spec": {
@@ -617,7 +617,7 @@ def _keycloak_role(realm: str) -> dict[str, Any]:
 
 def _keycloak_public_client(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakClient",
         "metadata": {"name": PUBLIC_CLIENT_ID, "namespace": NAMESPACE},
         "spec": {
@@ -644,7 +644,7 @@ def _confidential_client_secret() -> dict[str, Any]:
 
 def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
     return {
-        "apiVersion": "keycloak.clouddicted.com/v1alpha1",
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakClient",
         "metadata": {"name": CONFIDENTIAL_CLIENT_ID, "namespace": NAMESPACE},
         "spec": {

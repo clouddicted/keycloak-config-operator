@@ -5,6 +5,7 @@ import yaml
 
 from clouddicted_keycloak_config_operator.constants import (
     API_GROUP,
+    API_VERSION,
     KEYCLOAK_CLIENT_PLURAL,
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,
@@ -62,6 +63,24 @@ def test_crd_and_sample_kustomizations_reference_existing_files() -> None:
         assert kustomization["resources"]
         for resource in kustomization["resources"]:
             assert (path.parent / resource).exists()
+
+
+def test_public_manifests_use_beta_api_version() -> None:
+    assert API_VERSION == "v1beta1"
+    old_api_version = "v1" + "alpha1"
+    old_sample_prefix = "keycloak_v1" + "alpha1"
+
+    checked_paths = [
+        *CONFIG_DIR.rglob("*.yaml"),
+        *(REPO_ROOT / "charts" / "keycloak-config-operator" / "crds").rglob("*.yaml"),
+        *(REPO_ROOT / "tests" / "fixtures").rglob("*.yaml"),
+        REPO_ROOT / "tests" / "integration" / "test_kind_fixtures.py",
+    ]
+
+    for path in checked_paths:
+        text = path.read_text()
+        assert old_api_version not in text
+        assert old_sample_prefix not in text
 
 
 def test_deployment_uses_kopf_module_entrypoint() -> None:

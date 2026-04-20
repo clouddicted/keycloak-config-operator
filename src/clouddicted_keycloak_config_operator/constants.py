@@ -2,7 +2,7 @@
 
 OPERATOR_NAME = "clouddicted-keycloak-config-operator"
 API_GROUP = "keycloak.clouddicted.com"
-API_VERSION = "v1alpha1"
+API_VERSION = "v1beta1"
 KEYCLOAK_CLIENT_SCOPE_PLURAL = "keycloakclientscopes"
 KEYCLOAK_CLIENT_PLURAL = "keycloakclients"
 KEYCLOAK_PROTOCOL_MAPPER_PLURAL = "keycloakprotocolmappers"
