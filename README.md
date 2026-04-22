@@ -3,6 +3,9 @@
 Minimal Kopf-based Kubernetes operator for managing Keycloak configuration.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release flow.
+See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions and
+[docs/configuration-support.md](docs/configuration-support.md) for supported
+configuration entities and fields.
 
 ## Development
 

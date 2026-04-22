@@ -23,7 +23,11 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     jobs = workflow["jobs"]
 
     assert workflow["env"]["IMAGE_NAME"] == "ghcr.io/clouddicted/keycloak-config-operator"
-    assert {"python", "helm", "image", "kind", "release"} <= set(jobs)
+    assert {"python", "helm", "image", "kind", "keycloak-compatibility", "release"} <= set(
+        jobs,
+    )
+    assert workflow["env"]["KEYCLOAK_VERSION"] == "26.6.2"
+    assert workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"] == "26.5.3"
     assert "ruff check ." in _job_run_commands(jobs["python"])
     assert "pytest" in _job_run_commands(jobs["python"])
     assert "python -m build" in _job_run_commands(jobs["python"])
@@ -34,6 +38,21 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     assert "kind delete cluster" in _job_run_commands(jobs["kind"])
     assert "if" not in jobs["kind"]
     assert jobs["kind"]["needs"] == ["python", "helm", "image"]
+    assert jobs["keycloak-compatibility"]["if"] == (
+        "github.event_name == 'workflow_dispatch' || "
+        "(github.event_name == 'push' && github.ref_type == 'tag')"
+    )
+    assert jobs["keycloak-compatibility"]["strategy"]["matrix"]["keycloak-version"] == [
+        workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"],
+    ]
+    assert _step_env(
+        jobs["keycloak-compatibility"],
+        "Prepare kind cluster",
+    )["KEYCLOAK_VERSION"] == "${{ matrix.keycloak-version }}"
+    assert _step_env(
+        jobs["keycloak-compatibility"],
+        "Run kind tests",
+    )["KEYCLOAK_VERSION"] == "${{ matrix.keycloak-version }}"
 
 
 def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
@@ -42,7 +61,7 @@ def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
     uses = _job_uses(release)
 
     assert release["if"] == "github.event_name == 'push' && github.ref_type == 'tag'"
-    assert release["needs"] == ["python", "helm", "image", "kind"]
+    assert release["needs"] == ["python", "helm", "image", "kind", "keycloak-compatibility"]
     assert release["permissions"] == {"contents": "write", "packages": "write"}
     assert "docker/login-action@v3" in uses
     assert "docker/build-push-action@v6" in uses
@@ -87,3 +106,13 @@ def _job_uses(job: dict[str, Any]) -> set[str]:
         for step in job["steps"]
         if isinstance(step, dict) and isinstance(step.get("uses"), str)
     }
+
+
+def _step_env(job: dict[str, Any], name: str) -> dict[str, str]:
+    for step in job["steps"]:
+        if isinstance(step, dict) and step.get("name") == name:
+            env = step.get("env")
+            assert isinstance(env, dict)
+            return env
+
+    raise AssertionError(f"step {name!r} was not found")

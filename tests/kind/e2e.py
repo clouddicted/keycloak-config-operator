@@ -75,10 +75,13 @@ def prepare() -> None:
             ["kubectl", "apply", "-f", str(e2e.FIXTURES / "keycloak-admin-secret.yaml")],
             env=env,
         )
-        e2e._run(["kubectl", "apply", "-f", str(e2e.FIXTURES / "keycloak.yaml")], env=env)
+        e2e._apply_keycloak_fixture(env)
         e2e._wait_for_deployment(env, e2e.NAMESPACE, "keycloak")
 
-    print(f"Prepared kind cluster {e2e.CLUSTER_NAME!r} with image {e2e.OPERATOR_IMAGE!r}.")
+    print(
+        f"Prepared kind cluster {e2e.CLUSTER_NAME!r} with operator image "
+        f"{e2e.OPERATOR_IMAGE!r} and Keycloak {e2e.KEYCLOAK_VERSION!r}."
+    )
     print(f"Inspect it with: kubectl --context kind-{e2e.CLUSTER_NAME} get pods -A")
 
 
@@ -92,6 +95,7 @@ def run_tests(pytest_args: Sequence[str]) -> None:
         "RUN_KIND_INTEGRATION": "1",
         "KIND_CLUSTER_NAME": e2e.CLUSTER_NAME,
         "KIND_OPERATOR_IMAGE": e2e.OPERATOR_IMAGE,
+        "KEYCLOAK_VERSION": e2e.KEYCLOAK_VERSION,
     }
     raise SystemExit(subprocess.run([sys.executable, "-m", "pytest", *args], env=env).returncode)
 

@@ -55,6 +55,9 @@ OPERATOR_IMAGE = os.getenv(
     "KIND_OPERATOR_IMAGE",
     "clouddicted-keycloak-config-operator:e2e",
 )
+DEFAULT_KEYCLOAK_VERSION = "26.6.2"
+KEYCLOAK_VERSION = os.getenv("KEYCLOAK_VERSION", DEFAULT_KEYCLOAK_VERSION)
+KEYCLOAK_IMAGE = f"quay.io/keycloak/keycloak:{KEYCLOAK_VERSION}"
 TARGET_NAME = "example-keycloak"
 KEYCLOAK_USERNAME = "fixture-admin"
 KEYCLOAK_PASSWORD = "fixture-password"
@@ -386,6 +389,23 @@ def _apply_operator_install(env: dict[str, str], image: str) -> None:
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     container["image"] = image
     container["imagePullPolicy"] = "Never"
+
+    _run_with_input(
+        ["kubectl", "apply", "-f", "-"],
+        env=env,
+        input_text=yaml.safe_dump_all(documents, sort_keys=False),
+    )
+
+
+def _apply_keycloak_fixture(env: dict[str, str]) -> None:
+    documents = [
+        document
+        for document in yaml.safe_load_all((FIXTURES / "keycloak.yaml").read_text())
+        if isinstance(document, dict)
+    ]
+    deployment = _document_by_kind(documents, "Deployment", "keycloak")
+    [container] = deployment["spec"]["template"]["spec"]["containers"]
+    container["image"] = KEYCLOAK_IMAGE
 
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],

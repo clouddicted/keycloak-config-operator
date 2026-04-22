@@ -41,6 +41,10 @@ Docker image behavior, or Helm chart installation:
 .venv/bin/python tests/kind/e2e.py cleanup
 ```
 
+When changing CRD fields or reconciliation behavior, update
+`docs/configuration-support.md` in the same commit. When changing the tested
+Keycloak version or release support policy, update `docs/compatibility.md`.
+
 ## Releases
 
 Product iterations are Git tags created from `main`.

@@ -27,6 +27,8 @@ env:
   KUBECTL_VERSION: "v1.35.0"
   CHART_PATH: charts/keycloak-config-operator
   IMAGE_NAME: ghcr.io/clouddicted/keycloak-config-operator
+  KEYCLOAK_VERSION: "26.6.2"
+  KEYCLOAK_COMPATIBILITY_VERSION: "26.5.3"
 
 jobs:
   python:
@@ -160,9 +162,80 @@ jobs:
           kubectl version --client=true
 
       - name: Prepare kind cluster
+        env:
+          KEYCLOAK_VERSION: ${{ env.KEYCLOAK_VERSION }}
         run: python tests/kind/e2e.py prepare
 
       - name: Run kind tests
+        env:
+          KEYCLOAK_VERSION: ${{ env.KEYCLOAK_VERSION }}
+        run: python tests/kind/e2e.py test
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          kubectl --context kind-clouddicted-keycloak-config-operator-it get pods -A || true
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            -n keycloak-config-operator-system \
+            logs deployment/keycloak-config-operator || true
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            -n keycloak-operator-test \
+            logs deployment/keycloak || true
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name clouddicted-keycloak-config-operator-it || true
+
+  keycloak-compatibility:
+    name: Keycloak compatibility e2e tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')
+    needs:
+      - python
+      - helm
+      - image
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak-version:
+          - "26.5.3"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install kind and kubectl
+        run: |
+          curl -fsSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+
+          curl -fsSLo kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+          kind version
+          kubectl version --client=true
+
+      - name: Prepare kind cluster
+        env:
+          KEYCLOAK_VERSION: ${{ matrix.keycloak-version }}
+        run: python tests/kind/e2e.py prepare
+
+      - name: Run kind tests
+        env:
+          KEYCLOAK_VERSION: ${{ matrix.keycloak-version }}
         run: python tests/kind/e2e.py test
 
       - name: Collect diagnostics
@@ -190,6 +263,7 @@ jobs:
       - helm
       - image
       - kind
+      - keycloak-compatibility
     permissions:
       contents: write
       packages: write
