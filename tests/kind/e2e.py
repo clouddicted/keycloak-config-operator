@@ -42,10 +42,12 @@ def main() -> None:
 
 
 def prepare() -> None:
+    _log(f"preparing kind e2e environment for cluster {e2e.CLUSTER_NAME!r}")
     _require_tools(("docker", "kind", "kubectl"))
 
     if e2e.CLUSTER_NAME not in _kind_clusters():
-        e2e._run(
+        _run_step(
+            "create kind cluster",
             [
                 "kind",
                 "create",
@@ -58,38 +60,52 @@ def prepare() -> None:
             env=os.environ.copy(),
         )
     else:
-        e2e._run(
+        _run_step(
+            "reuse existing kind cluster",
             ["kind", "export", "kubeconfig", "--name", e2e.CLUSTER_NAME],
             env=os.environ.copy(),
         )
 
     with _cluster_env() as env:
+        _log(f"building operator image {e2e.OPERATOR_IMAGE!r}")
         e2e._build_operator_image(e2e.OPERATOR_IMAGE)
+        _log(f"loading operator image {e2e.OPERATOR_IMAGE!r} into kind")
         e2e._load_operator_image(env, e2e.OPERATOR_IMAGE)
+        _log("installing operator manifests")
         e2e._apply_operator_install(env, e2e.OPERATOR_IMAGE)
+        _log("waiting for CRDs")
         e2e._wait_for_crds(env)
+        _log("waiting for operator deployment")
         e2e._wait_for_deployment(env, e2e.OPERATOR_NAMESPACE, e2e.OPERATOR_DEPLOYMENT)
 
-        e2e._run(["kubectl", "apply", "-f", str(e2e.FIXTURES / "namespace.yaml")], env=env)
-        e2e._run(
+        _run_step(
+            "apply e2e namespace",
+            ["kubectl", "apply", "-f", str(e2e.FIXTURES / "namespace.yaml")],
+            env=env,
+        )
+        _run_step(
+            "apply Keycloak admin credentials",
             ["kubectl", "apply", "-f", str(e2e.FIXTURES / "keycloak-admin-secret.yaml")],
             env=env,
         )
+        _log(f"deploying Keycloak fixture {e2e.KEYCLOAK_IMAGE!r}")
         e2e._apply_keycloak_fixture(env)
+        _log("waiting for Keycloak deployment")
         e2e._wait_for_deployment(env, e2e.NAMESPACE, "keycloak")
 
-    print(
+    _log(
         f"Prepared kind cluster {e2e.CLUSTER_NAME!r} with operator image "
         f"{e2e.OPERATOR_IMAGE!r} and Keycloak {e2e.KEYCLOAK_VERSION!r}."
     )
-    print(f"Inspect it with: kubectl --context kind-{e2e.CLUSTER_NAME} get pods -A")
+    _log(f"Inspect it with: kubectl --context kind-{e2e.CLUSTER_NAME} get pods -A")
 
 
 def run_tests(pytest_args: Sequence[str]) -> None:
+    _log(f"running kind e2e tests against cluster {e2e.CLUSTER_NAME!r}")
     _require_tools(("kind", "kubectl"))
     _require_cluster()
 
-    args = list(pytest_args) or ["tests/integration/test_kind_fixtures.py", "-q"]
+    args = list(pytest_args) or ["tests/integration/test_kind_fixtures.py", "-vv", "-s"]
     env = {
         **os.environ,
         "RUN_KIND_INTEGRATION": "1",
@@ -97,13 +113,21 @@ def run_tests(pytest_args: Sequence[str]) -> None:
         "KIND_OPERATOR_IMAGE": e2e.OPERATOR_IMAGE,
         "KEYCLOAK_VERSION": e2e.KEYCLOAK_VERSION,
     }
-    raise SystemExit(subprocess.run([sys.executable, "-m", "pytest", *args], env=env).returncode)
+    command = [sys.executable, "-m", "pytest", *args]
+    _log_command(command)
+    raise SystemExit(subprocess.run(command, env=env).returncode)
 
 
 def cleanup() -> None:
+    _log(f"deleting kind e2e cluster {e2e.CLUSTER_NAME!r}")
     _require_tools(("kind",))
     _require_cluster()
-    e2e._run(["kind", "delete", "cluster", "--name", e2e.CLUSTER_NAME], env=os.environ.copy())
+    _run_step(
+        "delete kind cluster",
+        ["kind", "delete", "cluster", "--name", e2e.CLUSTER_NAME],
+        env=os.environ.copy(),
+    )
+    _log("cleanup complete")
 
 
 @contextlib.contextmanager
@@ -111,7 +135,8 @@ def _cluster_env() -> Iterator[dict[str, str]]:
     with tempfile.TemporaryDirectory() as directory:
         kubeconfig = Path(directory) / "kubeconfig"
         env = {**os.environ, "KUBECONFIG": str(kubeconfig)}
-        e2e._run(
+        _run_step(
+            "export kind kubeconfig",
             [
                 "kind",
                 "export",
@@ -131,6 +156,25 @@ def _require_cluster() -> None:
         raise SystemExit(
             f"kind cluster {e2e.CLUSTER_NAME!r} was not found; run `prepare` first."
         )
+
+
+def _run_step(
+    label: str,
+    args: list[str],
+    *,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    _log(label)
+    _log_command(args)
+    return e2e._run(args, env=env)
+
+
+def _log_command(args: Sequence[str]) -> None:
+    print(f"+ {' '.join(args)}", flush=True)
+
+
+def _log(message: str) -> None:
+    print(f"[kind-e2e] {message}", flush=True)
 
 
 def _kind_clusters() -> set[str]:

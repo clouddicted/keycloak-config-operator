@@ -273,23 +273,29 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
 def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, str]) -> None:
     realm = f"e2e-{int(time.time())}"
 
+    _log(f"starting Keycloak reconciliation e2e with realm {realm!r}")
+    _log("waiting for CRDs, operator, and Keycloak")
     _wait_for_crds(kind_cluster_env)
     _wait_for_deployment(kind_cluster_env, OPERATOR_NAMESPACE, OPERATOR_DEPLOYMENT)
     _assert_operator_uses_loaded_image(kind_cluster_env, OPERATOR_IMAGE)
     _wait_for_deployment(kind_cluster_env, NAMESPACE, "keycloak")
 
     with _port_forward_keycloak(kind_cluster_env) as keycloak_url:
+        _log("applying KeycloakTarget")
         _apply_document(kind_cluster_env, _keycloak_target())
         _wait_for_ready(kind_cluster_env, "keycloaktargets", TARGET_NAME)
 
+        _log("applying KeycloakRealm")
         _apply_document(kind_cluster_env, _keycloak_realm(realm))
         _wait_for_ready(kind_cluster_env, "keycloakrealms", "example-realm")
         _eventually(lambda: _assert_realm(keycloak_url, realm))
 
+        _log("applying KeycloakClientScope")
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclientscopes", CLIENT_SCOPE_NAME)
         _eventually(lambda: _assert_client_scope(keycloak_url, realm))
 
+        _log("applying KeycloakProtocolMapper")
         _apply_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
         _wait_for_ready(
             kind_cluster_env,
@@ -298,14 +304,17 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         )
         _eventually(lambda: _assert_protocol_mapper(keycloak_url, realm))
 
+        _log("applying KeycloakRole")
         _apply_document(kind_cluster_env, _keycloak_role(realm))
         _wait_for_ready(kind_cluster_env, "keycloakroles", ROLE_NAME)
         _eventually(lambda: _assert_role(keycloak_url, realm))
 
+        _log("applying public KeycloakClient")
         _apply_document(kind_cluster_env, _keycloak_public_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", PUBLIC_CLIENT_ID)
         _eventually(lambda: _assert_public_client(keycloak_url, realm))
 
+        _log("applying confidential KeycloakClient")
         _apply_document(kind_cluster_env, _confidential_client_secret())
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", CONFIDENTIAL_CLIENT_ID)
@@ -839,6 +848,10 @@ def _kind_clusters(env: dict[str, str]) -> set[str]:
 def _require_tool(name: str) -> None:
     if shutil.which(name) is None:
         pytest.skip(f"{name} is required for kind integration tests")
+
+
+def _log(message: str) -> None:
+    print(f"[kind-e2e] {message}", flush=True)
 
 
 def _run(args: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
