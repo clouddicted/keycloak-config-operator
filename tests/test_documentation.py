@@ -22,6 +22,19 @@ def test_readme_links_compatibility_and_configuration_support_docs() -> None:
     assert "[docs/configuration-support.md](docs/configuration-support.md)" in readme
 
 
+def test_readme_shows_ci_and_version_badges() -> None:
+    readme = README.read_text()
+
+    assert (
+        "[![CI](https://github.com/clouddicted/keycloak-config-operator/"
+        "actions/workflows/ci.yml/badge.svg)]"
+    ) in readme
+    assert (
+        "[![Version](https://img.shields.io/github/v/tag/"
+        "clouddicted/keycloak-config-operator?sort=semver&label=version)]"
+    ) in readme
+
+
 def test_configuration_support_documents_every_crd_spec_field() -> None:
     text = CONFIGURATION_SUPPORT_DOC.read_text()
 

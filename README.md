@@ -1,5 +1,8 @@
 # Keycloak Config Operator
 
+[![CI](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/clouddicted/keycloak-config-operator?sort=semver&label=version)](https://github.com/clouddicted/keycloak-config-operator/tags)
+
 Minimal Kopf-based Kubernetes operator for managing Keycloak configuration.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release flow.
