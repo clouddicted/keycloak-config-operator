@@ -23,9 +23,16 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     jobs = workflow["jobs"]
 
     assert workflow["env"]["IMAGE_NAME"] == "ghcr.io/clouddicted/keycloak-config-operator"
-    assert {"python", "helm", "image", "kind", "keycloak-compatibility", "release"} <= set(
-        jobs,
-    )
+    assert {
+        "python",
+        "helm",
+        "docs",
+        "pages",
+        "image",
+        "kind",
+        "keycloak-compatibility",
+        "release",
+    } <= set(jobs)
     assert workflow["env"]["KEYCLOAK_VERSION"] == "26.6.2"
     assert workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"] == "26.5.3"
     assert "ruff check ." in _job_run_commands(jobs["python"])
@@ -33,15 +40,28 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     assert "python -m build" in _job_run_commands(jobs["python"])
     assert 'helm lint "$CHART_PATH"' in _job_run_commands(jobs["helm"])
     assert "helm template keycloak-config-operator" in _job_run_commands(jobs["helm"])
+    assert 'python -m pip install -e ".[docs]"' in _job_run_commands(jobs["docs"])
+    assert "mkdocs build --strict" in _job_run_commands(jobs["docs"])
+    assert "actions/upload-pages-artifact@v3" in _job_uses(jobs["docs"])
+    assert jobs["pages"]["if"] == (
+        "github.ref == 'refs/heads/main' && "
+        "(github.event_name == 'push' || github.event_name == 'workflow_dispatch')"
+    )
+    assert jobs["pages"]["needs"] == ["docs"]
+    assert jobs["pages"]["permissions"] == {"pages": "write", "id-token": "write"}
+    assert jobs["pages"]["environment"]["name"] == "github-pages"
+    assert "actions/configure-pages@v5" in _job_uses(jobs["pages"])
+    assert "actions/deploy-pages@v4" in _job_uses(jobs["pages"])
     assert "python tests/kind/e2e.py prepare" in _job_run_commands(jobs["kind"])
     assert "python tests/kind/e2e.py test" in _job_run_commands(jobs["kind"])
     assert "kind delete cluster" in _job_run_commands(jobs["kind"])
     assert "if" not in jobs["kind"]
-    assert jobs["kind"]["needs"] == ["python", "helm", "image"]
+    assert jobs["kind"]["needs"] == ["python", "helm", "docs", "image"]
     assert jobs["keycloak-compatibility"]["if"] == (
         "github.event_name == 'workflow_dispatch' || "
         "(github.event_name == 'push' && github.ref_type == 'tag')"
     )
+    assert jobs["keycloak-compatibility"]["needs"] == ["python", "helm", "docs", "image"]
     assert jobs["keycloak-compatibility"]["strategy"]["matrix"]["keycloak-version"] == [
         workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"],
     ]
@@ -61,7 +81,14 @@ def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
     uses = _job_uses(release)
 
     assert release["if"] == "github.event_name == 'push' && github.ref_type == 'tag'"
-    assert release["needs"] == ["python", "helm", "image", "kind", "keycloak-compatibility"]
+    assert release["needs"] == [
+        "python",
+        "helm",
+        "docs",
+        "image",
+        "kind",
+        "keycloak-compatibility",
+    ]
     assert release["permissions"] == {"contents": "write", "packages": "write"}
     assert "docker/login-action@v3" in uses
     assert "docker/build-push-action@v6" in uses

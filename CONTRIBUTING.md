@@ -23,11 +23,14 @@ ci(scope): update automation
 chore(scope): maintain tooling
 ```
 
-Run checks before opening a pull request:
+Install development and documentation dependencies, then run checks before opening
+a pull request:
 
 ```bash
+.venv/bin/python -m pip install -e ".[dev,docs]"
 .venv/bin/ruff check .
 .venv/bin/pytest
+mkdocs build --strict
 helm lint charts/keycloak-config-operator
 helm template keycloak-config-operator charts/keycloak-config-operator --include-crds
 ```
@@ -65,7 +68,7 @@ before publishing. If the tag workflow fails, fix the issue on a branch, merge t
 
 Protect `develop` and `main` in GitHub so pull requests cannot merge until the CI
 workflow passes. At minimum, require the `Python lint and tests`, `Helm lint and
-package`, `Container image build`, and `kind e2e tests` jobs.
+package`, `Docs build`, `Container image build`, and `kind e2e tests` jobs.
 
 ## Local Files
 
