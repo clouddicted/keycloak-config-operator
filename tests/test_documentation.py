@@ -10,6 +10,7 @@ COMPATIBILITY_DOC = REPO_ROOT / "docs" / "compatibility.md"
 CONFIGURATION_SUPPORT_DOC = REPO_ROOT / "docs" / "configuration-support.md"
 README = REPO_ROOT / "README.md"
 CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
+SECURITY = REPO_ROOT / "SECURITY.md"
 KEYCLOAK_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "keycloak.yaml"
 KIND_FIXTURES_MODULE = REPO_ROOT / "tests" / "integration" / "test_kind_fixtures.py"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -49,6 +50,16 @@ def test_contributing_requires_support_docs_for_contract_changes() -> None:
 
     assert "`docs/configuration-support.md`" in text
     assert "`docs/compatibility.md`" in text
+
+
+def test_security_policy_documents_reporting_and_supported_versions() -> None:
+    text = SECURITY.read_text()
+
+    assert "Do not open a public issue" in text
+    assert "security/advisories/new" in text
+    assert "`0.1.x`" in text
+    assert "Kubernetes Secrets" in text
+    assert "namespace watch scope" in text
 
 
 def test_compatibility_doc_matches_ci_and_kind_fixture_versions() -> None:
