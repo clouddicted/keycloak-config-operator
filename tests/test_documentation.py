@@ -1,4 +1,5 @@
 import ast
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,9 @@ CONFIGURATION_SUPPORT_DOC = REPO_ROOT / "docs" / "configuration-support.md"
 README = REPO_ROOT / "README.md"
 CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
 SECURITY = REPO_ROOT / "SECURITY.md"
+LICENSE = REPO_ROOT / "LICENSE"
+NOTICE = REPO_ROOT / "NOTICE"
+PYPROJECT = REPO_ROOT / "pyproject.toml"
 KEYCLOAK_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "keycloak.yaml"
 KIND_FIXTURES_MODULE = REPO_ROOT / "tests" / "integration" / "test_kind_fixtures.py"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -60,6 +64,26 @@ def test_security_policy_documents_reporting_and_supported_versions() -> None:
     assert "`0.1.x`" in text
     assert "Kubernetes Secrets" in text
     assert "namespace watch scope" in text
+
+
+def test_license_notice_and_package_metadata_are_aligned() -> None:
+    readme = README.read_text()
+    license_text = LICENSE.read_text()
+    notice = NOTICE.read_text()
+    pyproject = tomllib.loads(PYPROJECT.read_text())
+
+    assert "Apache License" in license_text
+    assert "Version 2.0" in license_text
+    assert "Copyright 2026 Clouddicted" in license_text
+    assert "Keycloak Config Operator" in notice
+    assert "Copyright 2026 Clouddicted" in notice
+    assert "[LICENSE](LICENSE)" in readme
+    assert "[NOTICE](NOTICE)" in readme
+    assert pyproject["project"]["license"] == {"file": "LICENSE"}
+    assert (
+        "License :: OSI Approved :: Apache Software License"
+        in pyproject["project"]["classifiers"]
+    )
 
 
 def test_compatibility_doc_matches_ci_and_kind_fixture_versions() -> None:

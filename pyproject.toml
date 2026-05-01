@@ -7,9 +7,13 @@ name = "clouddicted-keycloak-config-operator"
 version = "0.1.0"
 description = "Kopf-based Kubernetes operator for managing Keycloak configuration."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.12"
 authors = [
   { name = "Clouddicted" },
+]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
   "httpx>=0.27,<1",

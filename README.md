@@ -10,6 +10,11 @@ See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions 
 [docs/configuration-support.md](docs/configuration-support.md) for supported
 configuration entities and fields.
 
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and
+[NOTICE](NOTICE).
+
 ## Development
 
 Create a local environment and install the project:

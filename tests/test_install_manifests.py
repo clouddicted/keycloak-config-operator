@@ -108,6 +108,7 @@ def test_deployment_uses_kopf_module_entrypoint() -> None:
 def test_dockerfile_defaults_to_all_namespaces_with_overridable_args() -> None:
     dockerfile = (REPO_ROOT / "Dockerfile").read_text()
 
+    assert "COPY pyproject.toml README.md LICENSE NOTICE ./" in dockerfile
     assert (
         'ENTRYPOINT ["kopf", "run", "-m", '
         '"clouddicted_keycloak_config_operator.main"]'
