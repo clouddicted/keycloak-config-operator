@@ -52,6 +52,10 @@ PROTOCOL_MAPPER_OBSERVED_REASON = "ProtocolMapperObserved"
 PROTOCOL_MAPPER_UPDATED_REASON = "ProtocolMapperUpdated"
 REQUEST_FAILED_REASON = "RequestFailed"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+DELETION_POLICY_ORPHAN = "Orphan"
+DELETION_POLICY_DELETE = "Delete"
+DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
+DELETE_RETRY_DELAY_SECONDS = 30
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -87,6 +91,7 @@ class ProtocolMapperSpec:
     mapper_type: str
     parent_type: str
     parent_name: str
+    deletion_policy: str
     protocol: str = DEFAULT_PROTOCOL
     config: Mapping[str, str] | None = None
 
@@ -117,6 +122,59 @@ def reconcile_keycloak_protocol_mapper(
         namespace=namespace,
     )
     raise_for_retry(retry, body=body)
+
+
+@kopf.on.delete(**KEYCLOAK_PROTOCOL_MAPPER_RESOURCE)
+def delete_keycloak_protocol_mapper(
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    **_: Any,
+) -> None:
+    """Delete the remote Keycloak protocol mapper when requested by policy."""
+    delete_keycloak_protocol_mapper_resource(spec=spec, namespace=namespace)
+
+
+def delete_keycloak_protocol_mapper_resource(
+    *,
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    target_resolver: TargetResolver | None = None,
+    keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
+) -> None:
+    """Delete the remote Keycloak protocol mapper when deletionPolicy is Delete."""
+    mapper_spec = _parse_protocol_mapper_spec(spec)
+    if mapper_spec is None:
+        raise kopf.PermanentError(
+            "KeycloakProtocolMapper deletion skipped because spec is invalid."
+        )
+
+    if mapper_spec.deletion_policy == DELETION_POLICY_ORPHAN:
+        return
+
+    resolver = target_resolver or KubernetesTargetResolver()
+    try:
+        target = resolver(target_name=mapper_spec.target_name, namespace=namespace)
+    except TargetResolutionError:
+        raise _delete_temporary_error(
+            "KeycloakProtocolMapper deletion is waiting for the referenced KeycloakTarget."
+        ) from None
+
+    try:
+        keycloak_client = keycloak_client_factory(
+            base_url=target.url,
+            username=target.username,
+            password=target.password,
+        )
+        keycloak_client.authenticate()
+        delete_keycloak_protocol_mapper_if_exists(keycloak_client, mapper_spec)
+    except KeycloakAuthenticationError:
+        raise _delete_temporary_error(
+            "KeycloakProtocolMapper deletion failed because Keycloak authentication failed."
+        ) from None
+    except KeycloakClientError:
+        raise _delete_temporary_error(
+            "KeycloakProtocolMapper deletion failed while calling the Keycloak Admin API."
+        ) from None
 
 
 def patch_keycloak_protocol_mapper_status(
@@ -249,6 +307,30 @@ def ensure_keycloak_protocol_mapper(
         json=_protocol_mapper_update_payload(existing_mapper, mapper_spec),
     )
     return PROTOCOL_MAPPER_UPDATED_REASON
+
+
+def delete_keycloak_protocol_mapper_if_exists(
+    client: KeycloakProtocolMapperClient,
+    mapper_spec: ProtocolMapperSpec,
+) -> None:
+    """Delete an existing Keycloak protocol mapper or no-op when it is already missing."""
+    parent = _resolve_parent_reference(client, mapper_spec)
+    mappers = client.request("GET", _protocol_mapper_models_path(mapper_spec.realm, parent))
+    if not isinstance(mappers, list):
+        raise KeycloakRequestError("Keycloak protocol mapper lookup response was not a list")
+
+    existing_mapper = _matching_protocol_mapper(mappers, mapper_spec.name)
+    if existing_mapper is None:
+        return
+
+    mapper_id = existing_mapper.get("id")
+    if not _is_non_empty_string(mapper_id):
+        raise KeycloakRequestError("Keycloak protocol mapper lookup response did not include id")
+
+    client.request(
+        "DELETE",
+        _protocol_mapper_model_path(mapper_spec.realm, parent, mapper_id.strip()),
+    )
 
 
 def _resolve_parent_reference(
@@ -391,6 +473,7 @@ def _parse_protocol_mapper_spec(
     parent = spec.get("parent")
     parent_type = parent.get("type") if isinstance(parent, Mapping) else None
     parent_name = _parent_ref_name(parent, parent_type)
+    deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     config = spec.get("config", {})
 
     if (
@@ -408,6 +491,13 @@ def _parse_protocol_mapper_spec(
     if parsed_parent_type not in {PARENT_TYPE_CLIENT, PARENT_TYPE_CLIENT_SCOPE}:
         return None
 
+    if not _is_non_empty_string(deletion_policy):
+        return None
+
+    parsed_deletion_policy = deletion_policy.strip()
+    if parsed_deletion_policy not in {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE}:
+        return None
+
     parsed_config = _parse_config(config)
     if parsed_config is None:
         return None
@@ -419,6 +509,7 @@ def _parse_protocol_mapper_spec(
         mapper_type=mapper_type.strip(),
         parent_type=parsed_parent_type,
         parent_name=parent_name.strip(),
+        deletion_policy=parsed_deletion_policy,
         protocol=protocol.strip(),
         config=parsed_config,
     )
@@ -526,6 +617,10 @@ def _ready_message(ready_reason: str) -> str:
         return "Keycloak protocol mapper was updated."
 
     return "Keycloak protocol mapper already matches desired state."
+
+
+def _delete_temporary_error(message: str) -> kopf.TemporaryError:
+    return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
 
 
 def _set_ready_condition(

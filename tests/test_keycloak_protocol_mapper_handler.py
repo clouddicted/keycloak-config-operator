@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+import kopf
+import pytest
+
 from clouddicted_keycloak_config_operator import main
 from clouddicted_keycloak_config_operator.constants import (
     API_GROUP,
@@ -50,6 +53,7 @@ class FakeKeycloakClient:
         get_error: Exception | None = None,
         post_error: Exception | None = None,
         put_error: Exception | None = None,
+        delete_error: Exception | None = None,
     ) -> None:
         self.clients_result = [_existing_client()] if clients_result is None else clients_result
         self.client_scopes_result = (
@@ -60,6 +64,7 @@ class FakeKeycloakClient:
         self.get_error = get_error
         self.post_error = post_error
         self.put_error = put_error
+        self.delete_error = delete_error
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -89,6 +94,11 @@ class FakeKeycloakClient:
         if method == "PUT":
             if self.put_error is not None:
                 raise self.put_error
+            return None
+
+        if method == "DELETE":
+            if self.delete_error is not None:
+                raise self.delete_error
             return None
 
         raise AssertionError(f"unexpected request: {method} {path}")
@@ -398,6 +408,184 @@ def test_patch_keycloak_protocol_mapper_status_reports_request_failure() -> None
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
 
 
+def test_delete_keycloak_protocol_mapper_resource_orphan_noop_without_external_calls() -> None:
+    keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+        spec=_mapper_spec(),
+        namespace="apps",
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+    )
+
+
+def test_delete_keycloak_protocol_mapper_resource_delete_removes_existing_mapper() -> None:
+    resolver = _target_resolver()
+    keycloak_client = FakeKeycloakClient(
+        mapper_result=[_existing_mapper(name="email/claim")]
+    )
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+
+    keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+        spec=_mapper_spec(
+            name="email/claim",
+            deletion_policy=keycloak_protocol_mapper.DELETION_POLICY_DELETE,
+        ),
+        namespace="apps",
+        target_resolver=resolver,
+        keycloak_client_factory=keycloak_client_factory,
+    )
+
+    assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "kc-admin",
+            "password": "secret-password",
+        }
+    ]
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
+        (
+            "DELETE",
+            (
+                "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models/"
+                "mapper-uuid"
+            ),
+            {},
+        ),
+    ]
+
+
+def test_delete_keycloak_protocol_mapper_resource_delete_missing_mapper_noop() -> None:
+    keycloak_client = FakeKeycloakClient(mapper_result=[])
+
+    keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+        spec=_mapper_spec(deletion_policy=keycloak_protocol_mapper.DELETION_POLICY_DELETE),
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+    )
+
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
+    ]
+
+
+def test_delete_keycloak_protocol_mapper_resource_delete_missing_id_safe_failure() -> None:
+    keycloak_client = FakeKeycloakClient(mapper_result=[_existing_mapper(id=None)])
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+            spec=_mapper_spec(
+                deletion_policy=keycloak_protocol_mapper.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakProtocolMapper deletion failed while calling the Keycloak Admin API."
+    )
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
+    ]
+
+
+def test_delete_keycloak_protocol_mapper_resource_invalid_spec_is_permanent_failure() -> None:
+    with pytest.raises(kopf.PermanentError) as exc_info:
+        keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+            spec={"targetRef": {}, "parent": {}},
+            namespace="apps",
+            target_resolver=_failing_target_resolver,
+            keycloak_client_factory=_failing_keycloak_client_factory,
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakProtocolMapper deletion skipped because spec is invalid."
+    )
+
+
+def test_delete_keycloak_protocol_mapper_resource_auth_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        auth_error=KeycloakAuthenticationError("bad kc-admin secret-password token")
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+            spec=_mapper_spec(
+                deletion_policy=keycloak_protocol_mapper.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakProtocolMapper deletion failed because Keycloak authentication failed."
+    )
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == []
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
+def test_delete_keycloak_protocol_mapper_resource_request_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        delete_error=KeycloakRequestError("failed for kc-admin secret-password token")
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_protocol_mapper.delete_keycloak_protocol_mapper_resource(
+            spec=_mapper_spec(
+                deletion_policy=keycloak_protocol_mapper.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakProtocolMapper deletion failed while calling the Keycloak Admin API."
+    )
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
+        (
+            "DELETE",
+            (
+                "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models/"
+                "mapper-uuid"
+            ),
+            {},
+        ),
+    ]
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
 def test_patch_keycloak_protocol_mapper_status_preserves_stable_transition_time() -> None:
     patch: dict[str, Any] = {}
 
@@ -439,6 +627,7 @@ def _mapper_spec(
     parent_name: str = "example-profile",
     protocol: str | None = None,
     config: dict[str, str] | None = None,
+    deletion_policy: str | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
         "targetRef": {"name": "example-keycloak"},
@@ -455,6 +644,8 @@ def _mapper_spec(
         spec["protocol"] = protocol
     if config is not None:
         spec["config"] = config
+    if deletion_policy is not None:
+        spec["deletionPolicy"] = deletion_policy
 
     return spec
 

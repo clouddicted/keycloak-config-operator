@@ -81,6 +81,16 @@ spec:
                   additionalProperties:
                     type: string
                     description: Mapper configuration value.
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak protocol mapper
+                    when this resource is deleted. Orphan leaves the mapper in
+                    Keycloak; Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
                 parent:
                   type: object
                   description: Client or client scope that owns the mapper.

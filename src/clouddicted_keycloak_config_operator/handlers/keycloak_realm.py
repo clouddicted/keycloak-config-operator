@@ -26,6 +26,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
     KeycloakClientError,
+    KeycloakRequestError,
     KeycloakResourceNotFoundError,
 )
 from clouddicted_keycloak_config_operator.secrets import SecretRefError, load_secret_credentials
@@ -45,6 +46,7 @@ AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 INVALID_SPEC_REASON = "InvalidSpec"
 REALM_CREATED_REASON = "RealmCreated"
 REALM_OBSERVED_REASON = "RealmObserved"
+REALM_UPDATED_REASON = "RealmUpdated"
 REQUEST_FAILED_REASON = "RequestFailed"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
@@ -159,7 +161,7 @@ def patch_keycloak_realm_status(
             password=target.password,
         )
         keycloak_client.authenticate()
-        realm_created = ensure_keycloak_realm(keycloak_client, realm_spec)
+        ready_reason = ensure_keycloak_realm(keycloak_client, realm_spec)
     except KeycloakAuthenticationError:
         retry = RetryRequest(
             AUTHENTICATION_FAILED_REASON,
@@ -193,47 +195,73 @@ def patch_keycloak_realm_status(
         )
         return retry
 
-    if realm_created:
-        _set_ready_condition(
-            patch,
-            existing_conditions,
-            ready_condition(
-                "True",
-                REALM_CREATED_REASON,
-                "Keycloak realm was created.",
-                now=now,
-            ),
-        )
-        return
-
     _set_ready_condition(
         patch,
         existing_conditions,
         ready_condition(
             "True",
-            REALM_OBSERVED_REASON,
-            "Keycloak realm already exists.",
+            ready_reason,
+            _ready_message(ready_reason),
             now=now,
         ),
     )
     return None
 
 
-def ensure_keycloak_realm(client: KeycloakRealmClient, realm_spec: RealmSpec) -> bool:
-    """Return True when the realm had to be created."""
+def ensure_keycloak_realm(client: KeycloakRealmClient, realm_spec: RealmSpec) -> str:
+    """Create, update, or observe a realm and return the Ready reason."""
     try:
-        client.request("GET", _realm_path(realm_spec.realm))
-        return False
+        existing_realm = client.request("GET", _realm_path(realm_spec.realm))
     except KeycloakResourceNotFoundError:
-        payload: dict[str, Any] = {
-            "realm": realm_spec.realm,
-            "enabled": True,
-        }
-        if realm_spec.display_name is not None:
-            payload["displayName"] = realm_spec.display_name
+        client.request("POST", "realms", json=_realm_create_payload(realm_spec))
+        return REALM_CREATED_REASON
 
-        client.request("POST", "realms", json=payload)
-        return True
+    if not isinstance(existing_realm, Mapping):
+        raise KeycloakRequestError("Keycloak realm lookup response was not an object")
+
+    if not _has_modeled_drift(existing_realm, realm_spec):
+        return REALM_OBSERVED_REASON
+
+    client.request(
+        "PUT",
+        _realm_path(realm_spec.realm),
+        json=_realm_update_payload(existing_realm, realm_spec),
+    )
+    return REALM_UPDATED_REASON
+
+
+def _realm_create_payload(realm_spec: RealmSpec) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "realm": realm_spec.realm,
+        "enabled": True,
+    }
+    payload.update(_modeled_realm_payload(realm_spec))
+    return payload
+
+
+def _modeled_realm_payload(realm_spec: RealmSpec) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    if realm_spec.display_name is not None:
+        payload["displayName"] = realm_spec.display_name
+
+    return payload
+
+
+def _has_modeled_drift(existing_realm: Mapping[str, Any], realm_spec: RealmSpec) -> bool:
+    desired_payload = _modeled_realm_payload(realm_spec)
+    return any(
+        existing_realm.get(field) != desired_value
+        for field, desired_value in desired_payload.items()
+    )
+
+
+def _realm_update_payload(
+    existing_realm: Mapping[str, Any],
+    realm_spec: RealmSpec,
+) -> dict[str, Any]:
+    payload = dict(existing_realm)
+    payload.update(_modeled_realm_payload(realm_spec))
+    return payload
 
 
 class KubernetesTargetResolver:
@@ -371,6 +399,16 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("realm")
 
     return missing_fields
+
+
+def _ready_message(ready_reason: str) -> str:
+    if ready_reason == REALM_CREATED_REASON:
+        return "Keycloak realm was created."
+
+    if ready_reason == REALM_UPDATED_REASON:
+        return "Keycloak realm was updated."
+
+    return "Keycloak realm already matches desired state."
 
 
 def _set_ready_condition(

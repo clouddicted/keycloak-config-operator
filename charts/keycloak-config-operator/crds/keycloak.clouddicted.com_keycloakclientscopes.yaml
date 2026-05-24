@@ -73,6 +73,16 @@ spec:
                   description: Client scope protocol.
                   default: openid-connect
                   minLength: 1
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak client scope when
+                    this resource is deleted. Orphan leaves the client scope in
+                    Keycloak; Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
             status:
               type: object
               description: Observed KeycloakClientScope status.

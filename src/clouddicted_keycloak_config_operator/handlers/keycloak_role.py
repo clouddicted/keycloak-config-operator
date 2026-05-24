@@ -50,6 +50,10 @@ ROLE_CREATED_REASON = "RoleCreated"
 ROLE_OBSERVED_REASON = "RoleObserved"
 ROLE_UPDATED_REASON = "RoleUpdated"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+DELETION_POLICY_ORPHAN = "Orphan"
+DELETION_POLICY_DELETE = "Delete"
+DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
+DELETE_RETRY_DELAY_SECONDS = 30
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -82,6 +86,7 @@ class RoleSpec:
     target_name: str
     realm: str
     name: str
+    deletion_policy: str
     description: str | None = None
 
 
@@ -104,6 +109,57 @@ def reconcile_keycloak_role(
         namespace=namespace,
     )
     raise_for_retry(retry, body=body)
+
+
+@kopf.on.delete(**KEYCLOAK_ROLE_RESOURCE)
+def delete_keycloak_role(
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    **_: Any,
+) -> None:
+    """Delete the remote Keycloak role when requested by policy."""
+    delete_keycloak_role_resource(spec=spec, namespace=namespace)
+
+
+def delete_keycloak_role_resource(
+    *,
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    target_resolver: TargetResolver | None = None,
+    keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
+) -> None:
+    """Delete the remote Keycloak role when deletionPolicy is Delete."""
+    role_spec = _parse_role_spec(spec)
+    if role_spec is None:
+        raise kopf.PermanentError("KeycloakRole deletion skipped because spec is invalid.")
+
+    if role_spec.deletion_policy == DELETION_POLICY_ORPHAN:
+        return
+
+    resolver = target_resolver or KubernetesTargetResolver()
+    try:
+        target = resolver(target_name=role_spec.target_name, namespace=namespace)
+    except TargetResolutionError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion is waiting for the referenced KeycloakTarget."
+        ) from None
+
+    try:
+        keycloak_client = keycloak_client_factory(
+            base_url=target.url,
+            username=target.username,
+            password=target.password,
+        )
+        keycloak_client.authenticate()
+        delete_keycloak_role_if_exists(keycloak_client, role_spec)
+    except KeycloakAuthenticationError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion failed because Keycloak authentication failed."
+        ) from None
+    except KeycloakClientError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion failed while calling the Keycloak Admin API."
+        ) from None
 
 
 def patch_keycloak_role_status(
@@ -225,6 +281,19 @@ def ensure_keycloak_role(client: KeycloakRoleClient, role_spec: RoleSpec) -> str
     return ROLE_UPDATED_REASON
 
 
+def delete_keycloak_role_if_exists(
+    client: KeycloakRoleClient,
+    role_spec: RoleSpec,
+) -> None:
+    """Delete an existing Keycloak realm role or no-op when it is already missing."""
+    try:
+        client.request("GET", _role_path(role_spec.realm, role_spec.name))
+    except KeycloakResourceNotFoundError:
+        return
+
+    client.request("DELETE", _role_path(role_spec.realm, role_spec.name))
+
+
 def _modeled_role_payload(role_spec: RoleSpec) -> dict[str, Any]:
     payload: dict[str, Any] = {"name": role_spec.name}
     if role_spec.description is not None:
@@ -255,6 +324,7 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     target_name = target_ref.get("name") if isinstance(target_ref, Mapping) else None
     realm = spec.get("realm")
     name = spec.get("name")
+    deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     description = spec.get("description")
 
     if (
@@ -267,10 +337,18 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     if description is not None and not _is_non_empty_string(description):
         return None
 
+    if not _is_non_empty_string(deletion_policy):
+        return None
+
+    parsed_deletion_policy = deletion_policy.strip()
+    if parsed_deletion_policy not in {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE}:
+        return None
+
     return RoleSpec(
         target_name=target_name.strip(),
         realm=realm.strip(),
         name=name.strip(),
+        deletion_policy=parsed_deletion_policy,
         description=description.strip() if isinstance(description, str) else None,
     )
 
@@ -321,6 +399,10 @@ def _ready_message(ready_reason: str) -> str:
         return "Keycloak realm role was updated."
 
     return "Keycloak realm role already matches desired state."
+
+
+def _delete_temporary_error(message: str) -> kopf.TemporaryError:
+    return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
 
 
 def _set_ready_condition(

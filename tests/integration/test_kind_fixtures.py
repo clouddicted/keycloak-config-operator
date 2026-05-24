@@ -290,6 +290,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _wait_for_ready(kind_cluster_env, "keycloakrealms", "example-realm")
         _eventually(lambda: _assert_realm(keycloak_url, realm))
 
+        _log("updating KeycloakRealm displayName")
+        _apply_document(kind_cluster_env, _keycloak_realm(realm, display_name="Example Updated"))
+        _eventually(lambda: _assert_realm(keycloak_url, realm, "Example Updated"))
+
         _log("applying KeycloakClientScope")
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclientscopes", CLIENT_SCOPE_NAME)
@@ -319,6 +323,18 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", CONFIDENTIAL_CLIENT_ID)
         _eventually(lambda: _assert_confidential_client(keycloak_url, realm))
+
+        _log("deleting KeycloakProtocolMapper with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
+        _eventually(lambda: _assert_protocol_mapper_missing(keycloak_url, realm))
+
+        _log("deleting KeycloakRole with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_role(realm))
+        _eventually(lambda: _assert_role_missing(keycloak_url, realm))
+
+        _log("deleting KeycloakClientScope with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_client_scope(realm))
+        _eventually(lambda: _assert_client_scope_missing(keycloak_url, realm))
 
 
 @pytest.fixture(scope="session")
@@ -559,6 +575,14 @@ def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     )
 
 
+def _delete_document(env: dict[str, str], document: dict[str, Any]) -> None:
+    _run_with_input(
+        ["kubectl", "delete", "-f", "-", "--ignore-not-found=true", "--wait=false"],
+        env=env,
+        input_text=json.dumps(document),
+    )
+
+
 def _keycloak_target() -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
@@ -577,7 +601,7 @@ def _keycloak_target() -> dict[str, Any]:
     }
 
 
-def _keycloak_realm(realm: str) -> dict[str, Any]:
+def _keycloak_realm(realm: str, display_name: str = "Example") -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakRealm",
@@ -585,7 +609,7 @@ def _keycloak_realm(realm: str) -> dict[str, Any]:
         "spec": {
             "targetRef": {"name": TARGET_NAME},
             "realm": realm,
-            "displayName": "Example",
+            "displayName": display_name,
         },
     }
 
@@ -600,6 +624,7 @@ def _keycloak_client_scope(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": CLIENT_SCOPE_NAME,
             "description": "Example profile client scope",
+            "deletionPolicy": "Delete",
         },
     }
 
@@ -614,6 +639,7 @@ def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": PROTOCOL_MAPPER_NAME,
             "mapperType": "oidc-usermodel-property-mapper",
+            "deletionPolicy": "Delete",
             "parent": {
                 "type": "ClientScope",
                 "clientScopeRef": {"name": CLIENT_SCOPE_NAME},
@@ -640,6 +666,7 @@ def _keycloak_role(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": ROLE_NAME,
             "description": "Example administrator role",
+            "deletionPolicy": "Delete",
         },
     }
 
@@ -689,10 +716,10 @@ def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
     }
 
 
-def _assert_realm(base_url: str, realm: str) -> None:
+def _assert_realm(base_url: str, realm: str, display_name: str = "Example") -> None:
     realm_payload = _admin_get(base_url, f"realms/{realm}")
     assert realm_payload["realm"] == realm
-    assert realm_payload["displayName"] == "Example"
+    assert realm_payload["displayName"] == display_name
 
 
 def _assert_client_scope(base_url: str, realm: str) -> dict[str, Any]:
@@ -721,10 +748,43 @@ def _assert_protocol_mapper(base_url: str, realm: str) -> None:
     assert mapper["config"]["userinfo.token.claim"] == "true"
 
 
+def _assert_protocol_mapper_missing(base_url: str, realm: str) -> None:
+    client_scope = _assert_client_scope(base_url, realm)
+    mappers = _admin_get(
+        base_url,
+        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
+    )
+
+    assert isinstance(mappers, list)
+    assert all(
+        not isinstance(mapper, dict) or mapper.get("name") != PROTOCOL_MAPPER_NAME
+        for mapper in mappers
+    )
+
+
 def _assert_role(base_url: str, realm: str) -> None:
     role = _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
     assert role["name"] == ROLE_NAME
     assert role["description"] == "Example administrator role"
+
+
+def _assert_role_missing(base_url: str, realm: str) -> None:
+    try:
+        _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 404
+        return
+
+    raise AssertionError(f"Keycloak role {ROLE_NAME!r} still exists")
+
+
+def _assert_client_scope_missing(base_url: str, realm: str) -> None:
+    client_scopes = _admin_get(base_url, f"realms/{realm}/client-scopes")
+    assert isinstance(client_scopes, list)
+    assert all(
+        not isinstance(client_scope, dict) or client_scope.get("name") != CLIENT_SCOPE_NAME
+        for client_scope in client_scopes
+    )
 
 
 def _assert_public_client(base_url: str, realm: str) -> None:

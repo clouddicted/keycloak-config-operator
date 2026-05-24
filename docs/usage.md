@@ -127,9 +127,12 @@ the resource status and retries reconciliation.
 
 ## Deletion Behavior
 
-Most resource deletions leave existing Keycloak objects in place. `KeycloakClient`
-can delete the remote client when `spec.deletionPolicy` is set to `Delete`;
-otherwise it uses the default `Orphan` behavior.
+Resource deletions leave existing Keycloak objects in place by default.
+`KeycloakClient`, `KeycloakRole`, `KeycloakClientScope`, and
+`KeycloakProtocolMapper` can delete the remote object when
+`spec.deletionPolicy` is set to `Delete`; otherwise they use the default
+`Orphan` behavior. `KeycloakRealm` deletion always leaves the remote realm in
+place.
 
 ```yaml
 spec:
