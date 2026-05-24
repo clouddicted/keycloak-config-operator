@@ -27,6 +27,13 @@ def test_readme_links_compatibility_and_configuration_support_docs() -> None:
     assert "[docs/configuration-support.md](docs/configuration-support.md)" in readme
 
 
+def test_install_docs_reference_published_helm_chart() -> None:
+    chart_ref = "oci://ghcr.io/clouddicted/charts/keycloak-config-operator"
+
+    assert chart_ref in README.read_text()
+    assert chart_ref in (REPO_ROOT / "docs" / "index.md").read_text()
+
+
 def test_readme_shows_ci_and_version_badges() -> None:
     readme = README.read_text()
 

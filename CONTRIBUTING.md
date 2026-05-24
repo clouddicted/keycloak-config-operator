@@ -63,8 +63,13 @@ git push origin v0.1.0
 ```
 
 The tag workflow repeats linting, unit tests, Helm checks, and the kind e2e suite
-before publishing. If the tag workflow fails, fix the issue on a branch, merge through
-`develop` and `main`, wait for `main` CI to pass again, then create a new tag.
+before publishing the container image, Helm chart, and GitHub release. Helm charts
+are pushed to `oci://ghcr.io/clouddicted/charts`. If the tag workflow fails, fix
+the issue on a branch, merge through `develop` and `main`, wait for `main` CI to
+pass again, then create a new tag.
+
+After the first successful release, confirm the GitHub Container Registry packages
+for the operator image and Helm chart are public.
 
 Protect `develop` and `main` in GitHub so pull requests cannot merge until the CI
 workflow passes. At minimum, require the `Python lint and tests`, `Helm lint and

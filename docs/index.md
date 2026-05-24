@@ -26,7 +26,9 @@ policy.
 ## Install With Helm
 
 ```bash
-helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --version 0.1.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -35,7 +37,9 @@ By default, the operator watches Keycloak resources in all namespaces. To restri
 the watch scope, set `watchNamespaces`.
 
 ```bash
-helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --version 0.1.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace \
   --set 'watchNamespaces[0]=team-a'

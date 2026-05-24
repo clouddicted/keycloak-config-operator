@@ -26,6 +26,7 @@ env:
   KIND_VERSION: "v0.31.0"
   KUBECTL_VERSION: "v1.35.0"
   CHART_PATH: charts/keycloak-config-operator
+  CHART_REGISTRY: oci://ghcr.io/clouddicted/charts
   IMAGE_NAME: ghcr.io/clouddicted/keycloak-config-operator
   KEYCLOAK_VERSION: "26.6.2"
   KEYCLOAK_COMPATIBILITY_VERSION: "26.5.3"
@@ -362,6 +363,15 @@ jobs:
         run: |
           mkdir -p dist
           helm package "$CHART_PATH" --destination dist
+
+      - name: Publish Helm chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
+
+          chart_version="${GITHUB_REF_NAME#v}"
+          helm push "dist/keycloak-config-operator-${chart_version}.tgz" "$CHART_REGISTRY"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

@@ -68,7 +68,17 @@ Install the CRDs, RBAC, ServiceAccount, and Deployment:
 kubectl apply -k config/install
 ```
 
-Install with Helm:
+Install a released chart from GitHub Container Registry:
+
+```bash
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --version 0.1.0 \
+  --namespace keycloak-config-operator-system \
+  --create-namespace
+```
+
+Install from a local checkout:
 
 ```bash
 helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \

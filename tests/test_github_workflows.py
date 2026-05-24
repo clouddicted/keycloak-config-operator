@@ -23,6 +23,7 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     jobs = workflow["jobs"]
 
     assert workflow["env"]["IMAGE_NAME"] == "ghcr.io/clouddicted/keycloak-config-operator"
+    assert workflow["env"]["CHART_REGISTRY"] == "oci://ghcr.io/clouddicted/charts"
     assert {
         "python",
         "helm",
@@ -93,6 +94,11 @@ def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
     assert "docker/login-action@v3" in uses
     assert "docker/build-push-action@v6" in uses
     assert "helm package" in commands
+    assert "helm registry login ghcr.io" in commands
+    assert (
+        'helm push "dist/keycloak-config-operator-${chart_version}.tgz" '
+        '"$CHART_REGISTRY"'
+    ) in commands
     assert "gh release create" in commands
 
 
@@ -105,6 +111,8 @@ def test_contributing_documents_minimal_gitflow_and_local_file_rules() -> None:
     assert "`hotfix/<short-name>`" in text
     assert "`chore/<short-name>`" in text
     assert "Wait for the CI workflow on `main` to pass" in text
+    assert "Helm charts" in text
+    assert "`oci://ghcr.io/clouddicted/charts`" in text
     assert "including the `kind e2e tests` job" in text
     assert "Protect `develop` and `main` in GitHub" in text
     assert "Never commit `internal/` or `.codex`" in text
