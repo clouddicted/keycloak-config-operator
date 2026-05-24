@@ -17,6 +17,14 @@ nav:
   - Home: index.md
   - Compatibility: compatibility.md
   - Configuration Support: configuration-support.md
+  - API Reference: api-reference.md
+
+plugins:
+  - search
+  - crd-viewer
+  - macros:
+      modules:
+        - mkdocs_crd_viewer.macros
 
 markdown_extensions:
   - admonition

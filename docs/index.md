@@ -16,7 +16,8 @@ The operator currently manages:
 
 See the [configuration support matrix](configuration-support.md) for the exact
 entities, fields, and reconciliation behavior that are part of the supported
-contract.
+contract. See the [API reference](api-reference.md) for the generated CRD schema
+view.
 
 ## Compatibility
 

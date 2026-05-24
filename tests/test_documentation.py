@@ -25,6 +25,7 @@ def test_readme_links_compatibility_and_configuration_support_docs() -> None:
 
     assert "[docs/compatibility.md](docs/compatibility.md)" in readme
     assert "[docs/configuration-support.md](docs/configuration-support.md)" in readme
+    assert "[docs/api-reference.md](docs/api-reference.md)" in readme
 
 
 def test_install_docs_reference_published_helm_chart() -> None:

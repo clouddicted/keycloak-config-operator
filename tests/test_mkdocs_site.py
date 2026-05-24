@@ -5,6 +5,8 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CRD_DIR = REPO_ROOT / "config" / "crd"
+API_REFERENCE = REPO_ROOT / "docs" / "api-reference.md"
 MKDOCS_CONFIG = REPO_ROOT / "mkdocs.yml"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 GITIGNORE = REPO_ROOT / ".gitignore"
@@ -24,6 +26,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
     nav_paths = _nav_paths(config["nav"])
 
     assert nav_paths == {
+        "api-reference.md",
         "index.md",
         "compatibility.md",
         "configuration-support.md",
@@ -37,9 +40,24 @@ def test_docs_extra_installs_mkdocs_material() -> None:
 
     assert "mkdocs>=1.6,<2" in pyproject["project"]["optional-dependencies"]["docs"]
     assert (
+        "mkdocs-crd-viewer>=0.2.1,<1"
+        in pyproject["project"]["optional-dependencies"]["docs"]
+    )
+    assert (
         "mkdocs-material>=9.6,<10"
         in pyproject["project"]["optional-dependencies"]["docs"]
     )
+
+
+def test_mkdocs_renders_crd_api_reference_with_crd_viewer() -> None:
+    config = _load_mkdocs()
+    plugins = config["plugins"]
+    api_reference = API_REFERENCE.read_text()
+
+    assert "crd-viewer" in plugins
+    assert {"macros": {"modules": ["mkdocs_crd_viewer.macros"]}} in plugins
+    for crd in sorted(CRD_DIR.glob("keycloak.clouddicted.com_*.yaml")):
+        assert str(crd.relative_to(REPO_ROOT)) in api_reference
 
 
 def test_site_build_output_is_ignored() -> None:
