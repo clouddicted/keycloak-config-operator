@@ -660,9 +660,12 @@ kubectl get -n keycloak-config \
 realm, client, or client scope that is not ready yet, the operator reports that in
 the resource status and retries reconciliation.</p>
 <h2 id="deletion-behavior">Deletion Behavior<a class="headerlink" href="#deletion-behavior" title="Permanent link">&para;</a></h2>
-<p>Most resource deletions leave existing Keycloak objects in place. <code>KeycloakClient</code>
-can delete the remote client when <code>spec.deletionPolicy</code> is set to <code>Delete</code>;
-otherwise it uses the default <code>Orphan</code> behavior.</p>
+<p>Resource deletions leave existing Keycloak objects in place by default.
+<code>KeycloakClient</code>, <code>KeycloakRole</code>, <code>KeycloakClientScope</code>, and
+<code>KeycloakProtocolMapper</code> can delete the remote object when
+<code>spec.deletionPolicy</code> is set to <code>Delete</code>; otherwise they use the default
+<code>Orphan</code> behavior. <code>KeycloakRealm</code> deletion always leaves the remote realm in
+place.</p>
 <pre><code class="language-yaml">spec:
   deletionPolicy: Delete
 </code></pre>

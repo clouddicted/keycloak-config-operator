@@ -665,10 +665,10 @@ Admin API.</p>
 <td>Realm</td>
 <td><code>KeycloakRealm</code></td>
 <td>Yes</td>
-<td>No</td>
+<td>Partial</td>
 <td>No</td>
 <td>Yes</td>
-<td>Existing realms are observed.</td>
+<td>Reconciles <code>spec.displayName</code> when set.</td>
 </tr>
 <tr>
 <td>Client</td>
@@ -684,27 +684,27 @@ Admin API.</p>
 <td><code>KeycloakRole</code></td>
 <td>Yes</td>
 <td>Yes</td>
-<td>No</td>
+<td>Optional</td>
 <td>Yes</td>
-<td>Realm roles only.</td>
+<td>Delete requires <code>spec.deletionPolicy: Delete</code>.</td>
 </tr>
 <tr>
 <td>Client scope</td>
 <td><code>KeycloakClientScope</code></td>
 <td>Yes</td>
 <td>Yes</td>
-<td>No</td>
+<td>Optional</td>
 <td>Yes</td>
-<td>Realm-level client scopes only.</td>
+<td>Delete requires <code>spec.deletionPolicy: Delete</code>.</td>
 </tr>
 <tr>
 <td>Protocol mapper</td>
 <td><code>KeycloakProtocolMapper</code></td>
 <td>Yes</td>
 <td>Yes</td>
-<td>No</td>
+<td>Optional</td>
 <td>Yes</td>
-<td>Parent must be a managed client or client scope.</td>
+<td>Delete requires <code>spec.deletionPolicy: Delete</code>. Parent must be a managed client or client scope.</td>
 </tr>
 </tbody>
 </table>
@@ -772,8 +772,8 @@ Admin API.</p>
 </tr>
 <tr>
 <td><code>spec.displayName</code></td>
-<td>Create-only</td>
-<td>Sent when creating the realm; existing realm display names are not updated.</td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
 </tr>
 </tbody>
 </table>
@@ -884,6 +884,11 @@ Admin API.</p>
 <td>Supported</td>
 <td>Reconciled when set.</td>
 </tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="keycloakclientscope">KeycloakClientScope<a class="headerlink" href="#keycloakclientscope" title="Permanent link">&para;</a></h2>
@@ -920,6 +925,11 @@ Admin API.</p>
 <td><code>spec.protocol</code></td>
 <td>Supported</td>
 <td>Defaults to <code>openid-connect</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -962,6 +972,11 @@ Admin API.</p>
 <td><code>spec.config</code></td>
 <td>Partial</td>
 <td>Desired keys are reconciled; undeclared existing keys are preserved.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
 </tr>
 <tr>
 <td><code>spec.parent</code></td>
