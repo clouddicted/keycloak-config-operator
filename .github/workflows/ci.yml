@@ -117,32 +117,98 @@ jobs:
       - name: Build docs
         run: mkdocs build --strict
 
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  pages:
-    name: Deploy GitHub Pages
+  docs-develop:
+    name: Publish develop docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     needs:
+      - python
+      - helm
       - docs
+      - image
+      - kind
+    concurrency:
+      group: docs-pages
+      cancel-in-progress: false
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
     steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Publish develop docs
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+          mike deploy --push --update-aliases develop dev \
+            --title develop \
+            --message "docs: publish develop documentation"
+
+          if ! mike list latest --json >/dev/null 2>&1; then
+            mike set-default --push develop \
+              --message "docs: set default documentation version"
+          fi
+
+  docs-release:
+    name: Publish release docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs:
+      - release
+    concurrency:
+      group: docs-pages
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Publish release docs
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+          mike deploy --push --update-aliases "$GITHUB_REF_NAME" latest \
+            --title "$GITHUB_REF_NAME" \
+            --message "docs: publish $GITHUB_REF_NAME documentation"
+          mike set-default --push latest \
+            --message "docs: set latest documentation as default"
 
   image:
     name: Container image build

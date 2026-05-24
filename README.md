@@ -16,6 +16,12 @@ for the CRD schema reference.
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and
 [NOTICE](NOTICE).
 
+## Documentation
+
+Published documentation is versioned on GitHub Pages. The `develop` branch is
+published as development docs, and each release tag is published as its own
+version with `latest` pointing at the newest release.
+
 ## Development
 
 Create a local environment and install the project:

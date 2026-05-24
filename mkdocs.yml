@@ -4,6 +4,7 @@ site_url: https://clouddicted.github.io/keycloak-config-operator/
 repo_url: https://github.com/clouddicted/keycloak-config-operator
 repo_name: clouddicted/keycloak-config-operator
 edit_uri: edit/main/docs/
+strict: true
 
 theme:
   name: material
@@ -25,6 +26,11 @@ plugins:
   - macros:
       modules:
         - mkdocs_crd_viewer.macros
+
+extra:
+  version:
+    provider: mike
+    alias: true
 
 markdown_extensions:
   - admonition

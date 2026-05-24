@@ -19,6 +19,8 @@ def test_mkdocs_configuration_uses_project_metadata() -> None:
     assert config["site_url"] == "https://clouddicted.github.io/keycloak-config-operator/"
     assert config["repo_url"] == "https://github.com/clouddicted/keycloak-config-operator"
     assert config["theme"]["name"] == "material"
+    assert config["strict"] is True
+    assert config["extra"]["version"] == {"provider": "mike", "alias": True}
 
 
 def test_mkdocs_nav_points_to_existing_docs() -> None:
@@ -38,6 +40,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
 def test_docs_extra_installs_mkdocs_material() -> None:
     pyproject = tomllib.loads(PYPROJECT.read_text())
 
+    assert "mike>=2.2,<3" in pyproject["project"]["optional-dependencies"]["docs"]
     assert "mkdocs>=1.6,<2" in pyproject["project"]["optional-dependencies"]["docs"]
     assert (
         "mkdocs-crd-viewer>=0.2.1,<1"

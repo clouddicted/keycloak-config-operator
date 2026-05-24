@@ -64,9 +64,14 @@ git push origin v0.1.0
 
 The tag workflow repeats linting, unit tests, Helm checks, and the kind e2e suite
 before publishing the container image, Helm chart, and GitHub release. Helm charts
-are pushed to `oci://ghcr.io/clouddicted/charts`. If the tag workflow fails, fix
-the issue on a branch, merge through `develop` and `main`, wait for `main` CI to
-pass again, then create a new tag.
+are pushed to `oci://ghcr.io/clouddicted/charts`. Versioned documentation is
+published to the `gh-pages` branch with `mike`: `develop` is available as the
+development documentation, and each release tag is published as its own docs
+version with the `latest` alias. Configure GitHub Pages to serve the `gh-pages`
+branch from `/`.
+
+If the tag workflow fails, fix the issue on a branch, merge through `develop` and
+`main`, wait for `main` CI to pass again, then create a new tag.
 
 After the first successful release, confirm the GitHub Container Registry packages
 for the operator image and Helm chart are public.
