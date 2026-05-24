@@ -19,6 +19,8 @@ entities, fields, and reconciliation behavior that are part of the supported
 contract. See the [API reference](api-reference.md) for the generated CRD schema
 view.
 
+See the [usage guide](usage.md) for a short end-to-end example.
+
 ## Compatibility
 
 See [compatibility](compatibility.md) for tested Keycloak versions and the support

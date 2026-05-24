@@ -16,6 +16,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Usage Guide: usage.md
   - Compatibility: compatibility.md
   - Configuration Support: configuration-support.md
   - API Reference: api-reference.md
