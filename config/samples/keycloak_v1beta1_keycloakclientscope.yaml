@@ -1,0 +1,10 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakClientScope
+metadata:
+  name: example-profile
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: example-profile
+  description: Example profile client scope

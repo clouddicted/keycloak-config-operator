@@ -1,0 +1,27 @@
+site_name: Keycloak Config Operator
+site_description: Kubernetes operator for managing Keycloak configuration.
+site_url: https://clouddicted.github.io/keycloak-config-operator/
+repo_url: https://github.com/clouddicted/keycloak-config-operator
+repo_name: clouddicted/keycloak-config-operator
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.top
+
+nav:
+  - Home: index.md
+  - Compatibility: compatibility.md
+  - Configuration Support: configuration-support.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true

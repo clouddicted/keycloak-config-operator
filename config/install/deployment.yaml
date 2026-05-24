@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-config-operator
+  namespace: keycloak-config-operator-system
+  labels:
+    app.kubernetes.io/name: keycloak-config-operator
+    app.kubernetes.io/part-of: clouddicted-keycloak-config-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-config-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-config-operator
+        app.kubernetes.io/part-of: clouddicted-keycloak-config-operator
+    spec:
+      serviceAccountName: keycloak-config-operator
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: manager
+          image: ghcr.io/clouddicted/keycloak-config-operator:v0.1.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - kopf
+          args:
+            - run
+            - -m
+            - clouddicted_keycloak_config_operator.main
+            - --all-namespaces
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"

@@ -1,0 +1,15 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakTarget
+metadata:
+  name: keycloak-fixture
+  namespace: keycloak-operator-test
+  labels:
+    app.kubernetes.io/name: keycloak-fixture
+    app.kubernetes.io/part-of: keycloak-config-operator-tests
+spec:
+  url: http://keycloak.keycloak-operator-test.svc.cluster.local:8080
+  adminCredentials:
+    secretRef:
+      name: keycloak-admin-credentials
+      usernameKey: username
+      passwordKey: password

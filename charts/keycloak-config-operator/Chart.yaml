@@ -1,0 +1,9 @@
+apiVersion: v2
+name: keycloak-config-operator
+description: Helm chart for the Clouddicted Keycloak Config Operator
+
+type: application
+
+version: 0.1.0
+
+appVersion: "v0.1.0"
