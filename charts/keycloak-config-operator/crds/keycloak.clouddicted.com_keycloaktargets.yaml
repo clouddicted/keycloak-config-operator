@@ -31,43 +31,53 @@ spec:
           properties:
             spec:
               type: object
+              description: Desired connection settings for a Keycloak instance.
               required:
                 - url
                 - adminCredentials
               properties:
                 url:
                   type: string
+                  description: Base URL of the Keycloak instance.
                   format: uri
                   minLength: 1
                 adminCredentials:
                   type: object
+                  description: Credentials used to authenticate to Keycloak.
                   required:
                     - secretRef
                   properties:
                     secretRef:
                       type: object
+                      description: Secret containing Keycloak admin credentials.
                       required:
                         - name
                       properties:
                         name:
                           type: string
+                          description: Secret name.
                           minLength: 1
                         namespace:
                           type: string
+                          description: Secret namespace. Defaults to this resource namespace.
                           minLength: 1
                         usernameKey:
                           type: string
+                          description: Secret key containing the admin username.
                           default: username
                           minLength: 1
                         passwordKey:
                           type: string
+                          description: Secret key containing the admin password.
                           default: password
                           minLength: 1
             status:
               type: object
+              description: Observed KeycloakTarget status.
               properties:
                 conditions:
                   type: array
+                  description: Current readiness and authentication conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type
@@ -82,22 +92,28 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition type.
                         minLength: 1
                       status:
                         type: string
+                        description: Condition status.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                       observedGeneration:
                         type: integer
+                        description: Resource generation observed by the operator.
                         format: int64
                         minimum: 0
                       lastTransitionTime:
                         type: string
+                        description: Time when the condition last changed.
                         format: date-time
                       reason:
                         type: string
+                        description: Short reason for the condition state.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable condition details.

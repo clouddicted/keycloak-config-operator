@@ -40,6 +40,7 @@ spec:
           properties:
             spec:
               type: object
+              description: Desired Keycloak client.
               required:
                 - targetRef
                 - realm
@@ -47,68 +48,84 @@ spec:
               properties:
                 targetRef:
                   type: object
+                  description: KeycloakTarget used to reach Keycloak.
                   required:
                     - name
                   properties:
                     name:
                       type: string
+                      description: Name of the KeycloakTarget in this namespace.
                       minLength: 1
                 realm:
                   type: string
+                  description: Realm containing the client.
                   minLength: 1
                 clientId:
                   type: string
+                  description: Keycloak client ID.
                   minLength: 1
                 clientType:
                   type: string
+                  description: Client access type.
                   default: Public
                   enum:
                     - Public
                     - Confidential
                 managementPolicy:
                   type: string
+                  description: Whether the operator reconciles or only observes the client.
                   default: Reconcile
                   enum:
                     - Reconcile
                     - ObserveOnly
                 deletionPolicy:
                   type: string
+                  description: What happens to the Keycloak client when this resource is deleted.
                   default: Orphan
                   enum:
                     - Orphan
                     - Delete
                 displayName:
                   type: string
+                  description: Display name stored as the Keycloak client name.
                   minLength: 1
                 secretRef:
                   type: object
+                  description: Secret containing the confidential client secret.
                   required:
                     - name
                   properties:
                     name:
                       type: string
+                      description: Secret name.
                       minLength: 1
                     namespace:
                       type: string
+                      description: Secret namespace. Defaults to this resource namespace.
                       minLength: 1
                     secretKey:
                       type: string
+                      description: Secret key containing the client secret.
                       minLength: 1
                 redirectUris:
                   type: array
+                  description: Allowed redirect URI patterns.
                   items:
                     type: string
                     minLength: 1
                 webOrigins:
                   type: array
+                  description: Allowed web origins.
                   items:
                     type: string
                     minLength: 1
             status:
               type: object
+              description: Observed KeycloakClient status.
               properties:
                 conditions:
                   type: array
+                  description: Current readiness and reconciliation conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type
@@ -123,22 +140,28 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition type.
                         minLength: 1
                       status:
                         type: string
+                        description: Condition status.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                       observedGeneration:
                         type: integer
+                        description: Resource generation observed by the operator.
                         format: int64
                         minimum: 0
                       lastTransitionTime:
                         type: string
+                        description: Time when the condition last changed.
                         format: date-time
                       reason:
                         type: string
+                        description: Short reason for the condition state.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable condition details.

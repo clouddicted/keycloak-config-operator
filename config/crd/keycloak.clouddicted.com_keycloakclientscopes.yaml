@@ -40,6 +40,7 @@ spec:
           properties:
             spec:
               type: object
+              description: Desired Keycloak client scope.
               required:
                 - targetRef
                 - realm
@@ -47,30 +48,38 @@ spec:
               properties:
                 targetRef:
                   type: object
+                  description: KeycloakTarget used to reach Keycloak.
                   required:
                     - name
                   properties:
                     name:
                       type: string
+                      description: Name of the KeycloakTarget in this namespace.
                       minLength: 1
                 realm:
                   type: string
+                  description: Realm containing the client scope.
                   minLength: 1
                 name:
                   type: string
+                  description: Keycloak client scope name.
                   minLength: 1
                 description:
                   type: string
+                  description: Keycloak client scope description.
                   minLength: 1
                 protocol:
                   type: string
+                  description: Client scope protocol.
                   default: openid-connect
                   minLength: 1
             status:
               type: object
+              description: Observed KeycloakClientScope status.
               properties:
                 conditions:
                   type: array
+                  description: Current readiness and reconciliation conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type
@@ -85,22 +94,28 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition type.
                         minLength: 1
                       status:
                         type: string
+                        description: Condition status.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                       observedGeneration:
                         type: integer
+                        description: Resource generation observed by the operator.
                         format: int64
                         minimum: 0
                       lastTransitionTime:
                         type: string
+                        description: Time when the condition last changed.
                         format: date-time
                       reason:
                         type: string
+                        description: Short reason for the condition state.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable condition details.
