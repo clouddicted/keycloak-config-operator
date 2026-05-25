@@ -25,6 +25,10 @@ spec:
         - name: Realm
           type: string
           jsonPath: .spec.realm
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
         - name: Target
           type: string
           jsonPath: .spec.targetRef.name
@@ -79,6 +83,9 @@ spec:
               type: object
               description: Observed KeycloakRole status.
               properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed realm role.
                 conditions:
                   type: array
                   description: Current readiness and reconciliation conditions.

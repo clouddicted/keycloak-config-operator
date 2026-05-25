@@ -23,6 +23,7 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -32,6 +33,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakRequestError,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     ready_condition,
     upsert_condition,
@@ -50,6 +52,7 @@ PARENT_TYPE_CLIENT = "Client"
 PARENT_TYPE_CLIENT_SCOPE = "ClientScope"
 PROTOCOL_MAPPER_CREATED_REASON = "ProtocolMapperCreated"
 PROTOCOL_MAPPER_OBSERVED_REASON = "ProtocolMapperObserved"
+PROTOCOL_MAPPER_ORPHANED_REASON = "ProtocolMapperOrphaned"
 PROTOCOL_MAPPER_UPDATED_REASON = "ProtocolMapperUpdated"
 REQUEST_FAILED_REASON = "RequestFailed"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
@@ -104,6 +107,12 @@ class ParentReference:
     internal_id: str
 
 
+@dataclass(frozen=True)
+class ProtocolMapperReconcileResult:
+    ready_reason: str
+    remote_id: str | None = None
+
+
 @kopf.on.create(**KEYCLOAK_PROTOCOL_MAPPER_RESOURCE)
 @kopf.on.update(**KEYCLOAK_PROTOCOL_MAPPER_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_PROTOCOL_MAPPER_RESOURCE)
@@ -122,17 +131,21 @@ def reconcile_keycloak_protocol_mapper(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_PROTOCOL_MAPPER_RESOURCE)
 def delete_keycloak_protocol_mapper(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     namespace: str | None = None,
     **_: Any,
 ) -> None:
     """Delete the remote Keycloak protocol mapper when requested by policy."""
-    delete_keycloak_protocol_mapper_resource(spec=spec, namespace=namespace)
+    deletion_policy = delete_keycloak_protocol_mapper_resource(spec=spec, namespace=namespace)
+    _emit_delete_event(body, deletion_policy)
 
 
 def delete_keycloak_protocol_mapper_resource(
@@ -141,7 +154,7 @@ def delete_keycloak_protocol_mapper_resource(
     namespace: str | None = None,
     target_resolver: TargetResolver | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
-) -> None:
+) -> str:
     """Delete the remote Keycloak protocol mapper when deletionPolicy is Delete."""
     mapper_spec = _parse_protocol_mapper_spec(spec)
     if mapper_spec is None:
@@ -150,7 +163,7 @@ def delete_keycloak_protocol_mapper_resource(
         )
 
     if mapper_spec.deletion_policy == DELETION_POLICY_ORPHAN:
-        return
+        return DELETION_POLICY_ORPHAN
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
@@ -164,6 +177,7 @@ def delete_keycloak_protocol_mapper_resource(
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         delete_keycloak_protocol_mapper_if_exists(keycloak_client, mapper_spec)
+        return DELETION_POLICY_DELETE
     except KeycloakAuthenticationError:
         raise _delete_temporary_error(
             "KeycloakProtocolMapper deletion failed because Keycloak authentication failed."
@@ -189,6 +203,7 @@ def patch_keycloak_protocol_mapper_status(
     mapper_spec = _parse_protocol_mapper_spec(spec)
 
     if mapper_spec is None:
+        _set_remote_id(patch, None)
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -215,12 +230,13 @@ def patch_keycloak_protocol_mapper_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
     try:
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
-        ready_reason = ensure_keycloak_protocol_mapper(keycloak_client, mapper_spec)
+        reconcile_result = ensure_keycloak_protocol_mapper(keycloak_client, mapper_spec)
     except KeycloakAuthenticationError:
         retry = RetryRequest(
             AUTHENTICATION_FAILED_REASON,
@@ -236,6 +252,7 @@ def patch_keycloak_protocol_mapper_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except KeycloakClientError:
         retry = RetryRequest(
@@ -253,15 +270,17 @@ def patch_keycloak_protocol_mapper_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
+    _set_remote_id(patch, reconcile_result.remote_id)
     _set_ready_condition(
         patch,
         existing_conditions,
         ready_condition(
             "True",
-            ready_reason,
-            _ready_message(ready_reason),
+            reconcile_result.ready_reason,
+            _ready_message(reconcile_result.ready_reason),
             now=now,
         ),
     )
@@ -271,8 +290,8 @@ def patch_keycloak_protocol_mapper_status(
 def ensure_keycloak_protocol_mapper(
     client: KeycloakProtocolMapperClient,
     mapper_spec: ProtocolMapperSpec,
-) -> str:
-    """Create, update, or observe a protocol mapper and return the Ready reason."""
+) -> ProtocolMapperReconcileResult:
+    """Create, update, or observe a protocol mapper and return the result."""
     parent = _resolve_parent_reference(client, mapper_spec)
     mappers = client.request("GET", _protocol_mapper_models_path(mapper_spec.realm, parent))
     if not isinstance(mappers, list):
@@ -285,10 +304,23 @@ def ensure_keycloak_protocol_mapper(
             _protocol_mapper_models_path(mapper_spec.realm, parent),
             json=_modeled_protocol_mapper_payload(mapper_spec),
         )
-        return PROTOCOL_MAPPER_CREATED_REASON
+        mappers = client.request("GET", _protocol_mapper_models_path(mapper_spec.realm, parent))
+        if not isinstance(mappers, list):
+            raise KeycloakRequestError(
+                "Keycloak protocol mapper lookup response was not a list"
+            )
+
+        created_mapper = _matching_protocol_mapper(mappers, mapper_spec.name)
+        return ProtocolMapperReconcileResult(
+            PROTOCOL_MAPPER_CREATED_REASON,
+            _remote_id(created_mapper) if created_mapper is not None else None,
+        )
 
     if not _has_modeled_drift(existing_mapper, mapper_spec):
-        return PROTOCOL_MAPPER_OBSERVED_REASON
+        return ProtocolMapperReconcileResult(
+            PROTOCOL_MAPPER_OBSERVED_REASON,
+            _remote_id(existing_mapper),
+        )
 
     mapper_id = existing_mapper.get("id")
     if not _is_non_empty_string(mapper_id):
@@ -299,7 +331,7 @@ def ensure_keycloak_protocol_mapper(
         _protocol_mapper_model_path(mapper_spec.realm, parent, mapper_id.strip()),
         json=_protocol_mapper_update_payload(existing_mapper, mapper_spec),
     )
-    return PROTOCOL_MAPPER_UPDATED_REASON
+    return ProtocolMapperReconcileResult(PROTOCOL_MAPPER_UPDATED_REASON, mapper_id.strip())
 
 
 def delete_keycloak_protocol_mapper_if_exists(
@@ -427,6 +459,11 @@ def _matching_protocol_mapper(
             return candidate
 
     return None
+
+
+def _remote_id(payload: Mapping[str, Any]) -> str | None:
+    remote_id = payload.get("id")
+    return remote_id.strip() if _is_non_empty_string(remote_id) else None
 
 
 def _matching_client(
@@ -623,6 +660,53 @@ def _set_ready_condition(
 ) -> None:
     status_patch = patch.setdefault("status", {})
     status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+
+
+def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
+    status_patch = patch.setdefault("status", {})
+    status_patch["remoteId"] = remote_id
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            PROTOCOL_MAPPER_CREATED_REASON: (
+                "Normal",
+                "Keycloak protocol mapper was created.",
+            ),
+            PROTOCOL_MAPPER_UPDATED_REASON: (
+                "Normal",
+                "Keycloak protocol mapper was updated.",
+            ),
+        },
+    )
+
+
+def _emit_delete_event(body: kopf.Body, deletion_policy: str) -> None:
+    if deletion_policy == DELETION_POLICY_DELETE:
+        kopf.event(
+            body,
+            type="Normal",
+            reason="ProtocolMapperDeleted",
+            message="Keycloak protocol mapper was deleted because deletionPolicy is Delete.",
+        )
+        return
+
+    kopf.event(
+        body,
+        type="Normal",
+        reason=PROTOCOL_MAPPER_ORPHANED_REASON,
+        message="Keycloak protocol mapper was left in Keycloak because deletionPolicy is Orphan.",
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

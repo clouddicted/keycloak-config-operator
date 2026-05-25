@@ -28,6 +28,10 @@ spec:
         - name: Parent
           type: string
           jsonPath: .spec.parent.type
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
         - name: Target
           type: string
           jsonPath: .spec.targetRef.name
@@ -127,6 +131,9 @@ spec:
               type: object
               description: Observed KeycloakProtocolMapper status.
               properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed protocol mapper.
                 conditions:
                   type: array
                   description: Current readiness and reconciliation conditions.

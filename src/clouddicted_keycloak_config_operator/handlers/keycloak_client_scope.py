@@ -23,6 +23,7 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -32,6 +33,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakRequestError,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     ready_condition,
     upsert_condition,
@@ -46,6 +48,7 @@ KEYCLOAK_CLIENT_SCOPE_RESOURCE = {
 AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 CLIENT_SCOPE_CREATED_REASON = "ClientScopeCreated"
 CLIENT_SCOPE_OBSERVED_REASON = "ClientScopeObserved"
+CLIENT_SCOPE_ORPHANED_REASON = "ClientScopeOrphaned"
 CLIENT_SCOPE_UPDATED_REASON = "ClientScopeUpdated"
 DEFAULT_PROTOCOL = "openid-connect"
 INVALID_SPEC_REASON = "InvalidSpec"
@@ -92,6 +95,12 @@ class ClientScopeSpec:
     description: str | None = None
 
 
+@dataclass(frozen=True)
+class ClientScopeReconcileResult:
+    ready_reason: str
+    remote_id: str | None = None
+
+
 @kopf.on.create(**KEYCLOAK_CLIENT_SCOPE_RESOURCE)
 @kopf.on.update(**KEYCLOAK_CLIENT_SCOPE_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_CLIENT_SCOPE_RESOURCE)
@@ -110,17 +119,21 @@ def reconcile_keycloak_client_scope(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_SCOPE_RESOURCE)
 def delete_keycloak_client_scope(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     namespace: str | None = None,
     **_: Any,
 ) -> None:
     """Delete the remote Keycloak client scope when requested by policy."""
-    delete_keycloak_client_scope_resource(spec=spec, namespace=namespace)
+    deletion_policy = delete_keycloak_client_scope_resource(spec=spec, namespace=namespace)
+    _emit_delete_event(body, deletion_policy)
 
 
 def delete_keycloak_client_scope_resource(
@@ -129,7 +142,7 @@ def delete_keycloak_client_scope_resource(
     namespace: str | None = None,
     target_resolver: TargetResolver | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
-) -> None:
+) -> str:
     """Delete the remote Keycloak client scope when deletionPolicy is Delete."""
     client_scope_spec = _parse_client_scope_spec(spec)
     if client_scope_spec is None:
@@ -138,7 +151,7 @@ def delete_keycloak_client_scope_resource(
         )
 
     if client_scope_spec.deletion_policy == DELETION_POLICY_ORPHAN:
-        return
+        return DELETION_POLICY_ORPHAN
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
@@ -152,6 +165,7 @@ def delete_keycloak_client_scope_resource(
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         delete_keycloak_client_scope_if_exists(keycloak_client, client_scope_spec)
+        return DELETION_POLICY_DELETE
     except KeycloakAuthenticationError:
         raise _delete_temporary_error(
             "KeycloakClientScope deletion failed because Keycloak authentication failed."
@@ -177,6 +191,7 @@ def patch_keycloak_client_scope_status(
     client_scope_spec = _parse_client_scope_spec(spec)
 
     if client_scope_spec is None:
+        _set_remote_id(patch, None)
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -203,12 +218,13 @@ def patch_keycloak_client_scope_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
     try:
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
-        ready_reason = ensure_keycloak_client_scope(keycloak_client, client_scope_spec)
+        reconcile_result = ensure_keycloak_client_scope(keycloak_client, client_scope_spec)
     except KeycloakAuthenticationError:
         retry = RetryRequest(
             AUTHENTICATION_FAILED_REASON,
@@ -224,6 +240,7 @@ def patch_keycloak_client_scope_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except KeycloakClientError:
         retry = RetryRequest(
@@ -240,15 +257,17 @@ def patch_keycloak_client_scope_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
+    _set_remote_id(patch, reconcile_result.remote_id)
     _set_ready_condition(
         patch,
         existing_conditions,
         ready_condition(
             "True",
-            ready_reason,
-            _ready_message(ready_reason),
+            reconcile_result.ready_reason,
+            _ready_message(reconcile_result.ready_reason),
             now=now,
         ),
     )
@@ -258,8 +277,8 @@ def patch_keycloak_client_scope_status(
 def ensure_keycloak_client_scope(
     client: KeycloakClientScopeClient,
     client_scope_spec: ClientScopeSpec,
-) -> str:
-    """Create, update, or observe a realm client scope and return the Ready reason."""
+) -> ClientScopeReconcileResult:
+    """Create, update, or observe a realm client scope and return the result."""
     client_scopes = client.request("GET", _client_scopes_path(client_scope_spec.realm))
     if not isinstance(client_scopes, list):
         raise KeycloakRequestError("Keycloak client scope lookup response was not a list")
@@ -271,10 +290,21 @@ def ensure_keycloak_client_scope(
             _client_scopes_path(client_scope_spec.realm),
             json=_modeled_client_scope_payload(client_scope_spec),
         )
-        return CLIENT_SCOPE_CREATED_REASON
+        client_scopes = client.request("GET", _client_scopes_path(client_scope_spec.realm))
+        if not isinstance(client_scopes, list):
+            raise KeycloakRequestError("Keycloak client scope lookup response was not a list")
+
+        created_client_scope = _matching_client_scope(client_scopes, client_scope_spec.name)
+        return ClientScopeReconcileResult(
+            CLIENT_SCOPE_CREATED_REASON,
+            _remote_id(created_client_scope) if created_client_scope is not None else None,
+        )
 
     if not _has_modeled_drift(existing_client_scope, client_scope_spec):
-        return CLIENT_SCOPE_OBSERVED_REASON
+        return ClientScopeReconcileResult(
+            CLIENT_SCOPE_OBSERVED_REASON,
+            _remote_id(existing_client_scope),
+        )
 
     internal_id = existing_client_scope.get("id")
     if not _is_non_empty_string(internal_id):
@@ -285,7 +315,7 @@ def ensure_keycloak_client_scope(
         _client_scope_path(client_scope_spec.realm, internal_id.strip()),
         json=_client_scope_update_payload(existing_client_scope, client_scope_spec),
     )
-    return CLIENT_SCOPE_UPDATED_REASON
+    return ClientScopeReconcileResult(CLIENT_SCOPE_UPDATED_REASON, internal_id.strip())
 
 
 def delete_keycloak_client_scope_if_exists(
@@ -337,6 +367,11 @@ def _client_scope_update_payload(
     payload = dict(existing_client_scope)
     payload.update(_modeled_client_scope_payload(client_scope_spec))
     return payload
+
+
+def _remote_id(payload: Mapping[str, Any]) -> str | None:
+    remote_id = payload.get("id")
+    return remote_id.strip() if _is_non_empty_string(remote_id) else None
 
 
 def _matching_client_scope(
@@ -456,6 +491,47 @@ def _set_ready_condition(
 ) -> None:
     status_patch = patch.setdefault("status", {})
     status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+
+
+def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
+    status_patch = patch.setdefault("status", {})
+    status_patch["remoteId"] = remote_id
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            CLIENT_SCOPE_CREATED_REASON: ("Normal", "Keycloak client scope was created."),
+            CLIENT_SCOPE_UPDATED_REASON: ("Normal", "Keycloak client scope was updated."),
+        },
+    )
+
+
+def _emit_delete_event(body: kopf.Body, deletion_policy: str) -> None:
+    if deletion_policy == DELETION_POLICY_DELETE:
+        kopf.event(
+            body,
+            type="Normal",
+            reason="ClientScopeDeleted",
+            message="Keycloak client scope was deleted because deletionPolicy is Delete.",
+        )
+        return
+
+    kopf.event(
+        body,
+        type="Normal",
+        reason=CLIENT_SCOPE_ORPHANED_REASON,
+        message="Keycloak client scope was left in Keycloak because deletionPolicy is Orphan.",
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

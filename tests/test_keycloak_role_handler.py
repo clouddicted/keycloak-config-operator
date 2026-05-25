@@ -70,7 +70,9 @@ class FakeKeycloakClient:
 
         if method == "GET":
             if self.get_error is not None:
-                raise self.get_error
+                error = self.get_error
+                self.get_error = None
+                raise error
             return self.role_result
 
         if method == "POST":
@@ -202,6 +204,7 @@ def test_patch_keycloak_role_status_observes_existing_matching_role() -> None:
     assert keycloak_client.requests == [
         ("GET", "realms/example%20realm/roles/admin%2Feditor", {})
     ]
+    assert patch["status"]["remoteId"] == "role-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
@@ -231,7 +234,9 @@ def test_patch_keycloak_role_status_creates_missing_role() -> None:
             "realms/example/roles",
             {"json": {"name": "example-role", "description": "Example role"}},
         ),
+        ("GET", "realms/example/roles/example-role", {}),
     ]
+    assert patch["status"]["remoteId"] == "role-uuid"
 
 
 def test_patch_keycloak_role_status_updates_description_drift_preserving_fields() -> None:
@@ -273,6 +278,7 @@ def test_patch_keycloak_role_status_updates_description_drift_preserving_fields(
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "role-uuid"
 
 
 def test_patch_keycloak_role_status_reports_auth_failure_without_secret_values() -> None:

@@ -25,6 +25,7 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -39,6 +40,7 @@ from clouddicted_keycloak_config_operator.secrets import (
     load_secret_value,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     drift_detected_condition,
     ready_condition,
@@ -56,6 +58,7 @@ CLIENT_CREATED_REASON = "ClientCreated"
 CLIENT_DRIFT_DETECTED_REASON = "ClientDriftDetected"
 CLIENT_MISSING_REASON = "ClientMissing"
 CLIENT_OBSERVED_REASON = "ClientObserved"
+CLIENT_ORPHANED_REASON = "ClientOrphaned"
 CLIENT_UPDATED_REASON = "ClientUpdated"
 INVALID_SPEC_REASON = "InvalidSpec"
 NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
@@ -118,6 +121,7 @@ class ClientReconcileResult:
     ready_status: str
     ready_reason: str
     drift_detected: bool
+    remote_id: str | None = None
 
 
 @kopf.on.create(**KEYCLOAK_CLIENT_RESOURCE)
@@ -138,17 +142,21 @@ def reconcile_keycloak_client(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
 def delete_keycloak_client(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     namespace: str | None = None,
     **_: Any,
 ) -> None:
     """Delete the remote Keycloak client when requested by policy."""
-    delete_keycloak_client_resource(spec=spec, namespace=namespace)
+    deletion_policy = delete_keycloak_client_resource(spec=spec, namespace=namespace)
+    _emit_delete_event(body, deletion_policy)
 
 
 def delete_keycloak_client_resource(
@@ -157,14 +165,14 @@ def delete_keycloak_client_resource(
     namespace: str | None = None,
     target_resolver: TargetResolver | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
-) -> None:
+) -> str:
     """Delete the remote Keycloak client when deletionPolicy is Delete."""
     client_spec = _parse_client_spec(spec)
     if client_spec is None:
         raise kopf.PermanentError("KeycloakClient deletion skipped because spec is invalid.")
 
     if client_spec.deletion_policy == DELETION_POLICY_ORPHAN:
-        return
+        return DELETION_POLICY_ORPHAN
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
@@ -178,6 +186,7 @@ def delete_keycloak_client_resource(
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         delete_keycloak_client_if_exists(keycloak_client, client_spec)
+        return DELETION_POLICY_DELETE
     except KeycloakAuthenticationError:
         raise _delete_temporary_error(
             "KeycloakClient deletion failed because Keycloak authentication failed."
@@ -204,6 +213,7 @@ def patch_keycloak_client_status(
     client_spec = _parse_client_spec(spec)
 
     if client_spec is None:
+        _set_remote_id(patch, None)
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -230,6 +240,7 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
     try:
@@ -259,6 +270,7 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except (SecretRefError, ApiException):
         retry = RetryRequest(
@@ -275,6 +287,7 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except KeycloakClientError:
         retry = RetryRequest(
@@ -291,8 +304,10 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
+    _set_remote_id(patch, reconcile_result.remote_id)
     _set_conditions(
         patch,
         existing_conditions,
@@ -321,11 +336,22 @@ def ensure_keycloak_client(
 
     existing_client = _matching_client(clients, client_spec.client_id)
     if existing_client is not None:
+        remote_id = _remote_id(existing_client)
         if not _has_modeled_drift(existing_client, client_spec):
-            return ClientReconcileResult("True", CLIENT_OBSERVED_REASON, False)
+            return ClientReconcileResult(
+                "True",
+                CLIENT_OBSERVED_REASON,
+                False,
+                remote_id,
+            )
 
         if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
-            return ClientReconcileResult("True", CLIENT_DRIFT_DETECTED_REASON, True)
+            return ClientReconcileResult(
+                "True",
+                CLIENT_DRIFT_DETECTED_REASON,
+                True,
+                remote_id,
+            )
 
         internal_id = existing_client.get("id")
         if not _is_non_empty_string(internal_id):
@@ -336,10 +362,15 @@ def ensure_keycloak_client(
             _client_path(client_spec.realm, internal_id.strip()),
             json=_client_update_payload(existing_client, client_spec),
         )
-        return ClientReconcileResult("True", CLIENT_UPDATED_REASON, False)
+        return ClientReconcileResult(
+            "True",
+            CLIENT_UPDATED_REASON,
+            False,
+            internal_id.strip(),
+        )
 
     if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
-        return ClientReconcileResult("False", CLIENT_MISSING_REASON, True)
+        return ClientReconcileResult("False", CLIENT_MISSING_REASON, True, None)
 
     client_secret: str | None = None
     if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
@@ -352,7 +383,12 @@ def ensure_keycloak_client(
         _clients_path(client_spec.realm),
         json=_client_create_payload(client_spec, client_secret=client_secret),
     )
-    return ClientReconcileResult("True", CLIENT_CREATED_REASON, False)
+    return ClientReconcileResult(
+        "True",
+        CLIENT_CREATED_REASON,
+        False,
+        _created_client_remote_id(client, client_spec),
+    )
 
 
 def ensure_keycloak_public_client(
@@ -513,6 +549,27 @@ def _matching_client(
             return candidate
 
     return None
+
+
+def _created_client_remote_id(
+    client: KeycloakPublicClient,
+    client_spec: ClientSpec,
+) -> str | None:
+    clients = client.request(
+        "GET",
+        _clients_path(client_spec.realm),
+        params={"clientId": client_spec.client_id},
+    )
+    if not isinstance(clients, list):
+        raise KeycloakRequestError("Keycloak client lookup response was not a list")
+
+    created_client = _matching_client(clients, client_spec.client_id)
+    return _remote_id(created_client) if created_client is not None else None
+
+
+def _remote_id(payload: Mapping[str, Any]) -> str | None:
+    remote_id = payload.get("id")
+    return remote_id.strip() if _is_non_empty_string(remote_id) else None
 
 
 def _has_modeled_drift(
@@ -702,6 +759,55 @@ def _set_conditions(
         updated_conditions = upsert_condition(updated_conditions, condition)
 
     status_patch["conditions"] = updated_conditions
+
+
+def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
+    status_patch = patch.setdefault("status", {})
+    status_patch["remoteId"] = remote_id
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            CLIENT_CREATED_REASON: ("Normal", "Keycloak client was created."),
+            CLIENT_UPDATED_REASON: ("Normal", "Keycloak client was updated."),
+            CLIENT_DRIFT_DETECTED_REASON: (
+                "Warning",
+                "Keycloak client has modeled drift and was left unchanged.",
+            ),
+            CLIENT_MISSING_REASON: (
+                "Warning",
+                "Keycloak client is missing and was left unchanged.",
+            ),
+        },
+    )
+
+
+def _emit_delete_event(body: kopf.Body, deletion_policy: str) -> None:
+    if deletion_policy == DELETION_POLICY_DELETE:
+        kopf.event(
+            body,
+            type="Normal",
+            reason="ClientDeleted",
+            message="Keycloak client was deleted because deletionPolicy is Delete.",
+        )
+        return
+
+    kopf.event(
+        body,
+        type="Normal",
+        reason=CLIENT_ORPHANED_REASON,
+        message="Keycloak client was left in Keycloak because deletionPolicy is Orphan.",
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

@@ -20,6 +20,7 @@ from clouddicted_keycloak_config_operator.constants import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -40,6 +41,7 @@ from clouddicted_keycloak_config_operator.secrets import (
     load_secret_value,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     ready_condition,
     upsert_condition,
@@ -125,6 +127,8 @@ def reconcile_keycloak_realm(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
@@ -595,6 +599,24 @@ def _set_ready_condition(
 ) -> None:
     status_patch = patch.setdefault("status", {})
     status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            REALM_CREATED_REASON: ("Normal", "Keycloak realm was created."),
+            REALM_UPDATED_REASON: ("Normal", "Keycloak realm was updated."),
+        },
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

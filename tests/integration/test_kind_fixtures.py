@@ -319,6 +319,14 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclientscopes", CLIENT_SCOPE_NAME)
         _eventually(lambda: _assert_client_scope(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclientscopes",
+                CLIENT_SCOPE_NAME,
+                _client_scope(keycloak_url, realm, CLIENT_SCOPE_NAME)["id"],
+            )
+        )
 
         _log("applying KeycloakProtocolMapper")
         _apply_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
@@ -328,22 +336,54 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             "example-profile-email",
         )
         _eventually(lambda: _assert_protocol_mapper(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakprotocolmappers",
+                "example-profile-email",
+                _protocol_mapper(keycloak_url, realm)["id"],
+            )
+        )
 
         _log("applying KeycloakRole")
         _apply_document(kind_cluster_env, _keycloak_role(realm))
         _wait_for_ready(kind_cluster_env, "keycloakroles", ROLE_NAME)
         _eventually(lambda: _assert_role(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakroles",
+                ROLE_NAME,
+                _admin_get(keycloak_url, f"realms/{realm}/roles/{ROLE_NAME}")["id"],
+            )
+        )
 
         _log("applying public KeycloakClient")
         _apply_document(kind_cluster_env, _keycloak_public_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", PUBLIC_CLIENT_ID)
         _eventually(lambda: _assert_public_client(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclients",
+                PUBLIC_CLIENT_ID,
+                _client(keycloak_url, realm, PUBLIC_CLIENT_ID)["id"],
+            )
+        )
 
         _log("applying confidential KeycloakClient")
         _apply_document(kind_cluster_env, _confidential_client_secret())
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", CONFIDENTIAL_CLIENT_ID)
         _eventually(lambda: _assert_confidential_client(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclients",
+                CONFIDENTIAL_CLIENT_ID,
+                _client(keycloak_url, realm, CONFIDENTIAL_CLIENT_ID)["id"],
+            )
+        )
 
         _log("deleting KeycloakProtocolMapper with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
@@ -638,6 +678,29 @@ def _assert_client_credentials_secret(env: dict[str, str]) -> None:
     assert secret["data"]["clientSecret"]
 
 
+def _assert_remote_id_matches(
+    env: dict[str, str],
+    plural: str,
+    name: str,
+    remote_id: str,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            plural,
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+
+    assert resource["status"]["remoteId"] == remote_id
+
+
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],
@@ -835,12 +898,7 @@ def _assert_client_scope(base_url: str, realm: str) -> dict[str, Any]:
 
 
 def _assert_protocol_mapper(base_url: str, realm: str) -> None:
-    client_scope = _assert_client_scope(base_url, realm)
-    mappers = _admin_get(
-        base_url,
-        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
-    )
-    mapper = _one_by_field(mappers, "name", PROTOCOL_MAPPER_NAME)
+    mapper = _protocol_mapper(base_url, realm)
 
     assert mapper["protocol"] == "openid-connect"
     assert mapper["protocolMapper"] == "oidc-usermodel-property-mapper"
@@ -919,6 +977,15 @@ def _client(base_url: str, realm: str, client_id: str) -> dict[str, Any]:
 def _client_scope(base_url: str, realm: str, name: str) -> dict[str, Any]:
     client_scopes = _admin_get(base_url, f"realms/{realm}/client-scopes")
     return _one_by_field(client_scopes, "name", name)
+
+
+def _protocol_mapper(base_url: str, realm: str) -> dict[str, Any]:
+    client_scope = _assert_client_scope(base_url, realm)
+    mappers = _admin_get(
+        base_url,
+        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
+    )
+    return _one_by_field(mappers, "name", PROTOCOL_MAPPER_NAME)
 
 
 def _admin_get(base_url: str, path: str, params: dict[str, str] | None = None) -> Any:

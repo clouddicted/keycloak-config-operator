@@ -89,6 +89,14 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            payload = kwargs.get("json")
+            if isinstance(payload, dict) and isinstance(payload.get("name"), str):
+                self.mapper_result.append(
+                    {
+                        "id": "created-mapper-uuid",
+                        **payload,
+                    }
+                )
             return None
 
         if method == "PUT":
@@ -239,6 +247,7 @@ def test_patch_keycloak_protocol_mapper_status_observes_existing_client_mapper()
             {},
         ),
     ]
+    assert patch["status"]["remoteId"] == "mapper-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
@@ -284,7 +293,13 @@ def test_patch_keycloak_protocol_mapper_status_creates_client_scope_mapper() -> 
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
     ]
+    assert patch["status"]["remoteId"] == "created-mapper-uuid"
 
 
 def test_patch_keycloak_protocol_mapper_status_updates_drift_preserving_fields() -> None:
@@ -347,6 +362,7 @@ def test_patch_keycloak_protocol_mapper_status_updates_drift_preserving_fields()
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "mapper-uuid"
 
 
 def test_patch_keycloak_protocol_mapper_status_reports_auth_failure_without_secret_values() -> None:

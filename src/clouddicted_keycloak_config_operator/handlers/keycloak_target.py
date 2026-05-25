@@ -19,6 +19,7 @@ from clouddicted_keycloak_config_operator.constants import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -140,6 +141,8 @@ def reconcile_keycloak_target(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
@@ -857,6 +860,26 @@ def _bootstrap_ready_condition(
     now: datetime | None = None,
 ) -> Condition:
     return condition(BOOTSTRAP_READY_CONDITION, status, reason, message, now=now)
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=BOOTSTRAP_READY_CONDITION,
+        events={
+            BOOTSTRAPPED_REASON: (
+                "Normal",
+                "KeycloakTarget bootstrap client credentials are available.",
+            ),
+        },
+    )
 
 
 def _authentication_failure_message(error: KeycloakClientError) -> str:

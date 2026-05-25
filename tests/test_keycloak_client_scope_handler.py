@@ -78,6 +78,14 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            payload = kwargs.get("json")
+            if isinstance(payload, dict) and isinstance(payload.get("name"), str):
+                self.scope_result.append(
+                    {
+                        "id": "created-client-scope-uuid",
+                        **payload,
+                    }
+                )
             return None
 
         if method == "PUT":
@@ -214,6 +222,7 @@ def test_patch_keycloak_client_scope_status_observes_existing_matching_scope() -
     assert keycloak_client.requests == [
         ("GET", "realms/example%20realm/client-scopes", {})
     ]
+    assert patch["status"]["remoteId"] == "client-scope-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
@@ -250,7 +259,9 @@ def test_patch_keycloak_client_scope_status_creates_missing_scope_with_default_p
                 }
             },
         ),
+        ("GET", "realms/example/client-scopes", {}),
     ]
+    assert patch["status"]["remoteId"] == "created-client-scope-uuid"
 
 
 def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() -> None:
@@ -299,6 +310,7 @@ def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() ->
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "client-scope-uuid"
 
 
 def test_patch_keycloak_client_scope_status_reports_auth_failure_without_secret_values() -> None:

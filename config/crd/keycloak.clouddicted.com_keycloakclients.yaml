@@ -28,6 +28,10 @@ spec:
         - name: Type
           type: string
           jsonPath: .spec.clientType
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
         - name: Target
           type: string
           jsonPath: .spec.targetRef.name
@@ -123,6 +127,9 @@ spec:
               type: object
               description: Observed KeycloakClient status.
               properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed client.
                 conditions:
                   type: array
                   description: Current readiness and reconciliation conditions.

@@ -85,6 +85,14 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            payload = kwargs.get("json")
+            if isinstance(payload, dict) and isinstance(payload.get("clientId"), str):
+                self.lookup_result.append(
+                    {
+                        "id": "created-client-uuid",
+                        **payload,
+                    }
+                )
             return None
 
         if method == "PUT":
@@ -268,6 +276,7 @@ def test_patch_keycloak_client_status_observes_matching_public_client_without_pu
             {"params": {"clientId": "example-web"}},
         )
     ]
+    assert patch["status"]["remoteId"] == "client-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
@@ -339,6 +348,7 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "client-uuid"
 
 
 def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -> None:
@@ -627,7 +637,13 @@ def test_patch_keycloak_client_status_creates_missing_public_client() -> None:
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
     ]
+    assert patch["status"]["remoteId"] == "created-client-uuid"
     assert core_v1_api.calls == []
 
 
@@ -680,7 +696,13 @@ def test_patch_keycloak_client_status_creates_missing_confidential_client() -> N
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-service"}},
+        ),
     ]
+    assert patch["status"]["remoteId"] == "created-client-uuid"
     assert _condition_messages(patch).isdisjoint({"client-secret-value"})
 
 
