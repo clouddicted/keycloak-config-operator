@@ -147,14 +147,12 @@ spec:
                 defaultClientScopes:
                   type: array
                   description: Default client scopes assigned to the client.
-                  uniqueItems: true
                   items:
                     type: string
                     minLength: 1
                 optionalClientScopes:
                   type: array
                   description: Optional client scopes assigned to the client.
-                  uniqueItems: true
                   items:
                     type: string
                     minLength: 1

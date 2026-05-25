@@ -1102,12 +1102,15 @@ def _log(message: str) -> None:
 
 
 def _run(args: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return _run_completed_process(
+        subprocess.run(
+            args,
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        ),
         args,
-        check=True,
-        env=env,
-        text=True,
-        capture_output=True,
     )
 
 
@@ -1117,11 +1120,38 @@ def _run_with_input(
     env: dict[str, str],
     input_text: str,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return _run_completed_process(
+        subprocess.run(
+            args,
+            input=input_text,
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        ),
         args,
-        input=input_text,
-        check=True,
-        env=env,
-        text=True,
-        capture_output=True,
     )
+
+
+def _run_completed_process(
+    completed: subprocess.CompletedProcess[str],
+    args: list[str],
+) -> subprocess.CompletedProcess[str]:
+    if completed.returncode != 0:
+        _print_failed_command_output(args, completed)
+        completed.check_returncode()
+
+    return completed
+
+
+def _print_failed_command_output(
+    args: list[str],
+    completed: subprocess.CompletedProcess[str],
+) -> None:
+    print(f"[kind-e2e] command failed: {' '.join(args)}", flush=True)
+    if completed.stdout:
+        print("[kind-e2e] stdout:", flush=True)
+        print(completed.stdout, flush=True)
+    if completed.stderr:
+        print("[kind-e2e] stderr:", flush=True)
+        print(completed.stderr, flush=True)
