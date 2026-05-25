@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from clouddicted_keycloak_config_operator.keycloak_client import (
+    AUTH_METHOD_CLIENT_CREDENTIALS,
     DEFAULT_CLIENT_ID,
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -37,6 +38,34 @@ def test_authenticate_stores_token_from_default_master_realm_endpoint() -> None:
     client.authenticate()
 
     assert client.base_url == "https://keycloak.example.test"
+    assert len(requests) == 1
+
+
+def test_authenticate_supports_client_credentials_grant() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert str(request.url) == (
+            "https://keycloak.example.test/realms/master/protocol/openid-connect/token"
+        )
+        assert request.method == "POST"
+        assert _form_data(request) == {
+            "grant_type": ["client_credentials"],
+            "client_id": ["operator-client"],
+            "client_secret": ["client-secret-value"],
+        }
+        return httpx.Response(200, json={"access_token": "access-token"})
+
+    client = _client(
+        handler,
+        auth_method=AUTH_METHOD_CLIENT_CREDENTIALS,
+        client_id="operator-client",
+        client_secret="client-secret-value",
+    )
+
+    client.authenticate()
+
     assert len(requests) == 1
 
 
@@ -139,6 +168,9 @@ def _client(
     handler: Callable[[httpx.Request], httpx.Response],
     *,
     base_url: str = "https://keycloak.example.test",
+    auth_method: str = "Password",
+    client_id: str = DEFAULT_CLIENT_ID,
+    client_secret: str | None = None,
 ) -> KeycloakAdminClient:
     transport = httpx.MockTransport(handler)
     http_client = httpx.Client(transport=transport)
@@ -146,6 +178,9 @@ def _client(
         base_url=base_url,
         username="admin",
         password="secret-password",
+        client_id=client_id,
+        client_secret=client_secret,
+        auth_method=auth_method,
         http_client=http_client,
     )
 

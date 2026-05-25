@@ -34,7 +34,11 @@ spec:
               description: Desired connection settings for a Keycloak instance.
               required:
                 - url
-                - adminCredentials
+              oneOf:
+                - required:
+                    - adminCredentials
+                - required:
+                    - auth
               properties:
                 url:
                   type: string
@@ -71,10 +75,151 @@ spec:
                           description: Secret key containing the admin password.
                           default: password
                           minLength: 1
+                auth:
+                  type: object
+                  description: Authentication method used to reach the Keycloak Admin API.
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      description: Authentication method.
+                      enum:
+                        - Password
+                        - ClientCredentials
+                        - BootstrapClientCredentials
+                    realm:
+                      type: string
+                      description: Realm used for token acquisition.
+                      default: master
+                      minLength: 1
+                    clientId:
+                      type: string
+                      description: OAuth client ID used with Password authentication.
+                      default: admin-cli
+                      minLength: 1
+                    password:
+                      type: object
+                      description: Username and password credentials for Password authentication.
+                      required:
+                        - secretRef
+                      properties:
+                        secretRef:
+                          type: object
+                          description: Secret containing username and password credentials.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            usernameKey:
+                              type: string
+                              description: Secret key containing the username.
+                              default: username
+                              minLength: 1
+                            passwordKey:
+                              type: string
+                              description: Secret key containing the password.
+                              default: password
+                              minLength: 1
+                    bootstrapAdminCredentials:
+                      type: object
+                      description:
+                        Admin credentials used only to bootstrap a service-account
+                        client when type is BootstrapClientCredentials.
+                      required:
+                        - secretRef
+                      properties:
+                        secretRef:
+                          type: object
+                          description: Secret containing bootstrap admin credentials.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            usernameKey:
+                              type: string
+                              description: Secret key containing the admin username.
+                              default: username
+                              minLength: 1
+                            passwordKey:
+                              type: string
+                              description: Secret key containing the admin password.
+                              default: password
+                              minLength: 1
+                    clientCredentials:
+                      type: object
+                      description:
+                        Client credentials used directly or generated during
+                        bootstrap.
+                      required:
+                        - clientId
+                        - secretRef
+                      properties:
+                        clientId:
+                          type: string
+                          description: Confidential client ID.
+                          minLength: 1
+                        secretRef:
+                          type: object
+                          description: Secret containing the client secret.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            clientSecretKey:
+                              type: string
+                              description: Secret key containing the client secret.
+                              default: clientSecret
+                              minLength: 1
+                    bootstrapRealmRoles:
+                      type: array
+                      description:
+                        Realm roles assigned to the bootstrapped service account.
+                        Defaults to the broad admin role for bootstrap simplicity.
+                      default:
+                        - admin
+                      items:
+                        type: string
+                        description: Realm role name.
+                        minLength: 1
             status:
               type: object
               description: Observed KeycloakTarget status.
               properties:
+                activeAuthMethod:
+                  type: string
+                  description: Authentication method currently used by the target.
+                clientCredentialsSecretRef:
+                  type: object
+                  description: Secret containing generated client credentials, when bootstrapped.
+                  properties:
+                    name:
+                      type: string
+                      description: Secret name.
+                    namespace:
+                      type: string
+                      description: Secret namespace.
                 conditions:
                   type: array
                   description: Current readiness and authentication conditions.

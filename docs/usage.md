@@ -77,6 +77,48 @@ connectivity failures are reported on the resource.
 kubectl describe -n keycloak-config keycloaktarget production-keycloak
 ```
 
+For production-style access, use a Keycloak confidential client with service
+account roles and store its client secret in Kubernetes.
+
+```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakTarget
+metadata:
+  name: production-keycloak
+  namespace: keycloak-config
+spec:
+  url: https://keycloak.example.com
+  auth:
+    type: ClientCredentials
+    realm: master
+    clientCredentials:
+      clientId: keycloak-config-operator
+      secretRef:
+        name: keycloak-operator-client
+        clientSecretKey: clientSecret
+```
+
+For a fresh Keycloak where the service-account client does not exist yet, use
+bootstrap mode. The operator uses the admin credentials to create the client,
+stores the generated client secret in the referenced Secret, and then uses
+client credentials for the target.
+
+```yaml
+spec:
+  url: https://keycloak.example.com
+  auth:
+    type: BootstrapClientCredentials
+    realm: master
+    bootstrapAdminCredentials:
+      secretRef:
+        name: keycloak-admin-credentials
+    clientCredentials:
+      clientId: keycloak-config-operator
+      secretRef:
+        name: keycloak-operator-client
+        clientSecretKey: clientSecret
+```
+
 ## Manage Keycloak Configuration
 
 Apply dependent resources in the same namespace. Each resource references the

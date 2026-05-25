@@ -23,13 +23,22 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
+    AUTH_METHOD_CLIENT_CREDENTIALS,
+    AUTH_METHOD_PASSWORD,
+    DEFAULT_CLIENT_ID,
+    DEFAULT_REALM,
     KeycloakAdminClient,
     KeycloakAuthenticationError,
     KeycloakClientError,
     KeycloakRequestError,
     KeycloakResourceNotFoundError,
 )
-from clouddicted_keycloak_config_operator.secrets import SecretRefError, load_secret_credentials
+from clouddicted_keycloak_config_operator.secrets import (
+    DEFAULT_CLIENT_SECRET_KEY,
+    SecretRefError,
+    load_secret_credentials,
+    load_secret_value,
+)
 from clouddicted_keycloak_config_operator.status import (
     Condition,
     ready_condition,
@@ -86,8 +95,12 @@ class RealmSpec:
 @dataclass(frozen=True)
 class TargetConnection:
     url: str
-    username: str
-    password: str
+    username: str = ""
+    password: str = ""
+    realm: str = DEFAULT_REALM
+    client_id: str = DEFAULT_CLIENT_ID
+    client_secret: str | None = None
+    auth_method: str = AUTH_METHOD_PASSWORD
 
 
 class TargetResolutionError(RuntimeError):
@@ -155,11 +168,7 @@ def patch_keycloak_realm_status(
         return retry
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         ready_reason = ensure_keycloak_realm(keycloak_client, realm_spec)
     except KeycloakAuthenticationError:
@@ -295,6 +304,63 @@ class KubernetesTargetResolver:
         if target_spec is None:
             raise TargetResolutionError("Referenced KeycloakTarget spec is invalid.")
 
+        auth_method = target_spec["auth_method"]
+        if auth_method == AUTH_METHOD_CLIENT_CREDENTIALS:
+            try:
+                client_secret = load_secret_value(
+                    self.core_v1_api,
+                    namespace,
+                    target_spec["secret_ref"],
+                    default_key=_client_secret_key(target_spec["secret_ref"]),
+                )
+            except (SecretRefError, ApiException) as exc:
+                raise TargetResolutionError(
+                    "Referenced KeycloakTarget client credentials Secret could not be loaded."
+                ) from exc
+
+            return TargetConnection(
+                url=target_spec["url"],
+                realm=target_spec["realm"],
+                client_id=target_spec["client_id"],
+                client_secret=client_secret.value,
+                auth_method=AUTH_METHOD_CLIENT_CREDENTIALS,
+            )
+
+        if auth_method == "BootstrapClientCredentials":
+            try:
+                client_secret = load_secret_value(
+                    self.core_v1_api,
+                    namespace,
+                    target_spec["secret_ref"],
+                    default_key=_client_secret_key(target_spec["secret_ref"]),
+                )
+            except (SecretRefError, ApiException):
+                try:
+                    credentials = load_secret_credentials(
+                        self.core_v1_api,
+                        namespace,
+                        target_spec["bootstrap_secret_ref"],
+                    )
+                except (SecretRefError, ApiException) as exc:
+                    raise TargetResolutionError(
+                        "Referenced KeycloakTarget bootstrap credentials could not be loaded."
+                    ) from exc
+
+                return TargetConnection(
+                    url=target_spec["url"],
+                    username=credentials.username,
+                    password=credentials.password,
+                    realm=target_spec["realm"],
+                )
+
+            return TargetConnection(
+                url=target_spec["url"],
+                realm=target_spec["realm"],
+                client_id=target_spec["client_id"],
+                client_secret=client_secret.value,
+                auth_method=AUTH_METHOD_CLIENT_CREDENTIALS,
+            )
+
         try:
             credentials = load_secret_credentials(
                 self.core_v1_api,
@@ -306,10 +372,13 @@ class KubernetesTargetResolver:
                 "Referenced KeycloakTarget credentials Secret could not be loaded."
             ) from exc
 
+        client_id = target_spec["client_id"]
         return TargetConnection(
             url=target_spec["url"],
             username=credentials.username,
             password=credentials.password,
+            realm=target_spec["realm"],
+            client_id=client_id.strip() if _is_non_empty_string(client_id) else DEFAULT_CLIENT_ID,
         )
 
 
@@ -346,24 +415,132 @@ def _parse_target_connection_spec(
         return None
 
     url = spec.get("url")
-    admin_credentials = spec.get("adminCredentials")
-    secret_ref = (
-        admin_credentials.get("secretRef")
-        if isinstance(admin_credentials, Mapping)
-        else None
-    )
+    if not _is_non_empty_string(url):
+        return None
 
-    if (
-        not _is_non_empty_string(url)
-        or not isinstance(secret_ref, Mapping)
-        or not _is_non_empty_string(secret_ref.get("name"))
-    ):
+    auth = spec.get("auth")
+    if isinstance(auth, Mapping):
+        parsed_auth = _parse_target_auth_spec(auth)
+        if parsed_auth is None:
+            return None
+
+        parsed_auth["url"] = url.strip()
+        return parsed_auth
+
+    admin_credentials = spec.get("adminCredentials")
+    secret_ref = _secret_ref(admin_credentials)
+    if secret_ref is None:
         return None
 
     return {
         "url": url.strip(),
+        "auth_method": AUTH_METHOD_PASSWORD,
+        "realm": DEFAULT_REALM,
+        "client_id": DEFAULT_CLIENT_ID,
         "secret_ref": secret_ref,
     }
+
+
+def _parse_target_auth_spec(auth: Mapping[str, Any]) -> dict[str, Any] | None:
+    auth_type = auth.get("type")
+    if not _is_non_empty_string(auth_type):
+        return None
+
+    parsed_auth_type = auth_type.strip()
+    realm = auth.get("realm", DEFAULT_REALM)
+    if not _is_non_empty_string(realm):
+        return None
+
+    if parsed_auth_type == AUTH_METHOD_CLIENT_CREDENTIALS:
+        client_credentials = _parse_client_credentials_spec(auth.get("clientCredentials"))
+        if client_credentials is None:
+            return None
+
+        return {
+            "auth_method": AUTH_METHOD_CLIENT_CREDENTIALS,
+            "realm": realm.strip(),
+            **client_credentials,
+        }
+
+    if parsed_auth_type == "BootstrapClientCredentials":
+        client_credentials = _parse_client_credentials_spec(auth.get("clientCredentials"))
+        bootstrap_secret_ref = _secret_ref(auth.get("bootstrapAdminCredentials"))
+        if client_credentials is None or bootstrap_secret_ref is None:
+            return None
+
+        return {
+            "auth_method": "BootstrapClientCredentials",
+            "realm": realm.strip(),
+            "bootstrap_secret_ref": bootstrap_secret_ref,
+            **client_credentials,
+        }
+
+    if parsed_auth_type == AUTH_METHOD_PASSWORD:
+        secret_ref = _secret_ref(auth.get("password"))
+        client_id = auth.get("clientId", DEFAULT_CLIENT_ID)
+        if secret_ref is None or not _is_non_empty_string(client_id):
+            return None
+
+        return {
+            "auth_method": AUTH_METHOD_PASSWORD,
+            "realm": realm.strip(),
+            "client_id": client_id.strip(),
+            "secret_ref": secret_ref,
+        }
+
+    return None
+
+
+def _parse_client_credentials_spec(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+
+    client_id = value.get("clientId")
+    secret_ref = value.get("secretRef")
+    if not _is_non_empty_string(client_id) or not isinstance(secret_ref, Mapping):
+        return None
+
+    if not _is_non_empty_string(secret_ref.get("name")):
+        return None
+
+    return {
+        "client_id": client_id.strip(),
+        "secret_ref": secret_ref,
+    }
+
+
+def _secret_ref(value: Any) -> Mapping[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+
+    secret_ref = value.get("secretRef")
+    if not isinstance(secret_ref, Mapping) or not _is_non_empty_string(secret_ref.get("name")):
+        return None
+
+    return secret_ref
+
+
+def keycloak_client_factory_kwargs(target: TargetConnection) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "base_url": target.url,
+        "username": target.username,
+        "password": target.password,
+    }
+
+    if target.realm != DEFAULT_REALM:
+        kwargs["realm"] = target.realm
+    if target.client_id != DEFAULT_CLIENT_ID:
+        kwargs["client_id"] = target.client_id
+    if target.auth_method == AUTH_METHOD_CLIENT_CREDENTIALS:
+        kwargs["auth_method"] = AUTH_METHOD_CLIENT_CREDENTIALS
+        kwargs["client_secret"] = target.client_secret
+
+    return kwargs
+
+
+def _client_secret_key(secret_ref: Mapping[str, Any]) -> str:
+    secret_key = secret_ref.get("clientSecretKey") or secret_ref.get("secretKey")
+    return secret_key.strip() if _is_non_empty_string(secret_key) else DEFAULT_CLIENT_SECRET_KEY
 
 
 def _invalid_spec_condition(

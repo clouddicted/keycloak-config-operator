@@ -19,6 +19,7 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
     KubernetesTargetResolver,
     TargetConnection,
     TargetResolutionError,
+    keycloak_client_factory_kwargs,
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
@@ -160,11 +161,7 @@ def delete_keycloak_protocol_mapper_resource(
         ) from None
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         delete_keycloak_protocol_mapper_if_exists(keycloak_client, mapper_spec)
     except KeycloakAuthenticationError:
@@ -221,11 +218,7 @@ def patch_keycloak_protocol_mapper_status(
         return retry
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         ready_reason = ensure_keycloak_protocol_mapper(keycloak_client, mapper_spec)
     except KeycloakAuthenticationError:

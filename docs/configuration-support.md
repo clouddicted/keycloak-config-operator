@@ -27,11 +27,18 @@ Status meanings:
 | Field | Status | Notes |
 | --- | --- | --- |
 | `spec.url` | Supported | Base URL used for Keycloak Admin API calls. |
+| `spec.auth` | Supported | Explicit authentication method. Supports `Password`, `ClientCredentials`, and `BootstrapClientCredentials`. |
 | `spec.adminCredentials` | Supported | References admin credentials. |
 | `spec.adminCredentials.secretRef.name` | Supported | Secret name containing credentials. |
 | `spec.adminCredentials.secretRef.namespace` | Supported | Optional; defaults to the `KeycloakTarget` namespace. |
 | `spec.adminCredentials.secretRef.usernameKey` | Supported | Optional; defaults to `username`. |
 | `spec.adminCredentials.secretRef.passwordKey` | Supported | Optional; defaults to `password`. |
+
+`spec.adminCredentials` is the simple legacy password form. New deployments can
+use `spec.auth.type: ClientCredentials` with a pre-created service-account
+client, or `spec.auth.type: BootstrapClientCredentials` to let the operator use
+admin credentials once, create the service-account client, and store its client
+secret in Kubernetes.
 
 ## KeycloakRealm
 

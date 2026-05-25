@@ -61,6 +61,8 @@ KEYCLOAK_IMAGE = f"quay.io/keycloak/keycloak:{KEYCLOAK_VERSION}"
 TARGET_NAME = "example-keycloak"
 KEYCLOAK_USERNAME = "fixture-admin"
 KEYCLOAK_PASSWORD = "fixture-password"
+OPERATOR_CLIENT_ID = "keycloak-config-operator"
+OPERATOR_CLIENT_SECRET_NAME = "keycloak-operator-client"
 PUBLIC_CLIENT_ID = "example-web"
 CONFIDENTIAL_CLIENT_ID = "example-service"
 CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
@@ -281,9 +283,28 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
     _wait_for_deployment(kind_cluster_env, NAMESPACE, "keycloak")
 
     with _port_forward_keycloak(kind_cluster_env) as keycloak_url:
-        _log("applying KeycloakTarget")
-        _apply_document(kind_cluster_env, _keycloak_target())
+        _log("applying bootstrap KeycloakTarget")
+        _apply_document(kind_cluster_env, _keycloak_target_bootstrap_client_credentials())
         _wait_for_ready(kind_cluster_env, "keycloaktargets", TARGET_NAME)
+        _eventually(
+            lambda: _assert_target_auth_status(
+                kind_cluster_env,
+                active_auth_method="ClientCredentials",
+                bootstrap_status="True",
+            )
+        )
+        _eventually(lambda: _assert_client_credentials_secret(kind_cluster_env))
+
+        _log("switching KeycloakTarget to direct client credentials")
+        _apply_document(kind_cluster_env, _keycloak_target_client_credentials())
+        _wait_for_ready(kind_cluster_env, "keycloaktargets", TARGET_NAME)
+        _eventually(
+            lambda: _assert_target_auth_status(
+                kind_cluster_env,
+                active_auth_method="ClientCredentials",
+                bootstrap_status="Unknown",
+            )
+        )
 
         _log("applying KeycloakRealm")
         _apply_document(kind_cluster_env, _keycloak_realm(realm))
@@ -567,6 +588,56 @@ def _wait_for_ready(env: dict[str, str], plural: str, name: str) -> None:
     )
 
 
+def _assert_target_auth_status(
+    env: dict[str, str],
+    *,
+    active_auth_method: str,
+    bootstrap_status: str,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "keycloaktarget",
+            TARGET_NAME,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    target = json.loads(result.stdout)
+    conditions = {
+        condition["type"]: condition
+        for condition in target["status"]["conditions"]
+        if isinstance(condition, dict)
+    }
+
+    assert target["status"]["activeAuthMethod"] == active_auth_method
+    assert conditions["Ready"]["status"] == "True"
+    assert conditions["Authenticated"]["status"] == "True"
+    assert conditions["BootstrapReady"]["status"] == bootstrap_status
+
+
+def _assert_client_credentials_secret(env: dict[str, str]) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "secret",
+            OPERATOR_CLIENT_SECRET_NAME,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    secret = json.loads(result.stdout)
+
+    assert isinstance(secret["data"]["clientSecret"], str)
+    assert secret["data"]["clientSecret"]
+
+
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],
@@ -583,18 +654,51 @@ def _delete_document(env: dict[str, str], document: dict[str, Any]) -> None:
     )
 
 
-def _keycloak_target() -> dict[str, Any]:
+def _keycloak_target_bootstrap_client_credentials() -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakTarget",
         "metadata": {"name": TARGET_NAME, "namespace": NAMESPACE},
         "spec": {
             "url": f"http://keycloak.{NAMESPACE}.svc.cluster.local:8080",
-            "adminCredentials": {
-                "secretRef": {
-                    "name": "keycloak-admin-credentials",
-                    "usernameKey": "username",
-                    "passwordKey": "password",
+            "auth": {
+                "type": "BootstrapClientCredentials",
+                "realm": "master",
+                "bootstrapAdminCredentials": {
+                    "secretRef": {
+                        "name": "keycloak-admin-credentials",
+                        "usernameKey": "username",
+                        "passwordKey": "password",
+                    },
+                },
+                "clientCredentials": {
+                    "clientId": OPERATOR_CLIENT_ID,
+                    "secretRef": {
+                        "name": OPERATOR_CLIENT_SECRET_NAME,
+                        "clientSecretKey": "clientSecret",
+                    },
+                },
+            },
+        },
+    }
+
+
+def _keycloak_target_client_credentials() -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakTarget",
+        "metadata": {"name": TARGET_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "url": f"http://keycloak.{NAMESPACE}.svc.cluster.local:8080",
+            "auth": {
+                "type": "ClientCredentials",
+                "realm": "master",
+                "clientCredentials": {
+                    "clientId": OPERATOR_CLIENT_ID,
+                    "secretRef": {
+                        "name": OPERATOR_CLIENT_SECRET_NAME,
+                        "clientSecretKey": "clientSecret",
+                    },
                 },
             },
         },
@@ -868,7 +972,7 @@ def _eventually(
     while time.monotonic() < deadline:
         try:
             return assertion()
-        except (AssertionError, KeyError, httpx.HTTPError) as exc:
+        except (AssertionError, KeyError, subprocess.CalledProcessError, httpx.HTTPError) as exc:
             last_error = exc
             time.sleep(interval_seconds)
 

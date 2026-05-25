@@ -125,7 +125,7 @@ def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:
         assert "*" not in rule["verbs"]
 
     secret_rule = _rule_for(rules, api_group="", resources={"secrets"})
-    assert set(secret_rule["verbs"]) == {"get"}
+    assert set(secret_rule["verbs"]) == {"get", "create", "patch"}
 
     event_rule = _rule_for(rules, api_group="", resources={"events"})
     assert set(event_rule["verbs"]) == {"create", "patch"}

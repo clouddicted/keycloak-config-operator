@@ -72,6 +72,8 @@ Rules for namespace-scoped objects managed by the operator.
     - secrets
   verbs:
     - get
+    - create
+    - patch
 - apiGroups:
     - ""
   resources:
