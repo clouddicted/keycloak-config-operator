@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+import kopf
+import pytest
+
 from clouddicted_keycloak_config_operator import main
 from clouddicted_keycloak_config_operator.constants import (
     API_GROUP,
@@ -48,12 +51,14 @@ class FakeKeycloakClient:
         get_error: Exception | None = None,
         post_error: Exception | None = None,
         put_error: Exception | None = None,
+        delete_error: Exception | None = None,
     ) -> None:
         self.scope_result = [_existing_client_scope()] if scope_result is None else scope_result
         self.auth_error = auth_error
         self.get_error = get_error
         self.post_error = post_error
         self.put_error = put_error
+        self.delete_error = delete_error
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -73,11 +78,24 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            payload = kwargs.get("json")
+            if isinstance(payload, dict) and isinstance(payload.get("name"), str):
+                self.scope_result.append(
+                    {
+                        "id": "created-client-scope-uuid",
+                        **payload,
+                    }
+                )
             return None
 
         if method == "PUT":
             if self.put_error is not None:
                 raise self.put_error
+            return None
+
+        if method == "DELETE":
+            if self.delete_error is not None:
+                raise self.delete_error
             return None
 
         raise AssertionError(f"unexpected request: {method} {path}")
@@ -204,6 +222,7 @@ def test_patch_keycloak_client_scope_status_observes_existing_matching_scope() -
     assert keycloak_client.requests == [
         ("GET", "realms/example%20realm/client-scopes", {})
     ]
+    assert patch["status"]["remoteId"] == "client-scope-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
 
 
@@ -240,7 +259,9 @@ def test_patch_keycloak_client_scope_status_creates_missing_scope_with_default_p
                 }
             },
         ),
+        ("GET", "realms/example/client-scopes", {}),
     ]
+    assert patch["status"]["remoteId"] == "created-client-scope-uuid"
 
 
 def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() -> None:
@@ -289,6 +310,7 @@ def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() ->
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "client-scope-uuid"
 
 
 def test_patch_keycloak_client_scope_status_reports_auth_failure_without_secret_values() -> None:
@@ -348,6 +370,148 @@ def test_patch_keycloak_client_scope_status_reports_request_failure_without_secr
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password", "token"})
 
 
+def test_delete_keycloak_client_scope_resource_orphan_noop_without_external_calls() -> None:
+    keycloak_client_scope.delete_keycloak_client_scope_resource(
+        spec=_client_scope_spec(),
+        namespace="apps",
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+    )
+
+
+def test_delete_keycloak_client_scope_resource_delete_removes_existing_scope() -> None:
+    resolver = _target_resolver()
+    keycloak_client = FakeKeycloakClient(
+        scope_result=[_existing_client_scope(name="profile/read")]
+    )
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+
+    keycloak_client_scope.delete_keycloak_client_scope_resource(
+        spec=_client_scope_spec(
+            name="profile/read",
+            deletion_policy=keycloak_client_scope.DELETION_POLICY_DELETE,
+        ),
+        namespace="apps",
+        target_resolver=resolver,
+        keycloak_client_factory=keycloak_client_factory,
+    )
+
+    assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "kc-admin",
+            "password": "secret-password",
+        }
+    ]
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        ("DELETE", "realms/example/client-scopes/client-scope-uuid", {}),
+    ]
+
+
+def test_delete_keycloak_client_scope_resource_delete_missing_scope_noop() -> None:
+    keycloak_client = FakeKeycloakClient(scope_result=[])
+
+    keycloak_client_scope.delete_keycloak_client_scope_resource(
+        spec=_client_scope_spec(deletion_policy=keycloak_client_scope.DELETION_POLICY_DELETE),
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+    )
+
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == [("GET", "realms/example/client-scopes", {})]
+
+
+def test_delete_keycloak_client_scope_resource_delete_missing_id_safe_failure() -> None:
+    keycloak_client = FakeKeycloakClient(
+        scope_result=[_existing_client_scope(id=None)],
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_scope.delete_keycloak_client_scope_resource(
+            spec=_client_scope_spec(
+                deletion_policy=keycloak_client_scope.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClientScope deletion failed while calling the Keycloak Admin API."
+    )
+    assert keycloak_client.requests == [("GET", "realms/example/client-scopes", {})]
+
+
+def test_delete_keycloak_client_scope_resource_invalid_spec_is_permanent_failure() -> None:
+    with pytest.raises(kopf.PermanentError) as exc_info:
+        keycloak_client_scope.delete_keycloak_client_scope_resource(
+            spec={"targetRef": {}},
+            namespace="apps",
+            target_resolver=_failing_target_resolver,
+            keycloak_client_factory=_failing_keycloak_client_factory,
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClientScope deletion skipped because spec is invalid."
+    )
+
+
+def test_delete_keycloak_client_scope_resource_auth_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        auth_error=KeycloakAuthenticationError("bad kc-admin secret-password token")
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_scope.delete_keycloak_client_scope_resource(
+            spec=_client_scope_spec(
+                deletion_policy=keycloak_client_scope.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClientScope deletion failed because Keycloak authentication failed."
+    )
+    assert keycloak_client.authenticate_calls == 1
+    assert keycloak_client.requests == []
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
+def test_delete_keycloak_client_scope_resource_request_failure_is_safe() -> None:
+    keycloak_client = FakeKeycloakClient(
+        delete_error=KeycloakRequestError("failed for kc-admin secret-password token")
+    )
+
+    with pytest.raises(kopf.TemporaryError) as exc_info:
+        keycloak_client_scope.delete_keycloak_client_scope_resource(
+            spec=_client_scope_spec(
+                deletion_policy=keycloak_client_scope.DELETION_POLICY_DELETE
+            ),
+            namespace="apps",
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        )
+
+    assert str(exc_info.value) == (
+        "KeycloakClientScope deletion failed while calling the Keycloak Admin API."
+    )
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        ("DELETE", "realms/example/client-scopes/client-scope-uuid", {}),
+    ]
+    assert {"kc-admin", "secret-password", "token"}.isdisjoint(
+        set(str(exc_info.value).split())
+    )
+
+
 def test_patch_keycloak_client_scope_status_preserves_stable_transition_time() -> None:
     patch: dict[str, Any] = {}
 
@@ -386,6 +550,7 @@ def _client_scope_spec(
     name: str = "example-scope",
     description: str | None = None,
     protocol: str | None = None,
+    deletion_policy: str | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
         "targetRef": {"name": "example-keycloak"},
@@ -396,6 +561,8 @@ def _client_scope_spec(
         spec["description"] = description
     if protocol is not None:
         spec["protocol"] = protocol
+    if deletion_policy is not None:
+        spec["deletionPolicy"] = deletion_policy
 
     return spec
 

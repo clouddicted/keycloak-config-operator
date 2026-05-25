@@ -19,9 +19,11 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
     KubernetesTargetResolver,
     TargetConnection,
     TargetResolutionError,
+    keycloak_client_factory_kwargs,
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -32,6 +34,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakResourceNotFoundError,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     ready_condition,
     upsert_condition,
@@ -48,8 +51,13 @@ INVALID_SPEC_REASON = "InvalidSpec"
 REQUEST_FAILED_REASON = "RequestFailed"
 ROLE_CREATED_REASON = "RoleCreated"
 ROLE_OBSERVED_REASON = "RoleObserved"
+ROLE_ORPHANED_REASON = "RoleOrphaned"
 ROLE_UPDATED_REASON = "RoleUpdated"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+DELETION_POLICY_ORPHAN = "Orphan"
+DELETION_POLICY_DELETE = "Delete"
+DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
+DELETE_RETRY_DELAY_SECONDS = 30
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -82,7 +90,14 @@ class RoleSpec:
     target_name: str
     realm: str
     name: str
+    deletion_policy: str
     description: str | None = None
+
+
+@dataclass(frozen=True)
+class RoleReconcileResult:
+    ready_reason: str
+    remote_id: str | None = None
 
 
 @kopf.on.create(**KEYCLOAK_ROLE_RESOURCE)
@@ -103,7 +118,59 @@ def reconcile_keycloak_role(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
+
+
+@kopf.on.delete(**KEYCLOAK_ROLE_RESOURCE)
+def delete_keycloak_role(
+    body: kopf.Body,
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    **_: Any,
+) -> None:
+    """Delete the remote Keycloak role when requested by policy."""
+    deletion_policy = delete_keycloak_role_resource(spec=spec, namespace=namespace)
+    _emit_delete_event(body, deletion_policy)
+
+
+def delete_keycloak_role_resource(
+    *,
+    spec: Mapping[str, Any] | None,
+    namespace: str | None = None,
+    target_resolver: TargetResolver | None = None,
+    keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
+) -> str:
+    """Delete the remote Keycloak role when deletionPolicy is Delete."""
+    role_spec = _parse_role_spec(spec)
+    if role_spec is None:
+        raise kopf.PermanentError("KeycloakRole deletion skipped because spec is invalid.")
+
+    if role_spec.deletion_policy == DELETION_POLICY_ORPHAN:
+        return DELETION_POLICY_ORPHAN
+
+    resolver = target_resolver or KubernetesTargetResolver()
+    try:
+        target = resolver(target_name=role_spec.target_name, namespace=namespace)
+    except TargetResolutionError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion is waiting for the referenced KeycloakTarget."
+        ) from None
+
+    try:
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
+        keycloak_client.authenticate()
+        delete_keycloak_role_if_exists(keycloak_client, role_spec)
+        return DELETION_POLICY_DELETE
+    except KeycloakAuthenticationError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion failed because Keycloak authentication failed."
+        ) from None
+    except KeycloakClientError:
+        raise _delete_temporary_error(
+            "KeycloakRole deletion failed while calling the Keycloak Admin API."
+        ) from None
 
 
 def patch_keycloak_role_status(
@@ -121,6 +188,7 @@ def patch_keycloak_role_status(
     role_spec = _parse_role_spec(spec)
 
     if role_spec is None:
+        _set_remote_id(patch, None)
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -147,16 +215,13 @@ def patch_keycloak_role_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
-        ready_reason = ensure_keycloak_role(keycloak_client, role_spec)
+        reconcile_result = ensure_keycloak_role(keycloak_client, role_spec)
     except KeycloakAuthenticationError:
         retry = RetryRequest(
             AUTHENTICATION_FAILED_REASON,
@@ -172,6 +237,7 @@ def patch_keycloak_role_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except KeycloakClientError:
         retry = RetryRequest(
@@ -188,41 +254,64 @@ def patch_keycloak_role_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
+    _set_remote_id(patch, reconcile_result.remote_id)
     _set_ready_condition(
         patch,
         existing_conditions,
         ready_condition(
             "True",
-            ready_reason,
-            _ready_message(ready_reason),
+            reconcile_result.ready_reason,
+            _ready_message(reconcile_result.ready_reason),
             now=now,
         ),
     )
     return None
 
 
-def ensure_keycloak_role(client: KeycloakRoleClient, role_spec: RoleSpec) -> str:
-    """Create, update, or observe a realm role and return the Ready reason."""
+def ensure_keycloak_role(
+    client: KeycloakRoleClient,
+    role_spec: RoleSpec,
+) -> RoleReconcileResult:
+    """Create, update, or observe a realm role and return the result."""
     try:
         existing_role = client.request("GET", _role_path(role_spec.realm, role_spec.name))
     except KeycloakResourceNotFoundError:
         client.request("POST", _roles_path(role_spec.realm), json=_modeled_role_payload(role_spec))
-        return ROLE_CREATED_REASON
+        created_role = client.request("GET", _role_path(role_spec.realm, role_spec.name))
+        if not isinstance(created_role, Mapping):
+            raise KeycloakRequestError(
+                "Keycloak role lookup response was not an object"
+            ) from None
+        return RoleReconcileResult(ROLE_CREATED_REASON, _remote_id(created_role))
 
     if not isinstance(existing_role, Mapping):
         raise KeycloakRequestError("Keycloak role lookup response was not an object")
 
     if not _has_modeled_drift(existing_role, role_spec):
-        return ROLE_OBSERVED_REASON
+        return RoleReconcileResult(ROLE_OBSERVED_REASON, _remote_id(existing_role))
 
     client.request(
         "PUT",
         _role_path(role_spec.realm, role_spec.name),
         json=_role_update_payload(existing_role, role_spec),
     )
-    return ROLE_UPDATED_REASON
+    return RoleReconcileResult(ROLE_UPDATED_REASON, _remote_id(existing_role))
+
+
+def delete_keycloak_role_if_exists(
+    client: KeycloakRoleClient,
+    role_spec: RoleSpec,
+) -> None:
+    """Delete an existing Keycloak realm role or no-op when it is already missing."""
+    try:
+        client.request("GET", _role_path(role_spec.realm, role_spec.name))
+    except KeycloakResourceNotFoundError:
+        return
+
+    client.request("DELETE", _role_path(role_spec.realm, role_spec.name))
 
 
 def _modeled_role_payload(role_spec: RoleSpec) -> dict[str, Any]:
@@ -247,6 +336,11 @@ def _role_update_payload(existing_role: Mapping[str, Any], role_spec: RoleSpec) 
     return payload
 
 
+def _remote_id(payload: Mapping[str, Any]) -> str | None:
+    remote_id = payload.get("id")
+    return remote_id.strip() if _is_non_empty_string(remote_id) else None
+
+
 def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     if not isinstance(spec, Mapping):
         return None
@@ -255,6 +349,7 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     target_name = target_ref.get("name") if isinstance(target_ref, Mapping) else None
     realm = spec.get("realm")
     name = spec.get("name")
+    deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     description = spec.get("description")
 
     if (
@@ -267,10 +362,18 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     if description is not None and not _is_non_empty_string(description):
         return None
 
+    if not _is_non_empty_string(deletion_policy):
+        return None
+
+    parsed_deletion_policy = deletion_policy.strip()
+    if parsed_deletion_policy not in {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE}:
+        return None
+
     return RoleSpec(
         target_name=target_name.strip(),
         realm=realm.strip(),
         name=name.strip(),
+        deletion_policy=parsed_deletion_policy,
         description=description.strip() if isinstance(description, str) else None,
     )
 
@@ -323,6 +426,10 @@ def _ready_message(ready_reason: str) -> str:
     return "Keycloak realm role already matches desired state."
 
 
+def _delete_temporary_error(message: str) -> kopf.TemporaryError:
+    return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
+
+
 def _set_ready_condition(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
@@ -330,6 +437,47 @@ def _set_ready_condition(
 ) -> None:
     status_patch = patch.setdefault("status", {})
     status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+
+
+def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
+    status_patch = patch.setdefault("status", {})
+    status_patch["remoteId"] = remote_id
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            ROLE_CREATED_REASON: ("Normal", "Keycloak realm role was created."),
+            ROLE_UPDATED_REASON: ("Normal", "Keycloak realm role was updated."),
+        },
+    )
+
+
+def _emit_delete_event(body: kopf.Body, deletion_policy: str) -> None:
+    if deletion_policy == DELETION_POLICY_DELETE:
+        kopf.event(
+            body,
+            type="Normal",
+            reason="RoleDeleted",
+            message="Keycloak realm role was deleted because deletionPolicy is Delete.",
+        )
+        return
+
+    kopf.event(
+        body,
+        type="Normal",
+        reason=ROLE_ORPHANED_REASON,
+        message="Keycloak realm role was left in Keycloak because deletionPolicy is Orphan.",
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

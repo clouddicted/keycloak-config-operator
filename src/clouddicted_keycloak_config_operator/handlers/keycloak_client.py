@@ -21,9 +21,11 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
     KubernetesTargetResolver,
     TargetConnection,
     TargetResolutionError,
+    keycloak_client_factory_kwargs,
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    emit_event_for_condition_reasons,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.keycloak_client import (
@@ -38,6 +40,7 @@ from clouddicted_keycloak_config_operator.secrets import (
     load_secret_value,
 )
 from clouddicted_keycloak_config_operator.status import (
+    CONDITION_READY,
     Condition,
     drift_detected_condition,
     ready_condition,
@@ -55,6 +58,7 @@ CLIENT_CREATED_REASON = "ClientCreated"
 CLIENT_DRIFT_DETECTED_REASON = "ClientDriftDetected"
 CLIENT_MISSING_REASON = "ClientMissing"
 CLIENT_OBSERVED_REASON = "ClientObserved"
+CLIENT_ORPHANED_REASON = "ClientOrphaned"
 CLIENT_UPDATED_REASON = "ClientUpdated"
 INVALID_SPEC_REASON = "InvalidSpec"
 NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
@@ -108,8 +112,16 @@ class ClientSpec:
     deletion_policy: str
     secret_ref: Mapping[str, Any] | None = None
     display_name: str | None = None
+    root_url: str | None = None
+    base_url: str | None = None
+    admin_url: str | None = None
+    standard_flow_enabled: bool | None = None
+    direct_access_grants_enabled: bool | None = None
+    service_accounts_enabled: bool | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
+    default_client_scopes: tuple[str, ...] = ()
+    optional_client_scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,6 +129,7 @@ class ClientReconcileResult:
     ready_status: str
     ready_reason: str
     drift_detected: bool
+    remote_id: str | None = None
 
 
 @kopf.on.create(**KEYCLOAK_CLIENT_RESOURCE)
@@ -137,17 +150,21 @@ def reconcile_keycloak_client(
         patch=patch,
         namespace=namespace,
     )
+    if retry is None:
+        _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
 def delete_keycloak_client(
+    body: kopf.Body,
     spec: Mapping[str, Any] | None,
     namespace: str | None = None,
     **_: Any,
 ) -> None:
     """Delete the remote Keycloak client when requested by policy."""
-    delete_keycloak_client_resource(spec=spec, namespace=namespace)
+    deletion_policy = delete_keycloak_client_resource(spec=spec, namespace=namespace)
+    _emit_delete_event(body, deletion_policy)
 
 
 def delete_keycloak_client_resource(
@@ -156,14 +173,14 @@ def delete_keycloak_client_resource(
     namespace: str | None = None,
     target_resolver: TargetResolver | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
-) -> None:
+) -> str:
     """Delete the remote Keycloak client when deletionPolicy is Delete."""
     client_spec = _parse_client_spec(spec)
     if client_spec is None:
         raise kopf.PermanentError("KeycloakClient deletion skipped because spec is invalid.")
 
     if client_spec.deletion_policy == DELETION_POLICY_ORPHAN:
-        return
+        return DELETION_POLICY_ORPHAN
 
     resolver = target_resolver or KubernetesTargetResolver()
     try:
@@ -174,13 +191,10 @@ def delete_keycloak_client_resource(
         ) from None
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         delete_keycloak_client_if_exists(keycloak_client, client_spec)
+        return DELETION_POLICY_DELETE
     except KeycloakAuthenticationError:
         raise _delete_temporary_error(
             "KeycloakClient deletion failed because Keycloak authentication failed."
@@ -207,6 +221,7 @@ def patch_keycloak_client_status(
     client_spec = _parse_client_spec(spec)
 
     if client_spec is None:
+        _set_remote_id(patch, None)
         _set_ready_condition(
             patch,
             existing_conditions,
@@ -233,14 +248,11 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
     try:
-        keycloak_client = keycloak_client_factory(
-            base_url=target.url,
-            username=target.username,
-            password=target.password,
-        )
+        keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         reconcile_result = ensure_keycloak_client(
             keycloak_client,
@@ -266,6 +278,7 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except (SecretRefError, ApiException):
         retry = RetryRequest(
@@ -282,6 +295,7 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
     except KeycloakClientError:
         retry = RetryRequest(
@@ -298,8 +312,10 @@ def patch_keycloak_client_status(
                 now=now,
             ),
         )
+        _set_remote_id(patch, None)
         return retry
 
+    _set_remote_id(patch, reconcile_result.remote_id)
     _set_conditions(
         patch,
         existing_conditions,
@@ -328,11 +344,22 @@ def ensure_keycloak_client(
 
     existing_client = _matching_client(clients, client_spec.client_id)
     if existing_client is not None:
+        remote_id = _remote_id(existing_client)
         if not _has_modeled_drift(existing_client, client_spec):
-            return ClientReconcileResult("True", CLIENT_OBSERVED_REASON, False)
+            return ClientReconcileResult(
+                "True",
+                CLIENT_OBSERVED_REASON,
+                False,
+                remote_id,
+            )
 
         if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
-            return ClientReconcileResult("True", CLIENT_DRIFT_DETECTED_REASON, True)
+            return ClientReconcileResult(
+                "True",
+                CLIENT_DRIFT_DETECTED_REASON,
+                True,
+                remote_id,
+            )
 
         internal_id = existing_client.get("id")
         if not _is_non_empty_string(internal_id):
@@ -343,10 +370,15 @@ def ensure_keycloak_client(
             _client_path(client_spec.realm, internal_id.strip()),
             json=_client_update_payload(existing_client, client_spec),
         )
-        return ClientReconcileResult("True", CLIENT_UPDATED_REASON, False)
+        return ClientReconcileResult(
+            "True",
+            CLIENT_UPDATED_REASON,
+            False,
+            internal_id.strip(),
+        )
 
     if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
-        return ClientReconcileResult("False", CLIENT_MISSING_REASON, True)
+        return ClientReconcileResult("False", CLIENT_MISSING_REASON, True, None)
 
     client_secret: str | None = None
     if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
@@ -359,7 +391,12 @@ def ensure_keycloak_client(
         _clients_path(client_spec.realm),
         json=_client_create_payload(client_spec, client_secret=client_secret),
     )
-    return ClientReconcileResult("True", CLIENT_CREATED_REASON, False)
+    return ClientReconcileResult(
+        "True",
+        CLIENT_CREATED_REASON,
+        False,
+        _created_client_remote_id(client, client_spec),
+    )
 
 
 def ensure_keycloak_public_client(
@@ -418,10 +455,26 @@ def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
 
     if client_spec.display_name is not None:
         payload["name"] = client_spec.display_name
+    if client_spec.root_url is not None:
+        payload["rootUrl"] = client_spec.root_url
+    if client_spec.base_url is not None:
+        payload["baseUrl"] = client_spec.base_url
+    if client_spec.admin_url is not None:
+        payload["adminUrl"] = client_spec.admin_url
+    if client_spec.standard_flow_enabled is not None:
+        payload["standardFlowEnabled"] = client_spec.standard_flow_enabled
+    if client_spec.direct_access_grants_enabled is not None:
+        payload["directAccessGrantsEnabled"] = client_spec.direct_access_grants_enabled
+    if client_spec.service_accounts_enabled is not None:
+        payload["serviceAccountsEnabled"] = client_spec.service_accounts_enabled
     if client_spec.redirect_uris:
         payload["redirectUris"] = list(client_spec.redirect_uris)
     if client_spec.web_origins:
         payload["webOrigins"] = list(client_spec.web_origins)
+    if client_spec.default_client_scopes:
+        payload["defaultClientScopes"] = list(client_spec.default_client_scopes)
+    if client_spec.optional_client_scopes:
+        payload["optionalClientScopes"] = list(client_spec.optional_client_scopes)
 
     return payload
 
@@ -522,18 +575,42 @@ def _matching_client(
     return None
 
 
+def _created_client_remote_id(
+    client: KeycloakPublicClient,
+    client_spec: ClientSpec,
+) -> str | None:
+    clients = client.request(
+        "GET",
+        _clients_path(client_spec.realm),
+        params={"clientId": client_spec.client_id},
+    )
+    if not isinstance(clients, list):
+        raise KeycloakRequestError("Keycloak client lookup response was not a list")
+
+    created_client = _matching_client(clients, client_spec.client_id)
+    return _remote_id(created_client) if created_client is not None else None
+
+
+def _remote_id(payload: Mapping[str, Any]) -> str | None:
+    remote_id = payload.get("id")
+    return remote_id.strip() if _is_non_empty_string(remote_id) else None
+
+
 def _has_modeled_drift(
     existing_client: Mapping[str, Any],
     client_spec: ClientSpec,
 ) -> bool:
     desired_payload = _modeled_client_payload(client_spec)
     return any(
-        not _modeled_value_matches(existing_client.get(field), desired_value)
+        not _modeled_value_matches(field, existing_client.get(field), desired_value)
         for field, desired_value in desired_payload.items()
     )
 
 
-def _modeled_value_matches(existing_value: Any, desired_value: Any) -> bool:
+def _modeled_value_matches(field: str, existing_value: Any, desired_value: Any) -> bool:
+    if field in {"defaultClientScopes", "optionalClientScopes"}:
+        return _string_set(existing_value) == _string_set(desired_value)
+
     if isinstance(desired_value, list):
         return (
             isinstance(existing_value, Sequence)
@@ -542,6 +619,19 @@ def _modeled_value_matches(existing_value: Any, desired_value: Any) -> bool:
         )
 
     return existing_value == desired_value
+
+
+def _string_set(value: Any) -> set[str] | None:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return None
+
+    result: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        result.add(item)
+
+    return result
 
 
 def _client_update_payload(
@@ -567,8 +657,16 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     secret_ref = spec.get("secretRef")
     display_name = spec.get("displayName")
+    root_url = spec.get("rootUrl")
+    base_url = spec.get("baseUrl")
+    admin_url = spec.get("adminUrl")
+    standard_flow_enabled = spec.get("standardFlowEnabled")
+    direct_access_grants_enabled = spec.get("directAccessGrantsEnabled")
+    service_accounts_enabled = spec.get("serviceAccountsEnabled")
     redirect_uris = spec.get("redirectUris", ())
     web_origins = spec.get("webOrigins", ())
+    default_client_scopes = spec.get("defaultClientScopes", ())
+    optional_client_scopes = spec.get("optionalClientScopes", ())
 
     if (
         not _is_non_empty_string(target_name)
@@ -612,10 +710,40 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
 
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
+    if root_url is not None and not _is_non_empty_string(root_url):
+        return None
+    if base_url is not None and not _is_non_empty_string(base_url):
+        return None
+    if admin_url is not None and not _is_non_empty_string(admin_url):
+        return None
+
+    parsed_standard_flow_enabled = _parse_optional_bool(standard_flow_enabled)
+    parsed_direct_access_grants_enabled = _parse_optional_bool(
+        direct_access_grants_enabled
+    )
+    parsed_service_accounts_enabled = _parse_optional_bool(service_accounts_enabled)
+    if (
+        parsed_standard_flow_enabled is _INVALID_BOOL
+        or parsed_direct_access_grants_enabled is _INVALID_BOOL
+        or parsed_service_accounts_enabled is _INVALID_BOOL
+    ):
+        return None
+    if (
+        parsed_client_type == CLIENT_TYPE_PUBLIC
+        and parsed_service_accounts_enabled is True
+    ):
+        return None
 
     parsed_redirect_uris = _parse_string_tuple(redirect_uris)
     parsed_web_origins = _parse_string_tuple(web_origins)
-    if parsed_redirect_uris is None or parsed_web_origins is None:
+    parsed_default_client_scopes = _parse_unique_string_tuple(default_client_scopes)
+    parsed_optional_client_scopes = _parse_unique_string_tuple(optional_client_scopes)
+    if (
+        parsed_redirect_uris is None
+        or parsed_web_origins is None
+        or parsed_default_client_scopes is None
+        or parsed_optional_client_scopes is None
+    ):
         return None
 
     return ClientSpec(
@@ -627,8 +755,28 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         deletion_policy=parsed_deletion_policy,
         secret_ref=parsed_secret_ref,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
+        root_url=root_url.strip() if isinstance(root_url, str) else None,
+        base_url=base_url.strip() if isinstance(base_url, str) else None,
+        admin_url=admin_url.strip() if isinstance(admin_url, str) else None,
+        standard_flow_enabled=(
+            parsed_standard_flow_enabled
+            if isinstance(parsed_standard_flow_enabled, bool)
+            else None
+        ),
+        direct_access_grants_enabled=(
+            parsed_direct_access_grants_enabled
+            if isinstance(parsed_direct_access_grants_enabled, bool)
+            else None
+        ),
+        service_accounts_enabled=(
+            parsed_service_accounts_enabled
+            if isinstance(parsed_service_accounts_enabled, bool)
+            else None
+        ),
         redirect_uris=parsed_redirect_uris,
         web_origins=parsed_web_origins,
+        default_client_scopes=parsed_default_client_scopes,
+        optional_client_scopes=parsed_optional_client_scopes,
     )
 
 
@@ -643,6 +791,27 @@ def _parse_string_tuple(value: Any) -> tuple[str, ...] | None:
         parsed.append(item.strip())
 
     return tuple(parsed)
+
+
+_INVALID_BOOL = object()
+
+
+def _parse_optional_bool(value: Any) -> bool | object | None:
+    if value is None:
+        return None
+
+    return value if isinstance(value, bool) else _INVALID_BOOL
+
+
+def _parse_unique_string_tuple(value: Any) -> tuple[str, ...] | None:
+    parsed = _parse_string_tuple(value)
+    if parsed is None:
+        return None
+
+    if len(set(parsed)) != len(parsed):
+        return None
+
+    return parsed
 
 
 def _invalid_spec_condition(
@@ -709,6 +878,55 @@ def _set_conditions(
         updated_conditions = upsert_condition(updated_conditions, condition)
 
     status_patch["conditions"] = updated_conditions
+
+
+def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
+    status_patch = patch.setdefault("status", {})
+    status_patch["remoteId"] = remote_id
+
+
+def _emit_reconcile_event(
+    body: kopf.Body,
+    *,
+    status: Mapping[str, Any] | None,
+    patch: Mapping[str, Any],
+) -> None:
+    emit_event_for_condition_reasons(
+        body,
+        previous_status=status,
+        patch=patch,
+        condition_type=CONDITION_READY,
+        events={
+            CLIENT_CREATED_REASON: ("Normal", "Keycloak client was created."),
+            CLIENT_UPDATED_REASON: ("Normal", "Keycloak client was updated."),
+            CLIENT_DRIFT_DETECTED_REASON: (
+                "Warning",
+                "Keycloak client has modeled drift and was left unchanged.",
+            ),
+            CLIENT_MISSING_REASON: (
+                "Warning",
+                "Keycloak client is missing and was left unchanged.",
+            ),
+        },
+    )
+
+
+def _emit_delete_event(body: kopf.Body, deletion_policy: str) -> None:
+    if deletion_policy == DELETION_POLICY_DELETE:
+        kopf.event(
+            body,
+            type="Normal",
+            reason="ClientDeleted",
+            message="Keycloak client was deleted because deletionPolicy is Delete.",
+        )
+        return
+
+    kopf.event(
+        body,
+        type="Normal",
+        reason=CLIENT_ORPHANED_REASON,
+        message="Keycloak client was left in Keycloak because deletionPolicy is Orphan.",
+    )
 
 
 def _existing_conditions(status: Mapping[str, Any] | None) -> Sequence[Mapping[str, str]]:

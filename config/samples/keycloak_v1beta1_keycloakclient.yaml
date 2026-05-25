@@ -9,6 +9,10 @@ spec:
   clientId: example-web
   clientType: Public
   displayName: Example Web
+  rootUrl: https://app.example.com
+  baseUrl: /
+  standardFlowEnabled: true
+  directAccessGrantsEnabled: false
   redirectUris:
     - https://app.example.com/*
   webOrigins:

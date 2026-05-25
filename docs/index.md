@@ -1,53 +1,44 @@
 # Keycloak Config Operator
 
-The Keycloak Config Operator is a Kopf-based Kubernetes operator for managing
-selected Keycloak configuration through Kubernetes custom resources.
+The Keycloak Config Operator manages selected Keycloak configuration from
+Kubernetes custom resources. It lets teams keep Keycloak realms, clients, roles,
+client scopes, and protocol mappers close to the applications that use them.
 
-## What The Operator Manages
+## Why Use It
 
-The operator currently manages:
+- Bring Keycloak configuration into the same GitOps workflow as your applications.
+- Turn repeatable identity setup into reviewed, versioned Kubernetes manifests.
+- Reduce manual console work and make environment rebuilds predictable.
+- Give platform teams a clear contract for supported realms, clients, roles, scopes, and mappers.
 
-- Keycloak targets
-- Realms
-- Clients
-- Realm roles
-- Client scopes
-- Protocol mappers
+## How It Works
 
-See the [configuration support matrix](configuration-support.md) for the exact
-entities, fields, and reconciliation behavior that are part of the supported
-contract.
+You describe the Keycloak state you want in Kubernetes. The operator watches
+those declarations, talks to the Keycloak Admin API, and continuously brings the
+remote configuration toward the desired state.
+
+Each resource reports its own status, so teams can use familiar Kubernetes tools
+to understand whether configuration was applied, authentication failed, or a
+dependency is not ready yet.
+
+## Start Here
+
+- [Getting started](getting-started.md) for a minimal working example.
+- [Usage guide](usage.md) for install options, authentication modes, and deletion behavior.
+- [Resources](resources/index.md) for practical CRD field explanations and examples.
+- [API reference](api-reference.md) for the generated CRD schema.
+
+Install the released Helm chart from GitHub Container Registry:
+
+```bash
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --version 0.2.0 \
+  --namespace keycloak-config-operator-system \
+  --create-namespace
+```
 
 ## Compatibility
 
 See [compatibility](compatibility.md) for tested Keycloak versions and the support
 policy.
-
-## Install With Helm
-
-```bash
-helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
-  --namespace keycloak-config-operator-system \
-  --create-namespace
-```
-
-By default, the operator watches Keycloak resources in all namespaces. To restrict
-the watch scope, set `watchNamespaces`.
-
-```bash
-helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
-  --namespace keycloak-config-operator-system \
-  --create-namespace \
-  --set 'watchNamespaces[0]=team-a'
-```
-
-## Local Development
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e ".[dev,docs]"
-.venv/bin/ruff check .
-.venv/bin/pytest
-.venv/bin/mkdocs build --strict
-```

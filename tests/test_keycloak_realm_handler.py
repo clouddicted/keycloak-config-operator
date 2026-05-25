@@ -41,13 +41,17 @@ class FakeKeycloakClient:
     def __init__(
         self,
         *,
+        realm_result: dict[str, Any] | None = None,
         auth_error: Exception | None = None,
         get_error: Exception | None = None,
         post_error: Exception | None = None,
+        put_error: Exception | None = None,
     ) -> None:
+        self.realm_result = {"realm": "example"} if realm_result is None else realm_result
         self.auth_error = auth_error
         self.get_error = get_error
         self.post_error = post_error
+        self.put_error = put_error
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -62,11 +66,16 @@ class FakeKeycloakClient:
         if method == "GET":
             if self.get_error is not None:
                 raise self.get_error
-            return {"realm": "example"}
+            return self.realm_result
 
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            return None
+
+        if method == "PUT":
+            if self.put_error is not None:
+                raise self.put_error
             return None
 
         raise AssertionError(f"unexpected request: {method} {path}")
@@ -165,7 +174,7 @@ def test_patch_keycloak_realm_status_observes_existing_realm() -> None:
         "type": CONDITION_READY,
         "status": "True",
         "reason": keycloak_realm.REALM_OBSERVED_REASON,
-        "message": "Keycloak realm already exists.",
+        "message": "Keycloak realm already matches desired state.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
@@ -207,6 +216,46 @@ def test_patch_keycloak_realm_status_creates_missing_realm() -> None:
             "POST",
             "realms",
             {"json": {"realm": "example", "enabled": True, "displayName": "Example"}},
+        ),
+    ]
+
+
+def test_patch_keycloak_realm_status_updates_display_name_drift_preserving_fields() -> None:
+    keycloak_client = FakeKeycloakClient(
+        realm_result={"realm": "example", "displayName": "Old Example", "enabled": True}
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_realm.patch_keycloak_realm_status(
+        spec=_realm_spec(display_name="Example"),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_realm.REALM_UPDATED_REASON,
+        "message": "Keycloak realm was updated.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        ("GET", "realms/example", {}),
+        (
+            "PUT",
+            "realms/example",
+            {
+                "json": {
+                    "realm": "example",
+                    "displayName": "Example",
+                    "enabled": True,
+                }
+            },
         ),
     ]
 

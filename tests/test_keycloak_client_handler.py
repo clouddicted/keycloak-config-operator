@@ -85,6 +85,14 @@ class FakeKeycloakClient:
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            payload = kwargs.get("json")
+            if isinstance(payload, dict) and isinstance(payload.get("clientId"), str):
+                self.lookup_result.append(
+                    {
+                        "id": "created-client-uuid",
+                        **payload,
+                    }
+                )
             return None
 
         if method == "PUT":
@@ -198,6 +206,30 @@ def test_patch_keycloak_client_status_requires_confidential_secret_ref() -> None
     }
 
 
+def test_patch_keycloak_client_status_rejects_public_service_account() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_type=keycloak_client_handler.CLIENT_TYPE_PUBLIC,
+            service_accounts_enabled=True,
+        ),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_handler.INVALID_SPEC_REASON,
+        "message": "KeycloakClient spec is invalid.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+
+
 def test_patch_keycloak_client_status_reports_target_resolution_failure() -> None:
     patch: dict[str, Any] = {}
 
@@ -268,7 +300,43 @@ def test_patch_keycloak_client_status_observes_matching_public_client_without_pu
             {"params": {"clientId": "example-web"}},
         )
     ]
+    assert patch["status"]["remoteId"] == "client-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
+
+
+def test_patch_keycloak_client_status_matches_scope_assignments_without_order_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(
+                defaultClientScopes=["roles", "profile"],
+                optionalClientScopes=["offline_access"],
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            default_client_scopes=["profile", "roles"],
+            optional_client_scopes=["offline_access"],
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == keycloak_client_handler.CLIENT_OBSERVED_REASON
+    assert keycloak_client.requests == [
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        )
+    ]
 
 
 def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_fields() -> None:
@@ -280,6 +348,12 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
                 redirectUris=["https://old.example.com/*"],
                 webOrigins=["https://old.example.com"],
                 standardFlowEnabled=True,
+                directAccessGrantsEnabled=True,
+                rootUrl="https://old.example.com",
+                baseUrl="/old",
+                adminUrl="https://old.example.com/admin",
+                defaultClientScopes=["profile"],
+                optionalClientScopes=["address"],
             )
         ]
     )
@@ -290,6 +364,13 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
             display_name="Example Web",
             redirect_uris=["https://app.example.com/*"],
             web_origins=["https://app.example.com"],
+            root_url="https://app.example.com",
+            base_url="/",
+            admin_url="https://app.example.com/admin",
+            standard_flow_enabled=False,
+            direct_access_grants_enabled=False,
+            default_client_scopes=["profile", "roles"],
+            optional_client_scopes=["offline_access"],
         ),
         status={},
         patch=patch,
@@ -332,13 +413,20 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
                     "protocol": "openid-connect",
                     "publicClient": True,
                     "name": "Example Web",
+                    "rootUrl": "https://app.example.com",
+                    "baseUrl": "/",
+                    "adminUrl": "https://app.example.com/admin",
+                    "standardFlowEnabled": False,
+                    "directAccessGrantsEnabled": False,
                     "redirectUris": ["https://app.example.com/*"],
                     "webOrigins": ["https://app.example.com"],
-                    "standardFlowEnabled": True,
+                    "defaultClientScopes": ["profile", "roles"],
+                    "optionalClientScopes": ["offline_access"],
                 }
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "client-uuid"
 
 
 def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -> None:
@@ -627,7 +715,13 @@ def test_patch_keycloak_client_status_creates_missing_public_client() -> None:
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
     ]
+    assert patch["status"]["remoteId"] == "created-client-uuid"
     assert core_v1_api.calls == []
 
 
@@ -680,7 +774,13 @@ def test_patch_keycloak_client_status_creates_missing_confidential_client() -> N
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-service"}},
+        ),
     ]
+    assert patch["status"]["remoteId"] == "created-client-uuid"
     assert _condition_messages(patch).isdisjoint({"client-secret-value"})
 
 
@@ -1079,6 +1179,14 @@ def _client_spec(
     display_name: str | None = None,
     redirect_uris: list[str] | None = None,
     web_origins: list[str] | None = None,
+    root_url: str | None = None,
+    base_url: str | None = None,
+    admin_url: str | None = None,
+    standard_flow_enabled: bool | None = None,
+    direct_access_grants_enabled: bool | None = None,
+    service_accounts_enabled: bool | None = None,
+    default_client_scopes: list[str] | None = None,
+    optional_client_scopes: list[str] | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
         "targetRef": {"name": "example-keycloak"},
@@ -1099,6 +1207,22 @@ def _client_spec(
         spec["redirectUris"] = redirect_uris
     if web_origins is not None:
         spec["webOrigins"] = web_origins
+    if root_url is not None:
+        spec["rootUrl"] = root_url
+    if base_url is not None:
+        spec["baseUrl"] = base_url
+    if admin_url is not None:
+        spec["adminUrl"] = admin_url
+    if standard_flow_enabled is not None:
+        spec["standardFlowEnabled"] = standard_flow_enabled
+    if direct_access_grants_enabled is not None:
+        spec["directAccessGrantsEnabled"] = direct_access_grants_enabled
+    if service_accounts_enabled is not None:
+        spec["serviceAccountsEnabled"] = service_accounts_enabled
+    if default_client_scopes is not None:
+        spec["defaultClientScopes"] = default_client_scopes
+    if optional_client_scopes is not None:
+        spec["optionalClientScopes"] = optional_client_scopes
 
     return spec
 

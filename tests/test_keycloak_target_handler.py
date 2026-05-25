@@ -6,6 +6,7 @@ from typing import Any
 
 import kopf
 import pytest
+from kubernetes.client.exceptions import ApiException
 
 from clouddicted_keycloak_config_operator import main
 from clouddicted_keycloak_config_operator.constants import (
@@ -37,10 +38,23 @@ class FakeCoreV1Api:
     def __init__(self, secrets: dict[tuple[str, str], FakeSecret]) -> None:
         self.secrets = secrets
         self.calls: list[tuple[str, str]] = []
+        self.created_secrets: list[tuple[str, Any]] = []
+        self.patched_secrets: list[tuple[str, str, Any]] = []
 
     def read_namespaced_secret(self, *, name: str, namespace: str) -> FakeSecret:
         self.calls.append((namespace, name))
-        return self.secrets[(namespace, name)]
+        try:
+            return self.secrets[(namespace, name)]
+        except KeyError as exc:
+            raise ApiException(status=404, reason="Not Found") from exc
+
+    def create_namespaced_secret(self, *, namespace: str, body: Any) -> Any:
+        self.created_secrets.append((namespace, body))
+        return body
+
+    def patch_namespaced_secret(self, *, name: str, namespace: str, body: Any) -> Any:
+        self.patched_secrets.append((namespace, name, body))
+        return body
 
 
 class FailingCoreV1Api:
@@ -52,27 +66,83 @@ class FakeKeycloakClient:
     def __init__(self, error: Exception | None = None) -> None:
         self.error = error
         self.authenticate_calls = 0
+        self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
     def authenticate(self) -> None:
         self.authenticate_calls += 1
         if self.error is not None:
             raise self.error
 
+    def request(self, method: str, path: str, **kwargs: Any) -> Any | None:
+        self.requests.append((method, path, kwargs))
+        raise AssertionError(f"unexpected request: {method} {path}")
+
+
+class FakeBootstrapKeycloakClient(FakeKeycloakClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.client_lookup_calls = 0
+
+    def request(self, method: str, path: str, **kwargs: Any) -> Any | None:
+        self.requests.append((method, path, kwargs))
+
+        if method == "GET" and path == "realms/master/clients":
+            self.client_lookup_calls += 1
+            if self.client_lookup_calls == 1:
+                return []
+            return [{"id": "operator-client", "clientId": "operator-client"}]
+
+        if method == "POST" and path == "realms/master/clients":
+            return None
+
+        if method == "GET" and path == "realms/master/clients/operator-client":
+            return {"id": "operator-client", "clientId": "operator-client"}
+
+        if (
+            method == "PUT"
+            and path == "realms/master/clients/operator-client"
+        ):
+            return None
+
+        if (
+            method == "GET"
+            and path == "realms/master/clients/operator-client/service-account-user"
+        ):
+            return {"id": "service-account-user"}
+
+        if (
+            method == "GET"
+            and path == "realms/master/users/service-account-user/role-mappings/realm"
+        ):
+            return []
+
+        if method == "GET" and path == "realms/master/roles/admin":
+            return {"id": "admin-role", "name": "admin"}
+
+        if (
+            method == "POST"
+            and path == "realms/master/users/service-account-user/role-mappings/realm"
+        ):
+            return None
+
+        if (
+            method == "GET"
+            and path == "realms/master/clients/operator-client/client-secret"
+        ):
+            return {"value": "generated-client-secret"}
+
+        raise AssertionError(f"unexpected request: {method} {path}")
+
 
 class FakeKeycloakClientFactory:
-    def __init__(self, client: FakeKeycloakClient) -> None:
-        self.client = client
-        self.calls: list[dict[str, str]] = []
+    def __init__(self, *clients: FakeKeycloakClient) -> None:
+        self.clients = list(clients)
+        self.client = self.clients[0]
+        self.calls: list[dict[str, Any]] = []
 
-    def __call__(self, *, base_url: str, username: str, password: str) -> FakeKeycloakClient:
-        self.calls.append(
-            {
-                "base_url": base_url,
-                "username": username,
-                "password": password,
-            }
-        )
-        return self.client
+    def __call__(self, **kwargs: Any) -> FakeKeycloakClient:
+        self.calls.append(kwargs)
+        return self.clients.pop(0)
 
 
 def test_keycloak_target_resource_registration_values() -> None:
@@ -213,7 +283,166 @@ def test_patch_keycloak_target_status_reports_successful_authentication() -> Non
         }
     ]
     assert keycloak_client.authenticate_calls == 1
+    assert patch["status"]["activeAuthMethod"] == keycloak_target.AUTH_METHOD_PASSWORD
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
+
+
+def test_patch_keycloak_target_status_supports_direct_client_credentials() -> None:
+    core_v1_api = FakeCoreV1Api(
+        {
+            ("apps", "keycloak-client"): FakeSecret(
+                data={"clientSecret": _b64("client-secret-value")}
+            )
+        }
+    )
+    keycloak_client = FakeKeycloakClient()
+    keycloak_client_factory = FakeKeycloakClientFactory(keycloak_client)
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_target.patch_keycloak_target_status(
+        spec=_target_spec_client_credentials(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_target.RECONCILED_REASON,
+        "message": "KeycloakTarget client credentials are valid.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_AUTHENTICATED]["status"] == "True"
+    assert conditions[CONDITION_AUTHENTICATED]["message"] == (
+        "Keycloak client credentials authentication succeeded."
+    )
+    assert conditions[keycloak_target.BOOTSTRAP_READY_CONDITION]["status"] == "Unknown"
+    assert patch["status"]["activeAuthMethod"] == keycloak_target.CLIENT_CREDENTIALS_AUTH_METHOD
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "",
+            "password": "",
+            "realm": "master",
+            "client_id": "operator-client",
+            "client_secret": "client-secret-value",
+            "auth_method": keycloak_target.CLIENT_CREDENTIALS_AUTH_METHOD,
+        }
+    ]
+    assert keycloak_client.authenticate_calls == 1
+    assert _condition_messages(patch).isdisjoint({"client-secret-value"})
+
+
+def test_patch_keycloak_target_status_bootstraps_client_credentials() -> None:
+    core_v1_api = _core_v1_api(username="kc-admin", password="secret-password")
+    admin_client = FakeBootstrapKeycloakClient()
+    client_credentials_client = FakeKeycloakClient()
+    keycloak_client_factory = FakeKeycloakClientFactory(
+        admin_client,
+        client_credentials_client,
+    )
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_target.patch_keycloak_target_status(
+        spec=_target_spec_bootstrap_client_credentials(),
+        status={},
+        patch=patch,
+        namespace="apps",
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[keycloak_target.BOOTSTRAP_READY_CONDITION] == {
+        "type": keycloak_target.BOOTSTRAP_READY_CONDITION,
+        "status": "True",
+        "reason": keycloak_target.BOOTSTRAPPED_REASON,
+        "message": "KeycloakTarget bootstrap client credentials are available.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert patch["status"]["activeAuthMethod"] == keycloak_target.CLIENT_CREDENTIALS_AUTH_METHOD
+    assert patch["status"]["clientCredentialsSecretRef"] == {"name": "keycloak-client"}
+    assert keycloak_client_factory.calls == [
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "kc-admin",
+            "password": "secret-password",
+        },
+        {
+            "base_url": "https://keycloak.example.test",
+            "username": "",
+            "password": "",
+            "realm": "master",
+            "client_id": "operator-client",
+            "client_secret": "generated-client-secret",
+            "auth_method": keycloak_target.CLIENT_CREDENTIALS_AUTH_METHOD,
+        },
+    ]
+    assert admin_client.requests == [
+        ("GET", "realms/master/clients", {"params": {"clientId": "operator-client"}}),
+        (
+            "POST",
+            "realms/master/clients",
+            {
+                "json": {
+                    "clientId": "operator-client",
+                    "enabled": True,
+                    "protocol": "openid-connect",
+                    "publicClient": False,
+                    "serviceAccountsEnabled": True,
+                }
+            },
+        ),
+        ("GET", "realms/master/clients", {"params": {"clientId": "operator-client"}}),
+        (
+            "PUT",
+            "realms/master/clients/operator-client",
+            {
+                "json": {
+                    "id": "operator-client",
+                    "clientId": "operator-client",
+                    "enabled": True,
+                    "protocol": "openid-connect",
+                    "publicClient": False,
+                    "serviceAccountsEnabled": True,
+                }
+            },
+        ),
+        (
+            "GET",
+            "realms/master/clients/operator-client/service-account-user",
+            {},
+        ),
+        (
+            "GET",
+            "realms/master/users/service-account-user/role-mappings/realm",
+            {},
+        ),
+        ("GET", "realms/master/roles/admin", {}),
+        (
+            "POST",
+            "realms/master/users/service-account-user/role-mappings/realm",
+            {"json": [{"id": "admin-role", "name": "admin"}]},
+        ),
+        ("GET", "realms/master/clients/operator-client/client-secret", {}),
+    ]
+    assert len(core_v1_api.created_secrets) == 1
+    namespace, secret = core_v1_api.created_secrets[0]
+    assert namespace == "apps"
+    assert secret.metadata.name == "keycloak-client"
+    assert secret.string_data == {"clientSecret": "generated-client-secret"}
+    assert client_credentials_client.authenticate_calls == 1
+    assert _condition_messages(patch).isdisjoint(
+        {"kc-admin", "secret-password", "generated-client-secret"}
+    )
 
 
 def test_patch_keycloak_target_status_reports_invalid_spec_without_external_calls() -> None:
@@ -309,9 +538,8 @@ def test_patch_keycloak_target_status_reports_auth_failure_without_secret_values
         conditions[CONDITION_AUTHENTICATED]["reason"]
         == keycloak_target.AUTHENTICATION_FAILED_REASON
     )
-    assert conditions[CONDITION_AUTHENTICATED]["message"] == (
-        "KeycloakTarget authentication failed: invalid credentials for "
-        "<redacted>: <redacted>."
+    assert "invalid credentials for <redacted>: <redacted>" in (
+        conditions[CONDITION_AUTHENTICATED]["message"]
     )
     assert keycloak_client.authenticate_calls == 1
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
@@ -395,6 +623,35 @@ def _target_spec() -> dict[str, Any]:
     return {
         "url": "https://keycloak.example.test",
         "adminCredentials": {"secretRef": {"name": "keycloak-admin"}},
+    }
+
+
+def _target_spec_client_credentials() -> dict[str, Any]:
+    return {
+        "url": "https://keycloak.example.test",
+        "auth": {
+            "type": keycloak_target.CLIENT_CREDENTIALS_AUTH_METHOD,
+            "clientCredentials": {
+                "clientId": "operator-client",
+                "secretRef": {"name": "keycloak-client"},
+            },
+        },
+    }
+
+
+def _target_spec_bootstrap_client_credentials() -> dict[str, Any]:
+    return {
+        "url": "https://keycloak.example.test",
+        "auth": {
+            "type": keycloak_target.BOOTSTRAP_CLIENT_CREDENTIALS_AUTH_METHOD,
+            "bootstrapAdminCredentials": {
+                "secretRef": {"name": "keycloak-admin"},
+            },
+            "clientCredentials": {
+                "clientId": "operator-client",
+                "secretRef": {"name": "keycloak-client"},
+            },
+        },
     }
 
 

@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: manager
-          image: ghcr.io/clouddicted/keycloak-config-operator:v0.1.0
+          image: ghcr.io/clouddicted/keycloak-config-operator:v0.2.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

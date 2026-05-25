@@ -61,6 +61,8 @@ KEYCLOAK_IMAGE = f"quay.io/keycloak/keycloak:{KEYCLOAK_VERSION}"
 TARGET_NAME = "example-keycloak"
 KEYCLOAK_USERNAME = "fixture-admin"
 KEYCLOAK_PASSWORD = "fixture-password"
+OPERATOR_CLIENT_ID = "keycloak-config-operator"
+OPERATOR_CLIENT_SECRET_NAME = "keycloak-operator-client"
 PUBLIC_CLIENT_ID = "example-web"
 CONFIDENTIAL_CLIENT_ID = "example-service"
 CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
@@ -281,19 +283,50 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
     _wait_for_deployment(kind_cluster_env, NAMESPACE, "keycloak")
 
     with _port_forward_keycloak(kind_cluster_env) as keycloak_url:
-        _log("applying KeycloakTarget")
-        _apply_document(kind_cluster_env, _keycloak_target())
+        _log("applying bootstrap KeycloakTarget")
+        _apply_document(kind_cluster_env, _keycloak_target_bootstrap_client_credentials())
         _wait_for_ready(kind_cluster_env, "keycloaktargets", TARGET_NAME)
+        _eventually(
+            lambda: _assert_target_auth_status(
+                kind_cluster_env,
+                active_auth_method="ClientCredentials",
+                bootstrap_status="True",
+            )
+        )
+        _eventually(lambda: _assert_client_credentials_secret(kind_cluster_env))
+
+        _log("switching KeycloakTarget to direct client credentials")
+        _apply_document(kind_cluster_env, _keycloak_target_client_credentials())
+        _wait_for_ready(kind_cluster_env, "keycloaktargets", TARGET_NAME)
+        _eventually(
+            lambda: _assert_target_auth_status(
+                kind_cluster_env,
+                active_auth_method="ClientCredentials",
+                bootstrap_status="Unknown",
+            )
+        )
 
         _log("applying KeycloakRealm")
         _apply_document(kind_cluster_env, _keycloak_realm(realm))
         _wait_for_ready(kind_cluster_env, "keycloakrealms", "example-realm")
         _eventually(lambda: _assert_realm(keycloak_url, realm))
 
+        _log("updating KeycloakRealm displayName")
+        _apply_document(kind_cluster_env, _keycloak_realm(realm, display_name="Example Updated"))
+        _eventually(lambda: _assert_realm(keycloak_url, realm, "Example Updated"))
+
         _log("applying KeycloakClientScope")
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclientscopes", CLIENT_SCOPE_NAME)
         _eventually(lambda: _assert_client_scope(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclientscopes",
+                CLIENT_SCOPE_NAME,
+                _client_scope(keycloak_url, realm, CLIENT_SCOPE_NAME)["id"],
+            )
+        )
 
         _log("applying KeycloakProtocolMapper")
         _apply_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
@@ -303,22 +336,66 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             "example-profile-email",
         )
         _eventually(lambda: _assert_protocol_mapper(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakprotocolmappers",
+                "example-profile-email",
+                _protocol_mapper(keycloak_url, realm)["id"],
+            )
+        )
 
         _log("applying KeycloakRole")
         _apply_document(kind_cluster_env, _keycloak_role(realm))
         _wait_for_ready(kind_cluster_env, "keycloakroles", ROLE_NAME)
         _eventually(lambda: _assert_role(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakroles",
+                ROLE_NAME,
+                _admin_get(keycloak_url, f"realms/{realm}/roles/{ROLE_NAME}")["id"],
+            )
+        )
 
         _log("applying public KeycloakClient")
         _apply_document(kind_cluster_env, _keycloak_public_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", PUBLIC_CLIENT_ID)
         _eventually(lambda: _assert_public_client(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclients",
+                PUBLIC_CLIENT_ID,
+                _client(keycloak_url, realm, PUBLIC_CLIENT_ID)["id"],
+            )
+        )
 
         _log("applying confidential KeycloakClient")
         _apply_document(kind_cluster_env, _confidential_client_secret())
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", CONFIDENTIAL_CLIENT_ID)
         _eventually(lambda: _assert_confidential_client(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclients",
+                CONFIDENTIAL_CLIENT_ID,
+                _client(keycloak_url, realm, CONFIDENTIAL_CLIENT_ID)["id"],
+            )
+        )
+
+        _log("deleting KeycloakProtocolMapper with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
+        _eventually(lambda: _assert_protocol_mapper_missing(keycloak_url, realm))
+
+        _log("deleting KeycloakRole with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_role(realm))
+        _eventually(lambda: _assert_role_missing(keycloak_url, realm))
+
+        _log("deleting KeycloakClientScope with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_client_scope(realm))
+        _eventually(lambda: _assert_client_scope_missing(keycloak_url, realm))
 
 
 @pytest.fixture(scope="session")
@@ -491,7 +568,7 @@ def _port_forward_keycloak(env: dict[str, str]) -> Iterator[str]:
         ],
         env=env,
         text=True,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
     )
 
@@ -551,6 +628,79 @@ def _wait_for_ready(env: dict[str, str], plural: str, name: str) -> None:
     )
 
 
+def _assert_target_auth_status(
+    env: dict[str, str],
+    *,
+    active_auth_method: str,
+    bootstrap_status: str,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "keycloaktarget",
+            TARGET_NAME,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    target = json.loads(result.stdout)
+    conditions = {
+        condition["type"]: condition
+        for condition in target["status"]["conditions"]
+        if isinstance(condition, dict)
+    }
+
+    assert target["status"]["activeAuthMethod"] == active_auth_method
+    assert conditions["Ready"]["status"] == "True"
+    assert conditions["Authenticated"]["status"] == "True"
+    assert conditions["BootstrapReady"]["status"] == bootstrap_status
+
+
+def _assert_client_credentials_secret(env: dict[str, str]) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "secret",
+            OPERATOR_CLIENT_SECRET_NAME,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    secret = json.loads(result.stdout)
+
+    assert isinstance(secret["data"]["clientSecret"], str)
+    assert secret["data"]["clientSecret"]
+
+
+def _assert_remote_id_matches(
+    env: dict[str, str],
+    plural: str,
+    name: str,
+    remote_id: str,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            plural,
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+
+    assert resource["status"]["remoteId"] == remote_id
+
+
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],
@@ -559,25 +709,66 @@ def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     )
 
 
-def _keycloak_target() -> dict[str, Any]:
+def _delete_document(env: dict[str, str], document: dict[str, Any]) -> None:
+    _run_with_input(
+        ["kubectl", "delete", "-f", "-", "--ignore-not-found=true", "--wait=false"],
+        env=env,
+        input_text=json.dumps(document),
+    )
+
+
+def _keycloak_target_bootstrap_client_credentials() -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakTarget",
         "metadata": {"name": TARGET_NAME, "namespace": NAMESPACE},
         "spec": {
             "url": f"http://keycloak.{NAMESPACE}.svc.cluster.local:8080",
-            "adminCredentials": {
-                "secretRef": {
-                    "name": "keycloak-admin-credentials",
-                    "usernameKey": "username",
-                    "passwordKey": "password",
+            "auth": {
+                "type": "BootstrapClientCredentials",
+                "realm": "master",
+                "bootstrapAdminCredentials": {
+                    "secretRef": {
+                        "name": "keycloak-admin-credentials",
+                        "usernameKey": "username",
+                        "passwordKey": "password",
+                    },
+                },
+                "clientCredentials": {
+                    "clientId": OPERATOR_CLIENT_ID,
+                    "secretRef": {
+                        "name": OPERATOR_CLIENT_SECRET_NAME,
+                        "clientSecretKey": "clientSecret",
+                    },
                 },
             },
         },
     }
 
 
-def _keycloak_realm(realm: str) -> dict[str, Any]:
+def _keycloak_target_client_credentials() -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakTarget",
+        "metadata": {"name": TARGET_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "url": f"http://keycloak.{NAMESPACE}.svc.cluster.local:8080",
+            "auth": {
+                "type": "ClientCredentials",
+                "realm": "master",
+                "clientCredentials": {
+                    "clientId": OPERATOR_CLIENT_ID,
+                    "secretRef": {
+                        "name": OPERATOR_CLIENT_SECRET_NAME,
+                        "clientSecretKey": "clientSecret",
+                    },
+                },
+            },
+        },
+    }
+
+
+def _keycloak_realm(realm: str, display_name: str = "Example") -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
         "kind": "KeycloakRealm",
@@ -585,7 +776,7 @@ def _keycloak_realm(realm: str) -> dict[str, Any]:
         "spec": {
             "targetRef": {"name": TARGET_NAME},
             "realm": realm,
-            "displayName": "Example",
+            "displayName": display_name,
         },
     }
 
@@ -600,6 +791,7 @@ def _keycloak_client_scope(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": CLIENT_SCOPE_NAME,
             "description": "Example profile client scope",
+            "deletionPolicy": "Delete",
         },
     }
 
@@ -614,6 +806,7 @@ def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": PROTOCOL_MAPPER_NAME,
             "mapperType": "oidc-usermodel-property-mapper",
+            "deletionPolicy": "Delete",
             "parent": {
                 "type": "ClientScope",
                 "clientScopeRef": {"name": CLIENT_SCOPE_NAME},
@@ -640,6 +833,7 @@ def _keycloak_role(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": ROLE_NAME,
             "description": "Example administrator role",
+            "deletionPolicy": "Delete",
         },
     }
 
@@ -655,8 +849,15 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
             "clientId": PUBLIC_CLIENT_ID,
             "clientType": "Public",
             "displayName": "Example Web",
+            "rootUrl": "https://app.example.com",
+            "baseUrl": "/",
+            "adminUrl": "https://app.example.com/admin",
+            "standardFlowEnabled": True,
+            "directAccessGrantsEnabled": False,
             "redirectUris": ["https://app.example.com/*"],
             "webOrigins": ["https://app.example.com"],
+            "defaultClientScopes": [CLIENT_SCOPE_NAME],
+            "optionalClientScopes": ["offline_access"],
         },
     }
 
@@ -681,6 +882,7 @@ def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
             "realm": realm,
             "clientId": CONFIDENTIAL_CLIENT_ID,
             "clientType": "Confidential",
+            "serviceAccountsEnabled": True,
             "secretRef": {
                 "name": "example-service-client-secret",
                 "secretKey": "clientSecret",
@@ -689,10 +891,10 @@ def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
     }
 
 
-def _assert_realm(base_url: str, realm: str) -> None:
+def _assert_realm(base_url: str, realm: str, display_name: str = "Example") -> None:
     realm_payload = _admin_get(base_url, f"realms/{realm}")
     assert realm_payload["realm"] == realm
-    assert realm_payload["displayName"] == "Example"
+    assert realm_payload["displayName"] == display_name
 
 
 def _assert_client_scope(base_url: str, realm: str) -> dict[str, Any]:
@@ -704,12 +906,7 @@ def _assert_client_scope(base_url: str, realm: str) -> dict[str, Any]:
 
 
 def _assert_protocol_mapper(base_url: str, realm: str) -> None:
-    client_scope = _assert_client_scope(base_url, realm)
-    mappers = _admin_get(
-        base_url,
-        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
-    )
-    mapper = _one_by_field(mappers, "name", PROTOCOL_MAPPER_NAME)
+    mapper = _protocol_mapper(base_url, realm)
 
     assert mapper["protocol"] == "openid-connect"
     assert mapper["protocolMapper"] == "oidc-usermodel-property-mapper"
@@ -721,10 +918,43 @@ def _assert_protocol_mapper(base_url: str, realm: str) -> None:
     assert mapper["config"]["userinfo.token.claim"] == "true"
 
 
+def _assert_protocol_mapper_missing(base_url: str, realm: str) -> None:
+    client_scope = _assert_client_scope(base_url, realm)
+    mappers = _admin_get(
+        base_url,
+        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
+    )
+
+    assert isinstance(mappers, list)
+    assert all(
+        not isinstance(mapper, dict) or mapper.get("name") != PROTOCOL_MAPPER_NAME
+        for mapper in mappers
+    )
+
+
 def _assert_role(base_url: str, realm: str) -> None:
     role = _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
     assert role["name"] == ROLE_NAME
     assert role["description"] == "Example administrator role"
+
+
+def _assert_role_missing(base_url: str, realm: str) -> None:
+    try:
+        _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 404
+        return
+
+    raise AssertionError(f"Keycloak role {ROLE_NAME!r} still exists")
+
+
+def _assert_client_scope_missing(base_url: str, realm: str) -> None:
+    client_scopes = _admin_get(base_url, f"realms/{realm}/client-scopes")
+    assert isinstance(client_scopes, list)
+    assert all(
+        not isinstance(client_scope, dict) or client_scope.get("name") != CLIENT_SCOPE_NAME
+        for client_scope in client_scopes
+    )
 
 
 def _assert_public_client(base_url: str, realm: str) -> None:
@@ -733,8 +963,15 @@ def _assert_public_client(base_url: str, realm: str) -> None:
     assert client["name"] == "Example Web"
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is True
+    assert client["rootUrl"] == "https://app.example.com"
+    assert client["baseUrl"] == "/"
+    assert client["adminUrl"] == "https://app.example.com/admin"
+    assert client["standardFlowEnabled"] is True
+    assert client["directAccessGrantsEnabled"] is False
     assert client["redirectUris"] == ["https://app.example.com/*"]
     assert client["webOrigins"] == ["https://app.example.com"]
+    assert CLIENT_SCOPE_NAME in client["defaultClientScopes"]
+    assert "offline_access" in client["optionalClientScopes"]
 
 
 def _assert_confidential_client(base_url: str, realm: str) -> None:
@@ -742,6 +979,7 @@ def _assert_confidential_client(base_url: str, realm: str) -> None:
     assert client["clientId"] == CONFIDENTIAL_CLIENT_ID
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is False
+    assert client["serviceAccountsEnabled"] is True
 
     secret = _admin_get(base_url, f"realms/{realm}/clients/{client['id']}/client-secret")
     assert secret["value"] == CONFIDENTIAL_CLIENT_SECRET
@@ -755,6 +993,15 @@ def _client(base_url: str, realm: str, client_id: str) -> dict[str, Any]:
 def _client_scope(base_url: str, realm: str, name: str) -> dict[str, Any]:
     client_scopes = _admin_get(base_url, f"realms/{realm}/client-scopes")
     return _one_by_field(client_scopes, "name", name)
+
+
+def _protocol_mapper(base_url: str, realm: str) -> dict[str, Any]:
+    client_scope = _assert_client_scope(base_url, realm)
+    mappers = _admin_get(
+        base_url,
+        f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
+    )
+    return _one_by_field(mappers, "name", PROTOCOL_MAPPER_NAME)
 
 
 def _admin_get(base_url: str, path: str, params: dict[str, str] | None = None) -> Any:
@@ -808,7 +1055,7 @@ def _eventually(
     while time.monotonic() < deadline:
         try:
             return assertion()
-        except (AssertionError, KeyError, httpx.HTTPError) as exc:
+        except (AssertionError, KeyError, subprocess.CalledProcessError, httpx.HTTPError) as exc:
             last_error = exc
             time.sleep(interval_seconds)
 
@@ -855,12 +1102,15 @@ def _log(message: str) -> None:
 
 
 def _run(args: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return _run_completed_process(
+        subprocess.run(
+            args,
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        ),
         args,
-        check=True,
-        env=env,
-        text=True,
-        capture_output=True,
     )
 
 
@@ -870,11 +1120,38 @@ def _run_with_input(
     env: dict[str, str],
     input_text: str,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return _run_completed_process(
+        subprocess.run(
+            args,
+            input=input_text,
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        ),
         args,
-        input=input_text,
-        check=True,
-        env=env,
-        text=True,
-        capture_output=True,
     )
+
+
+def _run_completed_process(
+    completed: subprocess.CompletedProcess[str],
+    args: list[str],
+) -> subprocess.CompletedProcess[str]:
+    if completed.returncode != 0:
+        _print_failed_command_output(args, completed)
+        completed.check_returncode()
+
+    return completed
+
+
+def _print_failed_command_output(
+    args: list[str],
+    completed: subprocess.CompletedProcess[str],
+) -> None:
+    print(f"[kind-e2e] command failed: {' '.join(args)}", flush=True)
+    if completed.stdout:
+        print("[kind-e2e] stdout:", flush=True)
+        print(completed.stdout, flush=True)
+    if completed.stderr:
+        print("[kind-e2e] stderr:", flush=True)
+        print(completed.stderr, flush=True)

@@ -28,6 +28,10 @@ spec:
         - name: Parent
           type: string
           jsonPath: .spec.parent.type
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
         - name: Target
           type: string
           jsonPath: .spec.targetRef.name
@@ -40,6 +44,7 @@ spec:
           properties:
             spec:
               type: object
+              description: Desired Keycloak protocol mapper.
               required:
                 - targetRef
                 - realm
@@ -49,60 +54,89 @@ spec:
               properties:
                 targetRef:
                   type: object
+                  description: KeycloakTarget used to reach Keycloak.
                   required:
                     - name
                   properties:
                     name:
                       type: string
+                      description: Name of the KeycloakTarget in this namespace.
                       minLength: 1
                 realm:
                   type: string
+                  description: Realm containing the mapper parent.
                   minLength: 1
                 name:
                   type: string
+                  description: Keycloak protocol mapper name.
                   minLength: 1
                 mapperType:
                   type: string
+                  description: Keycloak protocol mapper type.
                   minLength: 1
                 protocol:
                   type: string
+                  description: Protocol used by the mapper.
                   default: openid-connect
                   minLength: 1
                 config:
                   type: object
+                  description: Mapper configuration key-value pairs.
                   additionalProperties:
                     type: string
+                    description: Mapper configuration value.
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak protocol mapper
+                    when this resource is deleted. Orphan leaves the mapper in
+                    Keycloak; Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
                 parent:
                   type: object
+                  description: Client or client scope that owns the mapper.
                   required:
                     - type
                   properties:
                     type:
                       type: string
+                      description: Parent resource type.
                       enum:
                         - Client
                         - ClientScope
                     clientRef:
                       type: object
+                      description: Parent KeycloakClient reference.
                       required:
                         - name
                       properties:
                         name:
                           type: string
+                          description: Name of the KeycloakClient in this namespace.
                           minLength: 1
                     clientScopeRef:
                       type: object
+                      description: Parent KeycloakClientScope reference.
                       required:
                         - name
                       properties:
                         name:
                           type: string
+                          description: Name of the KeycloakClientScope in this namespace.
                           minLength: 1
             status:
               type: object
+              description: Observed KeycloakProtocolMapper status.
               properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed protocol mapper.
                 conditions:
                   type: array
+                  description: Current readiness and reconciliation conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type
@@ -117,22 +151,28 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition type.
                         minLength: 1
                       status:
                         type: string
+                        description: Condition status.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                       observedGeneration:
                         type: integer
+                        description: Resource generation observed by the operator.
                         format: int64
                         minimum: 0
                       lastTransitionTime:
                         type: string
+                        description: Time when the condition last changed.
                         format: date-time
                       reason:
                         type: string
+                        description: Short reason for the condition state.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable condition details.

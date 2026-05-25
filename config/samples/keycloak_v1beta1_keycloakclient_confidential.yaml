@@ -16,6 +16,7 @@ spec:
   realm: example
   clientId: example-service
   clientType: Confidential
+  serviceAccountsEnabled: true
   secretRef:
     name: example-service-client-secret
     secretKey: clientSecret

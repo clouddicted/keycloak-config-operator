@@ -3,9 +3,12 @@ kind: KeycloakTarget
 metadata:
   name: example-keycloak
 spec:
-  url: https://keycloak.example.com
-  adminCredentials:
-    secretRef:
-      name: keycloak-admin-credentials
-      usernameKey: username
-      passwordKey: password
+  url: http://keycloak.keycloak.svc.cluster.local:8080
+  auth:
+    type: ClientCredentials
+    realm: master
+    clientCredentials:
+      clientId: keycloak-config-operator
+      secretRef:
+        name: keycloak-operator-client
+        clientSecretKey: clientSecret

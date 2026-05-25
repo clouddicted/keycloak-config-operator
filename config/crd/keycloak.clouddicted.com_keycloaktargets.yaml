@@ -31,43 +31,198 @@ spec:
           properties:
             spec:
               type: object
+              description: Desired connection settings for a Keycloak instance.
               required:
                 - url
-                - adminCredentials
+              oneOf:
+                - required:
+                    - adminCredentials
+                - required:
+                    - auth
               properties:
                 url:
                   type: string
+                  description: Base URL of the Keycloak instance.
                   format: uri
                   minLength: 1
                 adminCredentials:
                   type: object
+                  description: Credentials used to authenticate to Keycloak.
                   required:
                     - secretRef
                   properties:
                     secretRef:
                       type: object
+                      description: Secret containing Keycloak admin credentials.
                       required:
                         - name
                       properties:
                         name:
                           type: string
+                          description: Secret name.
                           minLength: 1
                         namespace:
                           type: string
+                          description: Secret namespace. Defaults to this resource namespace.
                           minLength: 1
                         usernameKey:
                           type: string
+                          description: Secret key containing the admin username.
                           default: username
                           minLength: 1
                         passwordKey:
                           type: string
+                          description: Secret key containing the admin password.
                           default: password
                           minLength: 1
+                auth:
+                  type: object
+                  description: Authentication method used to reach the Keycloak Admin API.
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      description: Authentication method.
+                      enum:
+                        - Password
+                        - ClientCredentials
+                        - BootstrapClientCredentials
+                    realm:
+                      type: string
+                      description: Realm used for token acquisition.
+                      default: master
+                      minLength: 1
+                    clientId:
+                      type: string
+                      description: OAuth client ID used with Password authentication.
+                      default: admin-cli
+                      minLength: 1
+                    password:
+                      type: object
+                      description: Username and password credentials for Password authentication.
+                      required:
+                        - secretRef
+                      properties:
+                        secretRef:
+                          type: object
+                          description: Secret containing username and password credentials.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            usernameKey:
+                              type: string
+                              description: Secret key containing the username.
+                              default: username
+                              minLength: 1
+                            passwordKey:
+                              type: string
+                              description: Secret key containing the password.
+                              default: password
+                              minLength: 1
+                    bootstrapAdminCredentials:
+                      type: object
+                      description:
+                        Admin credentials used only to bootstrap a service-account
+                        client when type is BootstrapClientCredentials.
+                      required:
+                        - secretRef
+                      properties:
+                        secretRef:
+                          type: object
+                          description: Secret containing bootstrap admin credentials.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            usernameKey:
+                              type: string
+                              description: Secret key containing the admin username.
+                              default: username
+                              minLength: 1
+                            passwordKey:
+                              type: string
+                              description: Secret key containing the admin password.
+                              default: password
+                              minLength: 1
+                    clientCredentials:
+                      type: object
+                      description:
+                        Client credentials used directly or generated during
+                        bootstrap.
+                      required:
+                        - clientId
+                        - secretRef
+                      properties:
+                        clientId:
+                          type: string
+                          description: Confidential client ID.
+                          minLength: 1
+                        secretRef:
+                          type: object
+                          description: Secret containing the client secret.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            clientSecretKey:
+                              type: string
+                              description: Secret key containing the client secret.
+                              default: clientSecret
+                              minLength: 1
+                    bootstrapRealmRoles:
+                      type: array
+                      description:
+                        Realm roles assigned to the bootstrapped service account.
+                        Defaults to the broad admin role for bootstrap simplicity.
+                      default:
+                        - admin
+                      items:
+                        type: string
+                        description: Realm role name.
+                        minLength: 1
             status:
               type: object
+              description: Observed KeycloakTarget status.
               properties:
+                activeAuthMethod:
+                  type: string
+                  description: Authentication method currently used by the target.
+                clientCredentialsSecretRef:
+                  type: object
+                  description: Secret containing generated client credentials, when bootstrapped.
+                  properties:
+                    name:
+                      type: string
+                      description: Secret name.
+                    namespace:
+                      type: string
+                      description: Secret namespace.
                 conditions:
                   type: array
+                  description: Current readiness and authentication conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type
@@ -82,22 +237,28 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition type.
                         minLength: 1
                       status:
                         type: string
+                        description: Condition status.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                       observedGeneration:
                         type: integer
+                        description: Resource generation observed by the operator.
                         format: int64
                         minimum: 0
                       lastTransitionTime:
                         type: string
+                        description: Time when the condition last changed.
                         format: date-time
                       reason:
                         type: string
+                        description: Short reason for the condition state.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable condition details.

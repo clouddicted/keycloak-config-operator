@@ -25,6 +25,14 @@ def test_readme_links_compatibility_and_configuration_support_docs() -> None:
 
     assert "[docs/compatibility.md](docs/compatibility.md)" in readme
     assert "[docs/configuration-support.md](docs/configuration-support.md)" in readme
+    assert "[docs/api-reference.md](docs/api-reference.md)" in readme
+
+
+def test_install_docs_reference_published_helm_chart() -> None:
+    chart_ref = "oci://ghcr.io/clouddicted/charts/keycloak-config-operator"
+
+    assert chart_ref in README.read_text()
+    assert chart_ref in (REPO_ROOT / "docs" / "index.md").read_text()
 
 
 def test_readme_shows_ci_and_version_badges() -> None:
@@ -49,6 +57,20 @@ def test_configuration_support_documents_every_crd_spec_field() -> None:
             assert f"`spec.{field_name}`" in text, f"{kind} spec.{field_name} is undocumented"
 
 
+def test_crd_spec_and_status_fields_have_descriptions() -> None:
+    for path in CRD_DIR.glob("keycloak*.yaml"):
+        crd = _load_one(path)
+        version = crd["spec"]["versions"][0]
+        schema = version["schema"]["openAPIV3Schema"]
+        kind = crd["spec"]["names"]["kind"]
+
+        for section in ("spec", "status"):
+            section_schema = schema["properties"][section]
+            missing = _missing_schema_descriptions(section_schema, section)
+
+            assert not missing, f"{kind} has CRD fields without descriptions: {missing}"
+
+
 def test_contributing_requires_support_docs_for_contract_changes() -> None:
     text = CONTRIBUTING.read_text()
 
@@ -61,7 +83,7 @@ def test_security_policy_documents_reporting_and_supported_versions() -> None:
 
     assert "Do not open a public issue" in text
     assert "security/advisories/new" in text
-    assert "`0.1.x`" in text
+    assert "`0.2.x`" in text
     assert "Kubernetes Secrets" in text
     assert "namespace watch scope" in text
 
@@ -115,6 +137,34 @@ def _crd_spec_fields() -> dict[str, set[str]]:
         fields_by_kind[crd["spec"]["names"]["kind"]] = set(spec_schema["properties"])
 
     return fields_by_kind
+
+
+def _missing_schema_descriptions(schema: dict[str, Any], path: str) -> list[str]:
+    missing: list[str] = []
+    if not str(schema.get("description", "")).strip():
+        missing.append(path)
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, child_schema in properties.items():
+            if isinstance(child_schema, dict):
+                missing.extend(_missing_schema_descriptions(child_schema, f"{path}.{name}"))
+
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        missing.extend(_missing_schema_descriptions(additional, f"{path}.*"))
+
+    items = schema.get("items")
+    if isinstance(items, dict):
+        item_properties = items.get("properties")
+        if isinstance(item_properties, dict):
+            for name, child_schema in item_properties.items():
+                if isinstance(child_schema, dict):
+                    missing.extend(
+                        _missing_schema_descriptions(child_schema, f"{path}[].{name}")
+                    )
+
+    return missing
 
 
 def _load_one(path: Path) -> dict[str, Any]:

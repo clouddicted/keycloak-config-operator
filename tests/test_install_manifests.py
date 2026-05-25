@@ -19,7 +19,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.1.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.2.0"
 OPERATOR_ARGS = [
     "run",
     "-m",
@@ -125,7 +125,7 @@ def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:
         assert "*" not in rule["verbs"]
 
     secret_rule = _rule_for(rules, api_group="", resources={"secrets"})
-    assert set(secret_rule["verbs"]) == {"get"}
+    assert set(secret_rule["verbs"]) == {"get", "create", "patch"}
 
     event_rule = _rule_for(rules, api_group="", resources={"events"})
     assert set(event_rule["verbs"]) == {"create", "patch"}
