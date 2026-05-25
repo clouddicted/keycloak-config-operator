@@ -46,6 +46,7 @@ secret in Kubernetes.
 | --- | --- | --- |
 | `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
 | `spec.realm` | Supported | Realm name and remote lookup key. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.displayName` | Supported | Reconciled when set. |
 
 ## KeycloakClient
