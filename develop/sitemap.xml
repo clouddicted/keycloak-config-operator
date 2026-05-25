@@ -2,22 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/</loc>
-         <lastmod>2026-05-24</lastmod>
+         <lastmod>2026-05-25</lastmod>
     </url>
     <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/api-reference/</loc>
-         <lastmod>2026-05-24</lastmod>
+         <lastmod>2026-05-25</lastmod>
     </url>
     <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/compatibility/</loc>
-         <lastmod>2026-05-24</lastmod>
+         <lastmod>2026-05-25</lastmod>
     </url>
     <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/configuration-support/</loc>
-         <lastmod>2026-05-24</lastmod>
+         <lastmod>2026-05-25</lastmod>
     </url>
     <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/usage/</loc>
-         <lastmod>2026-05-24</lastmod>
+         <lastmod>2026-05-25</lastmod>
     </url>
 </urlset>

@@ -452,7 +452,7 @@
         aria-controls="crd-viewer-20fa89b896-spec-admincredentials-content"
       >
         <span class="crd-viewer__chevron" aria-hidden="true"></span>
-        <span class="crd-viewer__label">adminCredentials<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__label">adminCredentials</span>
         <span class="crd-viewer__badge">object</span>
       </button>
       <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials" aria-label="Link to adminCredentials">#</a>
@@ -572,6 +572,526 @@
   </div>
 </li>
 </ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">auth</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth" aria-label="Link to auth">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Authentication method used to reach the Keycloak Admin API.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-type">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-type-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">type<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-type" aria-label="Link to type">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-type-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Authentication method.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Password&quot;, &quot;ClientCredentials&quot;, &quot;BootstrapClientCredentials&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm used for token acquisition.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;master&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientId</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientid" aria-label="Link to clientId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">OAuth client ID used with Password authentication.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;admin-cli&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">password</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password" aria-label="Link to password">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Username and password credentials for Password authentication.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing username and password credentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">usernameKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey" aria-label="Link to usernameKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the username.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;username&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">passwordKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey" aria-label="Link to passwordKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the password.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;password&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">bootstrapAdminCredentials</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials" aria-label="Link to bootstrapAdminCredentials">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Admin credentials used only to bootstrap a service-account client when type is BootstrapClientCredentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing bootstrap admin credentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">usernameKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey" aria-label="Link to usernameKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin username.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;username&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">passwordKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey" aria-label="Link to passwordKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin password.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;password&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientCredentials</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials" aria-label="Link to clientCredentials">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Client credentials used directly or generated during bootstrap.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientId<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid" aria-label="Link to clientId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Confidential client ID.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing the client secret.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientSecretKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey" aria-label="Link to clientSecretKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the client secret.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;clientSecret&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">bootstrapRealmRoles</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstraprealmroles" aria-label="Link to bootstrapRealmRoles">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm roles assigned to the bootstrapped service account. Defaults to the broad admin role for bootstrap simplicity.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> [&quot;admin&quot;]</span></div>
+</div></div>
   </div>
 </li>
 </ul></div>

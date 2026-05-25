@@ -724,6 +724,11 @@ Admin API.</p>
 <td>Base URL used for Keycloak Admin API calls.</td>
 </tr>
 <tr>
+<td><code>spec.auth</code></td>
+<td>Supported</td>
+<td>Explicit authentication method. Supports <code>Password</code>, <code>ClientCredentials</code>, and <code>BootstrapClientCredentials</code>.</td>
+</tr>
+<tr>
 <td><code>spec.adminCredentials</code></td>
 <td>Supported</td>
 <td>References admin credentials.</td>
@@ -750,6 +755,11 @@ Admin API.</p>
 </tr>
 </tbody>
 </table>
+<p><code>spec.adminCredentials</code> is the simple legacy password form. New deployments can
+use <code>spec.auth.type: ClientCredentials</code> with a pre-created service-account
+client, or <code>spec.auth.type: BootstrapClientCredentials</code> to let the operator use
+admin credentials once, create the service-account client, and store its client
+secret in Kubernetes.</p>
 <h2 id="keycloakrealm">KeycloakRealm<a class="headerlink" href="#keycloakrealm" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
