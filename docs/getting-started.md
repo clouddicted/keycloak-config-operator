@@ -33,7 +33,8 @@ kubectl create secret generic keycloak-admin-credentials \
 
 ## Create A Target
 
-The target tells the operator how to reach Keycloak.
+The target tells the operator how to reach Keycloak. When Keycloak runs in the
+same cluster, use the internal Service URL instead of the public hostname.
 
 ```yaml
 apiVersion: keycloak.clouddicted.com/v1beta1
@@ -42,7 +43,7 @@ metadata:
   name: example-keycloak
   namespace: keycloak-config
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   adminCredentials:
     secretRef:
       name: keycloak-admin-credentials

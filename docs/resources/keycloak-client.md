@@ -1,22 +1,28 @@
 # KeycloakClient
 
-`KeycloakClient` manages a Keycloak client in a realm. It supports public and
-confidential clients.
+`KeycloakClient` manages an application or service client inside a realm. Use it
+for clients that should be created consistently across environments and reviewed
+as part of application delivery.
 
-## Fields
+## Choosing The Client Type
 
-| Field | Description |
-| --- | --- |
-| `spec.targetRef.name` | `KeycloakTarget` name in the same namespace. |
-| `spec.realm` | Realm containing the client. |
-| `spec.clientId` | Keycloak client ID. This is the remote lookup key. |
-| `spec.clientType` | `Public` or `Confidential`. Defaults to `Public`. |
-| `spec.managementPolicy` | `Reconcile` updates drift. `ObserveOnly` reports drift without changing Keycloak. |
-| `spec.deletionPolicy` | `Orphan` leaves the remote client. `Delete` removes it on resource deletion. |
-| `spec.displayName` | Stored as the Keycloak client name. |
-| `spec.secretRef` | Secret containing the client secret for confidential clients. |
-| `spec.redirectUris` | Redirect URI list. |
-| `spec.webOrigins` | Web origin list. |
+Use `Public` for browser and native applications that cannot keep a secret.
+
+Use `Confidential` for backend services, machine-to-machine access, and clients
+that can safely use a client secret. Store the desired client secret in a
+Kubernetes Secret and reference it from the resource.
+
+## Adoption And Drift
+
+For new clients, use the default reconcile behavior. The operator creates the
+client if it is missing and updates the fields it owns when they drift.
+
+For existing production clients, start with `managementPolicy: ObserveOnly`. This
+lets you see whether the declared configuration matches Keycloak before allowing
+the operator to update anything.
+
+When you are comfortable with the observed state, switch to the default
+reconcile mode.
 
 ## Public Client Example
 
@@ -56,9 +62,19 @@ spec:
     secretKey: clientSecret
 ```
 
-## Behavior
+## Lifecycle Choices
 
-- Creates the client if it does not exist.
-- Updates modeled fields when `managementPolicy` is `Reconcile`.
-- Reports drift without changing Keycloak when `managementPolicy` is `ObserveOnly`.
-- Deletes the remote client only when `deletionPolicy` is `Delete`.
+Keep the default `deletionPolicy: Orphan` for shared or production clients. This
+prevents accidental remote deletion if a manifest is removed from Git or a
+namespace is deleted.
+
+Use `deletionPolicy: Delete` for clients that are fully owned by the Kubernetes
+resource, especially in disposable environments.
+
+## Operations
+
+`.status.remoteId` contains the Keycloak internal client ID. Use it when checking
+the object through the Keycloak Admin API.
+
+`kubectl describe keycloakclient <name>` shows Events for creation, updates,
+observe-only drift, missing observe-only clients, and deletion behavior.

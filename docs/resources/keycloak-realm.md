@@ -1,14 +1,10 @@
 # KeycloakRealm
 
-`KeycloakRealm` creates a Keycloak realm and reconciles selected realm fields.
+`KeycloakRealm` creates a realm and reconciles the small set of realm fields the
+operator currently owns.
 
-## Fields
-
-| Field | Description |
-| --- | --- |
-| `spec.targetRef.name` | `KeycloakTarget` name in the same namespace. |
-| `spec.realm` | Keycloak realm name. This is the remote lookup key. |
-| `spec.displayName` | Optional display name. Reconciled when set. |
+Use it to make environment setup repeatable. For example, a test cluster can
+create the realm before clients, roles, scopes, and mappers are applied.
 
 ## Example
 
@@ -24,11 +20,20 @@ spec:
   displayName: Example
 ```
 
-## Behavior
+## Practices
 
-- Creates the realm if it does not exist.
-- Updates `displayName` when it differs.
-- Does not delete the remote realm when the Kubernetes resource is deleted.
+- Create the `KeycloakTarget` first and wait until it is ready.
+- Keep the Kubernetes resource name close to the realm name. It makes Events and
+  `kubectl get` output easier to read.
+- Declare the realm before resources that live inside it.
+- Use one realm per isolated application boundary or environment, not as a
+  replacement for normal Keycloak authorization design.
 
-Realm deletion is intentionally not supported because it can remove a large
-amount of Keycloak configuration and user data.
+## Lifecycle
+
+The operator creates the realm if it does not exist and updates the modeled
+fields when they drift.
+
+Realm deletion is intentionally not supported. Deleting a realm can remove a
+large amount of configuration and user data, so that action should stay an
+explicit Keycloak administration task.

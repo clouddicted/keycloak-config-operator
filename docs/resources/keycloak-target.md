@@ -1,38 +1,23 @@
 # KeycloakTarget
 
-`KeycloakTarget` describes how the operator connects to a Keycloak Admin API.
-Create it before any other Keycloak resource in the namespace.
+`KeycloakTarget` tells the operator how to reach a Keycloak Admin API. Create it
+before any resource that manages a realm, client, role, scope, or mapper.
 
-## Fields
+Prefer the in-cluster Kubernetes Service URL when Keycloak runs in the same
+cluster. The operator runs inside Kubernetes, so an internal URL avoids public
+Ingress routing, external DNS, public TLS termination, and firewall assumptions.
+Use the scheme and port exposed by your Keycloak Service, for example
+`http://keycloak.keycloak.svc.cluster.local:8080`.
 
-| Field | Description |
-| --- | --- |
-| `spec.url` | Base URL of the Keycloak instance. It must be reachable from the operator pod. |
-| `spec.adminCredentials` | Simple username/password auth form. Useful for bootstrap and development. |
-| `spec.auth` | Explicit auth configuration. Supports `Password`, `ClientCredentials`, and `BootstrapClientCredentials`. |
+## Recommended Bootstrap Flow
 
-## Password Auth
+For a fresh Keycloak installation, start with bootstrap client credentials. The
+operator uses an admin username and password once, creates a confidential client
+for itself, stores the generated client secret in Kubernetes, and then switches
+to client credentials for normal reconciliation.
 
-Use this for simple bootstrap scenarios.
-
-```yaml
-apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakTarget
-metadata:
-  name: example-keycloak
-spec:
-  url: https://keycloak.example.com
-  adminCredentials:
-    secretRef:
-      name: keycloak-admin-credentials
-      usernameKey: username
-      passwordKey: password
-```
-
-## Client Credentials
-
-Use this when a confidential Keycloak client already exists and has service
-account roles that allow the required Admin API operations.
+This keeps the initial setup simple while avoiding long-term use of admin
+password authentication by the operator.
 
 ```yaml
 apiVersion: keycloak.clouddicted.com/v1beta1
@@ -40,30 +25,7 @@ kind: KeycloakTarget
 metadata:
   name: example-keycloak
 spec:
-  url: https://keycloak.example.com
-  auth:
-    type: ClientCredentials
-    realm: master
-    clientCredentials:
-      clientId: keycloak-config-operator
-      secretRef:
-        name: keycloak-operator-client
-        clientSecretKey: clientSecret
-```
-
-## Bootstrap Client Credentials
-
-Use this for a fresh Keycloak where the service-account client does not exist
-yet. The operator uses the bootstrap admin credentials, creates the client,
-stores its generated secret, and then authenticates with client credentials.
-
-```yaml
-apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakTarget
-metadata:
-  name: example-keycloak
-spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: BootstrapClientCredentials
     realm: master
@@ -77,12 +39,66 @@ spec:
         clientSecretKey: clientSecret
 ```
 
-## Status
+After bootstrap, the target status points to the generated Secret through
+`status.clientCredentialsSecretRef`. You can then remove the admin credentials
+from the target spec and use direct client credentials.
 
-Important conditions and fields:
+## Existing Service Account Client
 
-- `Ready`: target is usable by dependent resources.
-- `Authenticated`: the operator can authenticate to Keycloak.
-- `BootstrapReady`: bootstrap client credentials are available when bootstrap is configured.
-- `status.activeAuthMethod`: auth method currently used by the target.
-- `status.clientCredentialsSecretRef`: generated client credentials Secret when bootstrap is used.
+Use direct client credentials when a suitable confidential client already exists
+in Keycloak.
+
+```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakTarget
+metadata:
+  name: example-keycloak
+spec:
+  url: http://keycloak.keycloak.svc.cluster.local:8080
+  auth:
+    type: ClientCredentials
+    realm: master
+    clientCredentials:
+      clientId: keycloak-config-operator
+      secretRef:
+        name: keycloak-operator-client
+        clientSecretKey: clientSecret
+```
+
+This is the preferred steady-state mode for production because the credential is
+scoped to a client instead of a human admin account.
+
+## Password Auth
+
+Password auth is still useful for local development, throwaway environments, or
+simple bootstrap scenarios.
+
+```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakTarget
+metadata:
+  name: example-keycloak
+spec:
+  url: http://keycloak.keycloak.svc.cluster.local:8080
+  adminCredentials:
+    secretRef:
+      name: keycloak-admin-credentials
+      usernameKey: username
+      passwordKey: password
+```
+
+Avoid this mode as the long-term production setup when client credentials are
+available.
+
+## Operational Notes
+
+- The URL must be reachable from the operator pod, not only from your laptop.
+- Prefer the Keycloak Service DNS name over a public hostname when Keycloak is
+  deployed in the same cluster.
+- Keep credentials in Kubernetes Secrets and grant Secret access only to the
+  namespaces the operator watches.
+- Wait for `Ready=True` before applying dependent resources.
+- Use `kubectl describe keycloaktarget <name>` to inspect authentication and
+  bootstrap Events.
+- `Authenticated=False` means the operator reached the Secret but Keycloak
+  rejected the credentials or the endpoint connection.

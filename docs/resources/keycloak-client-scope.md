@@ -1,17 +1,10 @@
 # KeycloakClientScope
 
-`KeycloakClientScope` manages a realm-level client scope.
+`KeycloakClientScope` manages a realm-level client scope. Use scopes to define
+reusable protocol behavior that can be shared by multiple clients.
 
-## Fields
-
-| Field | Description |
-| --- | --- |
-| `spec.targetRef.name` | `KeycloakTarget` name in the same namespace. |
-| `spec.realm` | Realm containing the client scope. |
-| `spec.name` | Keycloak client scope name. This is the remote lookup key. |
-| `spec.description` | Optional client scope description. |
-| `spec.protocol` | Protocol used by the scope. Defaults to `openid-connect`. |
-| `spec.deletionPolicy` | `Orphan` leaves the remote client scope. `Delete` removes it on resource deletion. |
+Client scopes are especially useful when several applications need the same
+claims or mapper setup. Model the scope once, then attach mappers to it.
 
 ## Example
 
@@ -28,10 +21,23 @@ spec:
   description: Example profile client scope
 ```
 
-## Behavior
+## Practices
 
-- Creates the client scope if it does not exist.
-- Updates modeled fields when they differ.
-- Deletes the remote client scope only when `deletionPolicy` is `Delete`.
+- Create client scopes before protocol mappers that reference them.
+- Prefer small, purpose-specific scopes over broad scopes that mix unrelated
+  claims.
+- Use clear names that describe the claims or behavior the scope provides.
+- Keep shared scopes stable. Changes can affect every client that uses them.
 
-Create client scopes before protocol mappers that reference them.
+## Lifecycle Choices
+
+The operator creates the client scope if it is missing and updates the modeled
+fields when they drift.
+
+Remote deletion is opt-in. Keep `Orphan` for shared scopes. Use `Delete` for
+test scopes or scopes that are owned by one application lifecycle.
+
+## Operations
+
+`.status.remoteId` contains the Keycloak internal client scope ID. This ID is
+also used by protocol mapper operations under the hood.

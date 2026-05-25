@@ -5,7 +5,8 @@ in the namespaces the operator watches.
 
 ## Prerequisites
 
-- A Kubernetes cluster with access to the Keycloak Admin API URL.
+- A Kubernetes cluster with access to the Keycloak Admin API URL. When Keycloak
+  runs in the same cluster, prefer the internal Service URL.
 - A Keycloak admin user with enough permissions to manage the target realm data.
 - `kubectl` and `helm` configured for the cluster.
 
@@ -45,7 +46,9 @@ kubectl create secret generic keycloak-admin-credentials \
   --from-literal=password='<admin-password>'
 ```
 
-Create a `KeycloakTarget`. The URL must be reachable from the operator pod.
+Create a `KeycloakTarget`. The URL must be reachable from the operator pod. If
+Keycloak runs in the same cluster, use the Service DNS name, for example
+`http://keycloak.keycloak.svc.cluster.local:8080`.
 
 ```yaml
 apiVersion: keycloak.clouddicted.com/v1beta1
@@ -54,7 +57,7 @@ metadata:
   name: production-keycloak
   namespace: keycloak-config
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   adminCredentials:
     secretRef:
       name: keycloak-admin-credentials
@@ -87,7 +90,7 @@ metadata:
   name: production-keycloak
   namespace: keycloak-config
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: ClientCredentials
     realm: master
@@ -105,7 +108,7 @@ client credentials for the target.
 
 ```yaml
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: BootstrapClientCredentials
     realm: master

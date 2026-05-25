@@ -1,16 +1,10 @@
 # KeycloakRole
 
-`KeycloakRole` manages a realm role.
+`KeycloakRole` manages a realm role. Use it for application roles that should be
+available consistently wherever the application is deployed.
 
-## Fields
-
-| Field | Description |
-| --- | --- |
-| `spec.targetRef.name` | `KeycloakTarget` name in the same namespace. |
-| `spec.realm` | Realm containing the role. |
-| `spec.name` | Keycloak role name. This is the remote lookup key. |
-| `spec.description` | Optional role description. |
-| `spec.deletionPolicy` | `Orphan` leaves the remote role. `Delete` removes it on resource deletion. |
+Roles are usually referenced by applications, clients, mappers, or other
+automation. Keeping them in Git makes role creation explicit and reviewable.
 
 ## Example
 
@@ -27,17 +21,29 @@ spec:
   description: Example administrator role
 ```
 
-## Delete The Remote Role
+## Practices
 
-Remote deletion is opt-in.
+- Create the realm before creating roles inside it.
+- Use stable role names. Renaming a role is effectively creating a different
+  remote object.
+- Keep shared roles conservative and well documented. A role may be used by more
+  clients than the manifest author expects.
+- Use descriptions for human context in the Keycloak UI.
+
+## Lifecycle Choices
+
+The operator creates the role if it is missing and updates the description when
+the declared value differs.
+
+Remote deletion is opt-in. Keep the default `Orphan` policy for shared roles.
+Use `Delete` only when the Kubernetes resource clearly owns the role.
 
 ```yaml
 spec:
   deletionPolicy: Delete
 ```
 
-## Behavior
+## Operations
 
-- Creates the role if it does not exist.
-- Updates the description when it differs and is configured.
-- Deletes the remote role only when `deletionPolicy` is `Delete`.
+`.status.remoteId` contains the Keycloak internal role ID. `kubectl describe`
+shows Events for create, update, and delete/orphan decisions.

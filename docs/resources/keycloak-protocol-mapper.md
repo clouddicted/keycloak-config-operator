@@ -1,22 +1,21 @@
 # KeycloakProtocolMapper
 
-`KeycloakProtocolMapper` manages a protocol mapper attached to a Keycloak client
-or client scope.
+`KeycloakProtocolMapper` manages a mapper attached to a client or client scope.
+Use it when token claims or protocol behavior should be declared alongside the
+application configuration.
 
-## Fields
+Mappers are powerful and easy to overuse. Prefer a mapper on a client scope when
+several clients need the same claim. Use a mapper directly on a client when the
+claim is specific to that one client.
 
-| Field | Description |
-| --- | --- |
-| `spec.targetRef.name` | `KeycloakTarget` name in the same namespace. |
-| `spec.realm` | Realm containing the parent client or client scope. |
-| `spec.name` | Mapper name. This is the remote lookup key. |
-| `spec.mapperType` | Keycloak protocol mapper type. |
-| `spec.protocol` | Protocol used by the mapper. Defaults to `openid-connect`. |
-| `spec.config` | Mapper configuration key-value pairs. Desired keys are reconciled and undeclared existing keys are preserved. |
-| `spec.parent.type` | `Client` or `ClientScope`. |
-| `spec.parent.clientRef.name` | Parent `KeycloakClient` name when `type` is `Client`. |
-| `spec.parent.clientScopeRef.name` | Parent `KeycloakClientScope` name when `type` is `ClientScope`. |
-| `spec.deletionPolicy` | `Orphan` leaves the remote mapper. `Delete` removes it on resource deletion. |
+## Parent Choice
+
+Attach to a `ClientScope` when the mapper should be reusable.
+
+Attach to a `Client` when the mapper belongs to one application only.
+
+Create the parent first. The operator resolves the parent object before it
+creates or updates the mapper.
 
 ## Client Scope Mapper Example
 
@@ -47,17 +46,44 @@ spec:
 ## Client Mapper Example
 
 ```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakProtocolMapper
+metadata:
+  name: example-web-audience
 spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: audience
+  mapperType: oidc-audience-mapper
   parent:
     type: Client
     clientRef:
       name: example-web
+  config:
+    included.client.audience: example-web
+    access.token.claim: "true"
 ```
 
-## Behavior
+## Config Practices
 
-- Resolves the parent client or client scope first.
-- Creates the mapper if it does not exist.
-- Updates modeled fields and desired config keys when they differ.
-- Preserves existing config keys that are not declared in `spec.config`.
-- Deletes the remote mapper only when `deletionPolicy` is `Delete`.
+Mapper types and config keys are Keycloak Admin API values. The operator does
+not try to invent a friendlier abstraction over them, because the valid keys
+depend on the mapper type.
+
+Good practice is to create or inspect the mapper in a non-production Keycloak
+first, then move the relevant Admin API values into the manifest.
+
+The operator reconciles declared config keys and preserves undeclared existing
+keys. This makes adoption safer, but it also means removing a key from the
+manifest does not necessarily remove it from Keycloak.
+
+## Lifecycle Choices
+
+Remote deletion is opt-in. Use `Delete` for mappers that are fully owned by the
+resource. Keep `Orphan` for shared or manually managed mappers.
+
+## Operations
+
+`.status.remoteId` contains the Keycloak internal mapper ID. `kubectl describe`
+shows Events for create, update, and delete/orphan decisions.

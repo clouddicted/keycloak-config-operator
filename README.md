@@ -149,3 +149,7 @@ Apply the sample resources:
 ```bash
 kubectl apply -k config/samples
 ```
+
+## License
+
+See [LICENSE](LICENSE) and [NOTICE](NOTICE).

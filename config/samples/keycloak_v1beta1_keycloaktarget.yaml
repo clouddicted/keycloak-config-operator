@@ -3,7 +3,7 @@ kind: KeycloakTarget
 metadata:
   name: example-keycloak
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: ClientCredentials
     realm: master
