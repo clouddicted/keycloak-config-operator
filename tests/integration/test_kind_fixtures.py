@@ -849,8 +849,15 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
             "clientId": PUBLIC_CLIENT_ID,
             "clientType": "Public",
             "displayName": "Example Web",
+            "rootUrl": "https://app.example.com",
+            "baseUrl": "/",
+            "adminUrl": "https://app.example.com/admin",
+            "standardFlowEnabled": True,
+            "directAccessGrantsEnabled": False,
             "redirectUris": ["https://app.example.com/*"],
             "webOrigins": ["https://app.example.com"],
+            "defaultClientScopes": [CLIENT_SCOPE_NAME],
+            "optionalClientScopes": ["offline_access"],
         },
     }
 
@@ -875,6 +882,7 @@ def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
             "realm": realm,
             "clientId": CONFIDENTIAL_CLIENT_ID,
             "clientType": "Confidential",
+            "serviceAccountsEnabled": True,
             "secretRef": {
                 "name": "example-service-client-secret",
                 "secretKey": "clientSecret",
@@ -955,8 +963,15 @@ def _assert_public_client(base_url: str, realm: str) -> None:
     assert client["name"] == "Example Web"
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is True
+    assert client["rootUrl"] == "https://app.example.com"
+    assert client["baseUrl"] == "/"
+    assert client["adminUrl"] == "https://app.example.com/admin"
+    assert client["standardFlowEnabled"] is True
+    assert client["directAccessGrantsEnabled"] is False
     assert client["redirectUris"] == ["https://app.example.com/*"]
     assert client["webOrigins"] == ["https://app.example.com"]
+    assert CLIENT_SCOPE_NAME in client["defaultClientScopes"]
+    assert "offline_access" in client["optionalClientScopes"]
 
 
 def _assert_confidential_client(base_url: str, realm: str) -> None:
@@ -964,6 +979,7 @@ def _assert_confidential_client(base_url: str, realm: str) -> None:
     assert client["clientId"] == CONFIDENTIAL_CLIENT_ID
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is False
+    assert client["serviceAccountsEnabled"] is True
 
     secret = _admin_get(base_url, f"realms/{realm}/clients/{client['id']}/client-secret")
     assert secret["value"] == CONFIDENTIAL_CLIENT_SECRET

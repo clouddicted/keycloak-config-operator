@@ -112,8 +112,16 @@ class ClientSpec:
     deletion_policy: str
     secret_ref: Mapping[str, Any] | None = None
     display_name: str | None = None
+    root_url: str | None = None
+    base_url: str | None = None
+    admin_url: str | None = None
+    standard_flow_enabled: bool | None = None
+    direct_access_grants_enabled: bool | None = None
+    service_accounts_enabled: bool | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
+    default_client_scopes: tuple[str, ...] = ()
+    optional_client_scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -447,10 +455,26 @@ def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
 
     if client_spec.display_name is not None:
         payload["name"] = client_spec.display_name
+    if client_spec.root_url is not None:
+        payload["rootUrl"] = client_spec.root_url
+    if client_spec.base_url is not None:
+        payload["baseUrl"] = client_spec.base_url
+    if client_spec.admin_url is not None:
+        payload["adminUrl"] = client_spec.admin_url
+    if client_spec.standard_flow_enabled is not None:
+        payload["standardFlowEnabled"] = client_spec.standard_flow_enabled
+    if client_spec.direct_access_grants_enabled is not None:
+        payload["directAccessGrantsEnabled"] = client_spec.direct_access_grants_enabled
+    if client_spec.service_accounts_enabled is not None:
+        payload["serviceAccountsEnabled"] = client_spec.service_accounts_enabled
     if client_spec.redirect_uris:
         payload["redirectUris"] = list(client_spec.redirect_uris)
     if client_spec.web_origins:
         payload["webOrigins"] = list(client_spec.web_origins)
+    if client_spec.default_client_scopes:
+        payload["defaultClientScopes"] = list(client_spec.default_client_scopes)
+    if client_spec.optional_client_scopes:
+        payload["optionalClientScopes"] = list(client_spec.optional_client_scopes)
 
     return payload
 
@@ -578,12 +602,15 @@ def _has_modeled_drift(
 ) -> bool:
     desired_payload = _modeled_client_payload(client_spec)
     return any(
-        not _modeled_value_matches(existing_client.get(field), desired_value)
+        not _modeled_value_matches(field, existing_client.get(field), desired_value)
         for field, desired_value in desired_payload.items()
     )
 
 
-def _modeled_value_matches(existing_value: Any, desired_value: Any) -> bool:
+def _modeled_value_matches(field: str, existing_value: Any, desired_value: Any) -> bool:
+    if field in {"defaultClientScopes", "optionalClientScopes"}:
+        return _string_set(existing_value) == _string_set(desired_value)
+
     if isinstance(desired_value, list):
         return (
             isinstance(existing_value, Sequence)
@@ -592,6 +619,19 @@ def _modeled_value_matches(existing_value: Any, desired_value: Any) -> bool:
         )
 
     return existing_value == desired_value
+
+
+def _string_set(value: Any) -> set[str] | None:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return None
+
+    result: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        result.add(item)
+
+    return result
 
 
 def _client_update_payload(
@@ -617,8 +657,16 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     secret_ref = spec.get("secretRef")
     display_name = spec.get("displayName")
+    root_url = spec.get("rootUrl")
+    base_url = spec.get("baseUrl")
+    admin_url = spec.get("adminUrl")
+    standard_flow_enabled = spec.get("standardFlowEnabled")
+    direct_access_grants_enabled = spec.get("directAccessGrantsEnabled")
+    service_accounts_enabled = spec.get("serviceAccountsEnabled")
     redirect_uris = spec.get("redirectUris", ())
     web_origins = spec.get("webOrigins", ())
+    default_client_scopes = spec.get("defaultClientScopes", ())
+    optional_client_scopes = spec.get("optionalClientScopes", ())
 
     if (
         not _is_non_empty_string(target_name)
@@ -662,10 +710,40 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
 
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
+    if root_url is not None and not _is_non_empty_string(root_url):
+        return None
+    if base_url is not None and not _is_non_empty_string(base_url):
+        return None
+    if admin_url is not None and not _is_non_empty_string(admin_url):
+        return None
+
+    parsed_standard_flow_enabled = _parse_optional_bool(standard_flow_enabled)
+    parsed_direct_access_grants_enabled = _parse_optional_bool(
+        direct_access_grants_enabled
+    )
+    parsed_service_accounts_enabled = _parse_optional_bool(service_accounts_enabled)
+    if (
+        parsed_standard_flow_enabled is _INVALID_BOOL
+        or parsed_direct_access_grants_enabled is _INVALID_BOOL
+        or parsed_service_accounts_enabled is _INVALID_BOOL
+    ):
+        return None
+    if (
+        parsed_client_type == CLIENT_TYPE_PUBLIC
+        and parsed_service_accounts_enabled is True
+    ):
+        return None
 
     parsed_redirect_uris = _parse_string_tuple(redirect_uris)
     parsed_web_origins = _parse_string_tuple(web_origins)
-    if parsed_redirect_uris is None or parsed_web_origins is None:
+    parsed_default_client_scopes = _parse_unique_string_tuple(default_client_scopes)
+    parsed_optional_client_scopes = _parse_unique_string_tuple(optional_client_scopes)
+    if (
+        parsed_redirect_uris is None
+        or parsed_web_origins is None
+        or parsed_default_client_scopes is None
+        or parsed_optional_client_scopes is None
+    ):
         return None
 
     return ClientSpec(
@@ -677,8 +755,28 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         deletion_policy=parsed_deletion_policy,
         secret_ref=parsed_secret_ref,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
+        root_url=root_url.strip() if isinstance(root_url, str) else None,
+        base_url=base_url.strip() if isinstance(base_url, str) else None,
+        admin_url=admin_url.strip() if isinstance(admin_url, str) else None,
+        standard_flow_enabled=(
+            parsed_standard_flow_enabled
+            if isinstance(parsed_standard_flow_enabled, bool)
+            else None
+        ),
+        direct_access_grants_enabled=(
+            parsed_direct_access_grants_enabled
+            if isinstance(parsed_direct_access_grants_enabled, bool)
+            else None
+        ),
+        service_accounts_enabled=(
+            parsed_service_accounts_enabled
+            if isinstance(parsed_service_accounts_enabled, bool)
+            else None
+        ),
         redirect_uris=parsed_redirect_uris,
         web_origins=parsed_web_origins,
+        default_client_scopes=parsed_default_client_scopes,
+        optional_client_scopes=parsed_optional_client_scopes,
     )
 
 
@@ -693,6 +791,27 @@ def _parse_string_tuple(value: Any) -> tuple[str, ...] | None:
         parsed.append(item.strip())
 
     return tuple(parsed)
+
+
+_INVALID_BOOL = object()
+
+
+def _parse_optional_bool(value: Any) -> bool | object | None:
+    if value is None:
+        return None
+
+    return value if isinstance(value, bool) else _INVALID_BOOL
+
+
+def _parse_unique_string_tuple(value: Any) -> tuple[str, ...] | None:
+    parsed = _parse_string_tuple(value)
+    if parsed is None:
+        return None
+
+    if len(set(parsed)) != len(parsed):
+        return None
+
+    return parsed
 
 
 def _invalid_spec_condition(

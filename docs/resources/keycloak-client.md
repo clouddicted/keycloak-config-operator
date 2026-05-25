@@ -12,6 +12,32 @@ Use `Confidential` for backend services, machine-to-machine access, and clients
 that can safely use a client secret. Store the desired client secret in a
 Kubernetes Secret and reference it from the resource.
 
+## URLs And Flows
+
+For browser clients, declare the URLs and flows that are part of the application
+contract. Common fields are:
+
+- `rootUrl`, `baseUrl`, and `adminUrl` for Keycloak client URLs.
+- `redirectUris` and `webOrigins` for browser integration.
+- `standardFlowEnabled` for authorization code flow.
+- `directAccessGrantsEnabled` for password grant access.
+
+Only declare fields you want the operator to own. Omitted fields are left as
+they are in Keycloak.
+
+For confidential service clients, `serviceAccountsEnabled` enables service
+account usage. Do not enable service accounts for public clients.
+
+## Client Scopes
+
+Use `defaultClientScopes` and `optionalClientScopes` when the client needs
+explicit scope assignments. Prefer attaching common mappers to a shared
+`KeycloakClientScope`, then assigning that scope to the clients that need it.
+
+Scope lists are reconciled when declared. During adoption, use
+`managementPolicy: ObserveOnly` first if you are not sure which scopes are
+already assigned in Keycloak.
+
 ## Adoption And Drift
 
 For new clients, use the default reconcile behavior. The operator creates the
@@ -38,10 +64,18 @@ spec:
   clientId: example-web
   clientType: Public
   displayName: Example Web
+  rootUrl: https://app.example.com
+  baseUrl: /
+  standardFlowEnabled: true
+  directAccessGrantsEnabled: false
   redirectUris:
     - https://app.example.com/*
   webOrigins:
     - https://app.example.com
+  defaultClientScopes:
+    - example-profile
+  optionalClientScopes:
+    - offline_access
 ```
 
 ## Confidential Client Example
@@ -57,6 +91,7 @@ spec:
   realm: example
   clientId: example-service
   clientType: Confidential
+  serviceAccountsEnabled: true
   secretRef:
     name: example-service-client-secret
     secretKey: clientSecret

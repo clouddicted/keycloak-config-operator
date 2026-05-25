@@ -93,6 +93,27 @@ spec:
                   type: string
                   description: Display name stored as the Keycloak client name.
                   minLength: 1
+                rootUrl:
+                  type: string
+                  description: Root URL used by Keycloak for relative client URLs.
+                  minLength: 1
+                baseUrl:
+                  type: string
+                  description: Base URL shown by Keycloak for the client.
+                  minLength: 1
+                adminUrl:
+                  type: string
+                  description: Admin URL used by Keycloak for the client.
+                  minLength: 1
+                standardFlowEnabled:
+                  type: boolean
+                  description: Whether the authorization code flow is enabled.
+                directAccessGrantsEnabled:
+                  type: boolean
+                  description: Whether direct access grants are enabled.
+                serviceAccountsEnabled:
+                  type: boolean
+                  description: Whether service accounts are enabled for a confidential client.
                 secretRef:
                   type: object
                   description: Secret containing the confidential client secret.
@@ -120,6 +141,20 @@ spec:
                 webOrigins:
                   type: array
                   description: Allowed web origins.
+                  items:
+                    type: string
+                    minLength: 1
+                defaultClientScopes:
+                  type: array
+                  description: Default client scopes assigned to the client.
+                  uniqueItems: true
+                  items:
+                    type: string
+                    minLength: 1
+                optionalClientScopes:
+                  type: array
+                  description: Optional client scopes assigned to the client.
+                  uniqueItems: true
                   items:
                     type: string
                     minLength: 1

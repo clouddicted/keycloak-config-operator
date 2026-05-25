@@ -59,12 +59,20 @@ secret in Kubernetes.
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 | `spec.displayName` | Supported | Reconciled to Keycloak client `name`. |
+| `spec.rootUrl` | Supported | Reconciled when set. |
+| `spec.baseUrl` | Supported | Reconciled when set. |
+| `spec.adminUrl` | Supported | Reconciled when set. |
+| `spec.standardFlowEnabled` | Supported | Reconciled when set. |
+| `spec.directAccessGrantsEnabled` | Supported | Reconciled when set. |
+| `spec.serviceAccountsEnabled` | Supported | Reconciled when set. Intended for confidential clients. |
 | `spec.secretRef` | Supported | Required for confidential clients. |
 | `spec.secretRef.name` | Supported | Secret name containing the client secret. |
 | `spec.secretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |
 | `spec.secretRef.secretKey` | Supported | Optional key name containing the secret value. |
 | `spec.redirectUris` | Supported | Reconciled list of redirect URIs. |
 | `spec.webOrigins` | Supported | Reconciled list of web origins. |
+| `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
+| `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
 
 ## KeycloakRole
 
