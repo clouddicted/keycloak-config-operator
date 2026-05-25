@@ -28,6 +28,14 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    bool_field_error,
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+    string_list_field_error,
+    unique_string_list_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -829,6 +837,15 @@ def _invalid_spec_condition(
             now=now,
         )
 
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakClient", invalid_fields),
+            now=now,
+        )
+
     return ready_condition("False", INVALID_SPEC_REASON, "KeycloakClient spec is invalid.", now=now)
 
 
@@ -857,6 +874,54 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("secretRef.name")
 
     return missing_fields
+
+
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
+
+    errors = [
+        enum_field_error(
+            spec,
+            "clientType",
+            {CLIENT_TYPE_PUBLIC, CLIENT_TYPE_CONFIDENTIAL},
+            default=DEFAULT_CLIENT_TYPE,
+        ),
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        enum_field_error(
+            spec,
+            "deletionPolicy",
+            {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE},
+            default=DEFAULT_DELETION_POLICY,
+        ),
+        non_empty_string_field_error(spec, "displayName"),
+        non_empty_string_field_error(spec, "rootUrl"),
+        non_empty_string_field_error(spec, "baseUrl"),
+        non_empty_string_field_error(spec, "adminUrl"),
+        bool_field_error(spec, "standardFlowEnabled"),
+        bool_field_error(spec, "directAccessGrantsEnabled"),
+        bool_field_error(spec, "serviceAccountsEnabled"),
+        string_list_field_error(spec, "redirectUris"),
+        string_list_field_error(spec, "webOrigins"),
+        unique_string_list_field_error(spec, "defaultClientScopes"),
+        unique_string_list_field_error(spec, "optionalClientScopes"),
+    ]
+
+    client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    service_accounts_enabled = spec.get("serviceAccountsEnabled")
+    if (
+        isinstance(client_type, str)
+        and client_type.strip() == CLIENT_TYPE_PUBLIC
+        and service_accounts_enabled is True
+    ):
+        errors.append("serviceAccountsEnabled can be true only for Confidential clients")
+
+    return [error for error in errors if error is not None]
 
 
 def _set_ready_condition(

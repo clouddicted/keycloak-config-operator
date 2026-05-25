@@ -168,6 +168,40 @@ def test_patch_keycloak_protocol_mapper_status_reports_invalid_spec() -> None:
     }
 
 
+def test_patch_keycloak_protocol_mapper_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+    spec = _mapper_spec(
+        parent_type="Realm",
+        protocol="",
+        management_policy="Apply",
+        deletion_policy="Remove",
+    )
+    spec["config"] = {"claim.name": 3}
+
+    keycloak_protocol_mapper.patch_keycloak_protocol_mapper_status(
+        spec=spec,
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_protocol_mapper.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakProtocolMapper spec fields: managementPolicy must be one "
+            "of: `ObserveOnly`, `Reconcile`; deletionPolicy must be one of: "
+            "`Delete`, `Orphan`; protocol must be a non-empty string; "
+            "parent.type must be one of: `Client`, `ClientScope`; config must use "
+            "non-empty string keys and string values."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+
+
 def test_patch_keycloak_protocol_mapper_status_reports_target_resolution_failure() -> None:
     patch: dict[str, Any] = {}
 

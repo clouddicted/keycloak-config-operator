@@ -23,6 +23,11 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     AUTH_METHOD_CLIENT_CREDENTIALS,
     AUTH_METHOD_PASSWORD,
@@ -596,6 +601,15 @@ def _invalid_spec_condition(
             now=now,
         )
 
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakRealm", invalid_fields),
+            now=now,
+        )
+
     return ready_condition("False", INVALID_SPEC_REASON, "KeycloakRealm spec is invalid.", now=now)
 
 
@@ -614,6 +628,23 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("realm")
 
     return missing_fields
+
+
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
+
+    errors = [
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        non_empty_string_field_error(spec, "displayName"),
+    ]
+
+    return [error for error in errors if error is not None]
 
 
 def _realm_ready_condition(

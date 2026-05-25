@@ -45,6 +45,12 @@ spec:
             spec:
               type: object
               description: Desired Keycloak client.
+              x-kubernetes-validations:
+                - rule: >-
+                    !has(self.serviceAccountsEnabled) ||
+                    self.serviceAccountsEnabled == false ||
+                    (has(self.clientType) && self.clientType == 'Confidential')
+                  message: serviceAccountsEnabled can be true only when clientType is Confidential.
               required:
                 - targetRef
                 - realm
@@ -135,24 +141,28 @@ spec:
                 redirectUris:
                   type: array
                   description: Allowed redirect URI patterns.
+                  x-kubernetes-list-type: set
                   items:
                     type: string
                     minLength: 1
                 webOrigins:
                   type: array
                   description: Allowed web origins.
+                  x-kubernetes-list-type: set
                   items:
                     type: string
                     minLength: 1
                 defaultClientScopes:
                   type: array
                   description: Default client scopes assigned to the client.
+                  x-kubernetes-list-type: set
                   items:
                     type: string
                     minLength: 1
                 optionalClientScopes:
                   type: array
                   description: Optional client scopes assigned to the client.
+                  x-kubernetes-list-type: set
                   items:
                     type: string
                     minLength: 1

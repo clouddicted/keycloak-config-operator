@@ -26,7 +26,8 @@ Only declare fields you want the operator to own. Omitted fields are left as
 they are in Keycloak.
 
 For confidential service clients, `serviceAccountsEnabled` enables service
-account usage. Do not enable service accounts for public clients.
+account usage. The CRD rejects service accounts on public clients because
+Keycloak only supports them for confidential clients.
 
 ## Client Scopes
 
@@ -37,6 +38,9 @@ explicit scope assignments. Prefer attaching common mappers to a shared
 Scope lists are reconciled when declared. During adoption, use
 `managementPolicy: ObserveOnly` first if you are not sure which scopes are
 already assigned in Keycloak.
+
+Keep each scope list unique. Duplicate values usually hide a copy-paste mistake
+and are rejected before the operator reconciles the client.
 
 ## Adoption And Drift
 

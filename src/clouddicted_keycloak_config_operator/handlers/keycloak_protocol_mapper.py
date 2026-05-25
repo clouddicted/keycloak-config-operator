@@ -26,6 +26,11 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -635,6 +640,15 @@ def _invalid_spec_condition(
             now=now,
         )
 
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakProtocolMapper", invalid_fields),
+            now=now,
+        )
+
     return ready_condition(
         "False",
         INVALID_SPEC_REASON,
@@ -681,6 +695,56 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
             missing_fields.append("parent.clientScopeRef.name")
 
     return missing_fields
+
+
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
+
+    parent = spec.get("parent")
+    parent_type = parent.get("type") if isinstance(parent, Mapping) else None
+    errors = [
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        enum_field_error(
+            spec,
+            "deletionPolicy",
+            {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE},
+            default=DEFAULT_DELETION_POLICY,
+        ),
+        non_empty_string_field_error(spec, "protocol"),
+        _parent_type_error(parent_type),
+        _config_field_error(spec.get("config", {})),
+    ]
+
+    return [error for error in errors if error is not None]
+
+
+def _parent_type_error(parent_type: Any) -> str | None:
+    if parent_type is None:
+        return None
+
+    if (
+        isinstance(parent_type, str)
+        and parent_type.strip() in {PARENT_TYPE_CLIENT, PARENT_TYPE_CLIENT_SCOPE}
+    ):
+        return None
+
+    return "parent.type must be one of: `Client`, `ClientScope`"
+
+
+def _config_field_error(config: Any) -> str | None:
+    if not isinstance(config, Mapping):
+        return "config must be an object with string values"
+
+    if all(_is_non_empty_string(key) and isinstance(value, str) for key, value in config.items()):
+        return None
+
+    return "config must use non-empty string keys and string values"
 
 
 def _protocol_mapper_ready_condition(

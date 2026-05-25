@@ -225,7 +225,41 @@ def test_patch_keycloak_client_status_rejects_public_service_account() -> None:
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_client_handler.INVALID_SPEC_REASON,
-        "message": "KeycloakClient spec is invalid.",
+        "message": (
+            "Invalid KeycloakClient spec fields: serviceAccountsEnabled can be true only "
+            "for Confidential clients."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+
+
+def test_patch_keycloak_client_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_type="Private",
+            management_policy="Apply",
+            deletion_policy="Remove",
+            default_client_scopes=["profile", "profile"],
+        ),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_handler.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakClient spec fields: clientType must be one of: "
+            "`Confidential`, `Public`; managementPolicy must be one of: "
+            "`ObserveOnly`, `Reconcile`; deletionPolicy must be one of: "
+            "`Delete`, `Orphan`; defaultClientScopes must not contain duplicate values."
+        ),
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
 

@@ -26,6 +26,11 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -486,6 +491,15 @@ def _invalid_spec_condition(
             now=now,
         )
 
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakClientScope", invalid_fields),
+            now=now,
+        )
+
     return ready_condition(
         "False",
         INVALID_SPEC_REASON,
@@ -512,6 +526,30 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("name")
 
     return missing_fields
+
+
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
+
+    errors = [
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        enum_field_error(
+            spec,
+            "deletionPolicy",
+            {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE},
+            default=DEFAULT_DELETION_POLICY,
+        ),
+        non_empty_string_field_error(spec, "protocol"),
+        non_empty_string_field_error(spec, "description"),
+    ]
+
+    return [error for error in errors if error is not None]
 
 
 def _client_scope_ready_condition(

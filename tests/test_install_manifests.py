@@ -83,6 +83,33 @@ def test_public_manifests_use_beta_api_version() -> None:
         assert old_sample_prefix not in text
 
 
+def test_keycloak_client_crd_validates_common_user_mistakes() -> None:
+    spec_schema = _crd_spec_schema(
+        CONFIG_DIR / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
+    )
+    spec_properties = spec_schema["properties"]
+
+    assert spec_schema["x-kubernetes-validations"] == [
+        {
+            "rule": (
+                "!has(self.serviceAccountsEnabled) || "
+                "self.serviceAccountsEnabled == false || "
+                "(has(self.clientType) && self.clientType == 'Confidential')"
+            ),
+            "message": (
+                "serviceAccountsEnabled can be true only when clientType is Confidential."
+            ),
+        }
+    ]
+    for field_name in (
+        "redirectUris",
+        "webOrigins",
+        "defaultClientScopes",
+        "optionalClientScopes",
+    ):
+        assert spec_properties[field_name]["x-kubernetes-list-type"] == "set"
+
+
 def test_deployment_uses_kopf_module_entrypoint() -> None:
     deployment = _load_one(INSTALL_DIR / "deployment.yaml")
     pod_spec = deployment["spec"]["template"]["spec"]
@@ -197,6 +224,12 @@ def _document_by_kind(path: Path, kind: str) -> dict[str, Any]:
             return document
 
     raise AssertionError(f"{kind} was not found in {path}")
+
+
+def _crd_spec_schema(path: Path) -> dict[str, Any]:
+    crd = _load_one(path)
+    version = crd["spec"]["versions"][0]
+    return version["schema"]["openAPIV3Schema"]["properties"]["spec"]
 
 
 def _rule_for(

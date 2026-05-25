@@ -148,6 +148,35 @@ def test_patch_keycloak_role_status_reports_invalid_spec_without_external_calls(
     }
 
 
+def test_patch_keycloak_role_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_role.patch_keycloak_role_status(
+        spec=_role_spec(
+            description="",
+            management_policy="Apply",
+            deletion_policy="Remove",
+        ),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_role.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakRole spec fields: managementPolicy must be one of: "
+            "`ObserveOnly`, `Reconcile`; deletionPolicy must be one of: "
+            "`Delete`, `Orphan`; description must be a non-empty string."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+
+
 def test_patch_keycloak_role_status_reports_target_resolution_failure() -> None:
     patch: dict[str, Any] = {}
 
