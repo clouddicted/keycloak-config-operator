@@ -73,7 +73,7 @@ spec:
               properties:
                 conditions:
                   type: array
-                  description: Current readiness and reconciliation conditions.
+                  description: Current Kubernetes-style status conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type

@@ -145,12 +145,22 @@ def test_patch_keycloak_client_scope_status_reports_invalid_spec_without_externa
         now=NOW,
     )
 
-    assert _conditions_by_type(patch)[CONDITION_READY] == {
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_client_scope.INVALID_SPEC_REASON,
         "message": (
             "Missing required KeycloakClientScope spec fields: targetRef.name, realm, name."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_client_scope.INVALID_SPEC_REASON,
+        "message": (
+            "Drift detection was skipped because the KeycloakClientScope spec is invalid."
         ),
         "lastTransitionTime": "2026-05-24T10:30:45Z",
     }
@@ -200,9 +210,20 @@ def test_patch_keycloak_client_scope_status_reports_target_resolution_failure() 
         now=NOW,
     )
 
-    ready = _conditions_by_type(patch)[CONDITION_READY]
+    conditions = _conditions_by_type(patch)
+    ready = conditions[CONDITION_READY]
     assert ready["status"] == "False"
     assert ready["reason"] == keycloak_client_scope.TARGET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_client_scope.TARGET_UNAVAILABLE_REASON,
+        "message": (
+            "Drift detection was skipped because the referenced KeycloakTarget could "
+            "not be resolved."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
     assert retry == reconciliation.RetryRequest(
         keycloak_client_scope.TARGET_UNAVAILABLE_REASON,
         ready["message"],

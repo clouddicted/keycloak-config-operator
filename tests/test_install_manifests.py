@@ -110,6 +110,21 @@ def test_keycloak_client_crd_validates_common_user_mistakes() -> None:
         assert spec_properties[field_name]["x-kubernetes-list-type"] == "set"
 
 
+def test_crds_use_standard_status_condition_schema() -> None:
+    condition_schemas = {
+        path.name: _crd_condition_schema(path)
+        for path in (CONFIG_DIR / "crd").glob("keycloak.clouddicted.com_*.yaml")
+    }
+    [expected_schema] = {yaml.dump(schema, sort_keys=True) for schema in condition_schemas.values()}
+
+    for file_name, condition_schema in condition_schemas.items():
+        assert yaml.dump(condition_schema, sort_keys=True) == expected_schema, file_name
+        assert (
+            condition_schema["description"]
+            == "Current Kubernetes-style status conditions."
+        )
+
+
 def test_deployment_uses_kopf_module_entrypoint() -> None:
     deployment = _load_one(INSTALL_DIR / "deployment.yaml")
     pod_spec = deployment["spec"]["template"]["spec"]
@@ -230,6 +245,14 @@ def _crd_spec_schema(path: Path) -> dict[str, Any]:
     crd = _load_one(path)
     version = crd["spec"]["versions"][0]
     return version["schema"]["openAPIV3Schema"]["properties"]["spec"]
+
+
+def _crd_condition_schema(path: Path) -> dict[str, Any]:
+    crd = _load_one(path)
+    version = crd["spec"]["versions"][0]
+    return version["schema"]["openAPIV3Schema"]["properties"]["status"]["properties"][
+        "conditions"
+    ]
 
 
 def _rule_for(

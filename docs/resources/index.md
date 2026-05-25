@@ -96,12 +96,18 @@ a Kubernetes object.
 
 ## Observability
 
-Every resource reports readiness in `.status.conditions`. Use:
+Every resource reports Kubernetes-style conditions in `.status.conditions`. Use:
 
 ```bash
 kubectl get keycloakclients
 kubectl describe keycloakclient example-web
 ```
+
+All resources use `Ready` as the aggregate condition. Managed Keycloak objects
+also use `DriftDetected`; it is `Unknown` when the operator cannot check drift
+because the spec, target, credentials, or Keycloak API request is blocked.
+`KeycloakTarget` adds target-specific conditions for Secret loading,
+authentication, and bootstrap.
 
 `kubectl describe` shows Events for important lifecycle actions such as create,
 update, drift detection, bootstrap completion, and remote deletion.

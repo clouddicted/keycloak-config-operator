@@ -49,6 +49,7 @@ from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
     drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     upsert_condition,
 )
@@ -167,7 +168,13 @@ def patch_keycloak_realm_status(
     realm_spec = _parse_realm_spec(spec)
 
     if realm_spec is None:
-        _set_ready_condition(patch, existing_conditions, _invalid_spec_condition(spec, now=now))
+        _set_blocked_conditions(
+            patch,
+            existing_conditions,
+            _invalid_spec_condition(spec, now=now),
+            "Drift detection was skipped because the KeycloakRealm spec is invalid.",
+            now=now,
+        )
         return None
 
     resolver = target_resolver or KubernetesTargetResolver()
@@ -179,7 +186,7 @@ def patch_keycloak_realm_status(
             "KeycloakRealm is not ready because the referenced KeycloakTarget "
             "could not be resolved.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -188,6 +195,9 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the referenced KeycloakTarget "
+            "could not be resolved.",
+            now=now,
         )
         return retry
 
@@ -200,7 +210,7 @@ def patch_keycloak_realm_status(
             AUTHENTICATION_FAILED_REASON,
             "KeycloakRealm is not ready because Keycloak authentication failed.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -209,6 +219,8 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because Keycloak authentication failed.",
+            now=now,
         )
         return retry
     except KeycloakClientError:
@@ -216,7 +228,7 @@ def patch_keycloak_realm_status(
             REQUEST_FAILED_REASON,
             "KeycloakRealm reconciliation failed while calling the Keycloak Admin API.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -225,6 +237,8 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection failed while calling the Keycloak Admin API.",
+            now=now,
         )
         return retry
 
@@ -709,12 +723,22 @@ def _realm_drift_condition(
     )
 
 
-def _set_ready_condition(
+def _set_blocked_conditions(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
-    condition: Mapping[str, str],
+    ready: Mapping[str, str],
+    drift_message: str,
+    *,
+    now: datetime | None = None,
 ) -> None:
-    _set_conditions(patch, existing_conditions, (condition,))
+    _set_conditions(
+        patch,
+        existing_conditions,
+        (
+            ready,
+            drift_unknown_condition(ready["reason"], drift_message, now=now),
+        ),
+    )
 
 
 def _set_conditions(

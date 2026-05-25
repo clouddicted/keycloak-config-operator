@@ -41,6 +41,7 @@ from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
     drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     upsert_condition,
 )
@@ -219,10 +220,12 @@ def patch_keycloak_protocol_mapper_status(
 
     if mapper_spec is None:
         _set_remote_id(patch, None)
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             _invalid_spec_condition(spec, now=now),
+            "Drift detection was skipped because the KeycloakProtocolMapper spec is invalid.",
+            now=now,
         )
         return None
 
@@ -235,7 +238,7 @@ def patch_keycloak_protocol_mapper_status(
             "KeycloakProtocolMapper is not ready because the referenced KeycloakTarget "
             "could not be resolved.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -244,6 +247,9 @@ def patch_keycloak_protocol_mapper_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the referenced KeycloakTarget "
+            "could not be resolved.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -257,7 +263,7 @@ def patch_keycloak_protocol_mapper_status(
             AUTHENTICATION_FAILED_REASON,
             "KeycloakProtocolMapper is not ready because Keycloak authentication failed.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -266,6 +272,8 @@ def patch_keycloak_protocol_mapper_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because Keycloak authentication failed.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -275,7 +283,7 @@ def patch_keycloak_protocol_mapper_status(
             "KeycloakProtocolMapper reconciliation failed while calling the Keycloak "
             "Admin API.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -284,6 +292,8 @@ def patch_keycloak_protocol_mapper_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection failed while calling the Keycloak Admin API.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -813,12 +823,22 @@ def _delete_temporary_error(message: str) -> kopf.TemporaryError:
     return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
 
 
-def _set_ready_condition(
+def _set_blocked_conditions(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
-    condition: Mapping[str, str],
+    ready: Mapping[str, str],
+    drift_message: str,
+    *,
+    now: datetime | None = None,
 ) -> None:
-    _set_conditions(patch, existing_conditions, (condition,))
+    _set_conditions(
+        patch,
+        existing_conditions,
+        (
+            ready,
+            drift_unknown_condition(ready["reason"], drift_message, now=now),
+        ),
+    )
 
 
 def _set_conditions(
