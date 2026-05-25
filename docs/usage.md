@@ -15,7 +15,7 @@ in the namespaces the operator watches.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -26,7 +26,7 @@ the watch scope, install with `watchNamespaces`.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace \
   --set 'watchNamespaces[0]=keycloak-config'

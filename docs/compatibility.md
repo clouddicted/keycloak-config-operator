@@ -17,9 +17,9 @@ It does not replace the Keycloak project's own supported-platform policy.
 
 | Operator version | Keycloak version | Status | Test scope | Notes |
 | --- | --- | --- | --- | --- |
-| `0.1.x` | `26.6.2` | Supported | PR, branch, tag, and manual kind e2e | Default `KEYCLOAK_VERSION`. |
-| `0.1.x` | `26.5.3` | Compatibility tested | Tag and manual kind e2e | Previous-minor smoke coverage. |
-| `0.1.x` | `<26.5` | Unsupported | Not tested | Upgrade Keycloak or validate locally before use. |
+| `0.2.x` | `26.6.2` | Supported | PR, branch, tag, and manual kind e2e | Default `KEYCLOAK_VERSION`. |
+| `0.2.x` | `26.5.3` | Compatibility tested | Tag and manual kind e2e | Previous-minor smoke coverage. |
+| `0.2.x` | `<26.5` | Unsupported | Not tested | Upgrade Keycloak or validate locally before use. |
 
 ## Local Compatibility Testing
 

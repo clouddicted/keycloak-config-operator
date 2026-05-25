@@ -568,7 +568,7 @@ def _port_forward_keycloak(env: dict[str, str]) -> Iterator[str]:
         ],
         env=env,
         text=True,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
     )
 

@@ -64,7 +64,7 @@ Run the operator locally:
 
 ## Local Kubernetes Install
 
-The `v0.1.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
+The `v0.2.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
 
 Install the CRDs, RBAC, ServiceAccount, and Deployment:
 
@@ -77,7 +77,7 @@ Install a released chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -117,7 +117,7 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 ```
 
 The default Deployment image is a placeholder for the first packaged release:
-`ghcr.io/clouddicted/keycloak-config-operator:v0.1.0`. For local testing, replace it
+`ghcr.io/clouddicted/keycloak-config-operator:v0.2.0`. For local testing, replace it
 with an image you built and loaded into the cluster:
 
 ```bash

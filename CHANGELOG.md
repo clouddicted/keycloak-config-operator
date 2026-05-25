@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.2.0 - TBD
+## v0.2.0 - 2026-05-25
 
 ### Highlights
 

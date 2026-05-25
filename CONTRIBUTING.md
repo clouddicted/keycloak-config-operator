@@ -58,8 +58,8 @@ Product iterations are Git tags created from `main`.
 4. Create and push a semver tag from the green `main` commit:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
 The tag workflow repeats linting, unit tests, Helm checks, and the kind e2e suite
