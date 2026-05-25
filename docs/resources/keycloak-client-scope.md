@@ -34,6 +34,10 @@ spec:
 The operator creates the client scope if it is missing and updates the modeled
 fields when they drift.
 
+Use `managementPolicy: ObserveOnly` during adoption if a scope already exists or
+is shared. The operator reports missing scopes and modeled drift without
+changing Keycloak.
+
 Remote deletion is opt-in. Keep `Orphan` for shared scopes. Use `Delete` for
 test scopes or scopes that are owned by one application lifecycle.
 

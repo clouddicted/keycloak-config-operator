@@ -69,6 +69,16 @@ spec:
                   type: string
                   description: Keycloak role description.
                   minLength: 1
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak role.
+                    Reconcile creates or updates the modeled fields; ObserveOnly
+                    reports missing resources or drift without changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
                 deletionPolicy:
                   type: string
                   description:

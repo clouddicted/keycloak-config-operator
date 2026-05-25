@@ -80,6 +80,14 @@ manifest does not necessarily remove it from Keycloak.
 
 ## Lifecycle Choices
 
+The operator creates the mapper if it is missing and updates the modeled fields
+when they drift. For `spec.config`, only declared keys are owned; undeclared
+existing keys are preserved.
+
+Use `managementPolicy: ObserveOnly` when adopting mappers created manually or by
+another automation path. This reports missing mappers and modeled drift without
+creating or updating the remote mapper.
+
 Remote deletion is opt-in. Use `Delete` for mappers that are fully owned by the
 resource. Keep `Orphan` for shared or manually managed mappers.
 

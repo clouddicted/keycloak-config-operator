@@ -83,6 +83,7 @@ secret in Kubernetes.
 | `spec.realm` | Supported | Realm containing the role. |
 | `spec.name` | Supported | Role name and remote lookup key. |
 | `spec.description` | Supported | Reconciled when set. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakClientScope
@@ -94,6 +95,7 @@ secret in Kubernetes.
 | `spec.name` | Supported | Client scope name and remote lookup key. |
 | `spec.description` | Supported | Reconciled when set. |
 | `spec.protocol` | Supported | Defaults to `openid-connect`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakProtocolMapper
@@ -106,6 +108,7 @@ secret in Kubernetes.
 | `spec.mapperType` | Supported | Keycloak protocol mapper type. |
 | `spec.protocol` | Supported | Defaults to `openid-connect`. |
 | `spec.config` | Partial | Desired keys are reconciled; undeclared existing keys are preserved. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 | `spec.parent` | Supported | Selects a parent client or client scope. |
 | `spec.parent.type` | Supported | `Client` or `ClientScope`. |

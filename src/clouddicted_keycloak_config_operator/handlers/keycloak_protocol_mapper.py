@@ -35,6 +35,7 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
 from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
+    drift_detected_condition,
     ready_condition,
     upsert_condition,
 )
@@ -51,11 +52,17 @@ INVALID_SPEC_REASON = "InvalidSpec"
 PARENT_TYPE_CLIENT = "Client"
 PARENT_TYPE_CLIENT_SCOPE = "ClientScope"
 PROTOCOL_MAPPER_CREATED_REASON = "ProtocolMapperCreated"
+PROTOCOL_MAPPER_DRIFT_DETECTED_REASON = "ProtocolMapperDriftDetected"
+PROTOCOL_MAPPER_MISSING_REASON = "ProtocolMapperMissing"
 PROTOCOL_MAPPER_OBSERVED_REASON = "ProtocolMapperObserved"
 PROTOCOL_MAPPER_ORPHANED_REASON = "ProtocolMapperOrphaned"
 PROTOCOL_MAPPER_UPDATED_REASON = "ProtocolMapperUpdated"
+NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
 REQUEST_FAILED_REASON = "RequestFailed"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
+MANAGEMENT_POLICY_RECONCILE = "Reconcile"
+DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
 DELETION_POLICY_ORPHAN = "Orphan"
 DELETION_POLICY_DELETE = "Delete"
 DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
@@ -95,6 +102,7 @@ class ProtocolMapperSpec:
     mapper_type: str
     parent_type: str
     parent_name: str
+    management_policy: str
     deletion_policy: str
     protocol: str = DEFAULT_PROTOCOL
     config: Mapping[str, str] | None = None
@@ -109,7 +117,9 @@ class ParentReference:
 
 @dataclass(frozen=True)
 class ProtocolMapperReconcileResult:
+    ready_status: str
     ready_reason: str
+    drift_detected: bool
     remote_id: str | None = None
 
 
@@ -274,14 +284,12 @@ def patch_keycloak_protocol_mapper_status(
         return retry
 
     _set_remote_id(patch, reconcile_result.remote_id)
-    _set_ready_condition(
+    _set_conditions(
         patch,
         existing_conditions,
-        ready_condition(
-            "True",
-            reconcile_result.ready_reason,
-            _ready_message(reconcile_result.ready_reason),
-            now=now,
+        (
+            _protocol_mapper_ready_condition(reconcile_result, now=now),
+            _protocol_mapper_drift_condition(reconcile_result, now=now),
         ),
     )
     return None
@@ -299,6 +307,13 @@ def ensure_keycloak_protocol_mapper(
 
     existing_mapper = _matching_protocol_mapper(mappers, mapper_spec.name)
     if existing_mapper is None:
+        if mapper_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+            return ProtocolMapperReconcileResult(
+                "False",
+                PROTOCOL_MAPPER_MISSING_REASON,
+                True,
+            )
+
         client.request(
             "POST",
             _protocol_mapper_models_path(mapper_spec.realm, parent),
@@ -312,13 +327,25 @@ def ensure_keycloak_protocol_mapper(
 
         created_mapper = _matching_protocol_mapper(mappers, mapper_spec.name)
         return ProtocolMapperReconcileResult(
+            "True",
             PROTOCOL_MAPPER_CREATED_REASON,
+            False,
             _remote_id(created_mapper) if created_mapper is not None else None,
         )
 
     if not _has_modeled_drift(existing_mapper, mapper_spec):
         return ProtocolMapperReconcileResult(
+            "True",
             PROTOCOL_MAPPER_OBSERVED_REASON,
+            False,
+            _remote_id(existing_mapper),
+        )
+
+    if mapper_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+        return ProtocolMapperReconcileResult(
+            "True",
+            PROTOCOL_MAPPER_DRIFT_DETECTED_REASON,
+            True,
             _remote_id(existing_mapper),
         )
 
@@ -331,7 +358,12 @@ def ensure_keycloak_protocol_mapper(
         _protocol_mapper_model_path(mapper_spec.realm, parent, mapper_id.strip()),
         json=_protocol_mapper_update_payload(existing_mapper, mapper_spec),
     )
-    return ProtocolMapperReconcileResult(PROTOCOL_MAPPER_UPDATED_REASON, mapper_id.strip())
+    return ProtocolMapperReconcileResult(
+        "True",
+        PROTOCOL_MAPPER_UPDATED_REASON,
+        False,
+        mapper_id.strip(),
+    )
 
 
 def delete_keycloak_protocol_mapper_if_exists(
@@ -503,6 +535,7 @@ def _parse_protocol_mapper_spec(
     parent = spec.get("parent")
     parent_type = parent.get("type") if isinstance(parent, Mapping) else None
     parent_name = _parent_ref_name(parent, parent_type)
+    management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     config = spec.get("config", {})
 
@@ -519,6 +552,16 @@ def _parse_protocol_mapper_spec(
 
     parsed_parent_type = parent_type.strip()
     if parsed_parent_type not in {PARENT_TYPE_CLIENT, PARENT_TYPE_CLIENT_SCOPE}:
+        return None
+
+    if not _is_non_empty_string(management_policy):
+        return None
+
+    parsed_management_policy = management_policy.strip()
+    if parsed_management_policy not in {
+        MANAGEMENT_POLICY_OBSERVE_ONLY,
+        MANAGEMENT_POLICY_RECONCILE,
+    }:
         return None
 
     if not _is_non_empty_string(deletion_policy):
@@ -539,6 +582,7 @@ def _parse_protocol_mapper_spec(
         mapper_type=mapper_type.strip(),
         parent_type=parsed_parent_type,
         parent_name=parent_name.strip(),
+        management_policy=parsed_management_policy,
         deletion_policy=parsed_deletion_policy,
         protocol=protocol.strip(),
         config=parsed_config,
@@ -639,14 +683,66 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     return missing_fields
 
 
-def _ready_message(ready_reason: str) -> str:
-    if ready_reason == PROTOCOL_MAPPER_CREATED_REASON:
-        return "Keycloak protocol mapper was created."
+def _protocol_mapper_ready_condition(
+    reconcile_result: ProtocolMapperReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if reconcile_result.ready_reason == PROTOCOL_MAPPER_CREATED_REASON:
+        message = "Keycloak protocol mapper was created."
+    elif reconcile_result.ready_reason == PROTOCOL_MAPPER_UPDATED_REASON:
+        message = "Keycloak protocol mapper was updated."
+    elif reconcile_result.ready_reason == PROTOCOL_MAPPER_DRIFT_DETECTED_REASON:
+        message = (
+            "Keycloak protocol mapper has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        )
+    elif reconcile_result.ready_reason == PROTOCOL_MAPPER_MISSING_REASON:
+        message = (
+            "Keycloak protocol mapper is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        )
+    else:
+        message = "Keycloak protocol mapper already matches desired state."
 
-    if ready_reason == PROTOCOL_MAPPER_UPDATED_REASON:
-        return "Keycloak protocol mapper was updated."
+    return ready_condition(
+        reconcile_result.ready_status,
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
 
-    return "Keycloak protocol mapper already matches desired state."
+
+def _protocol_mapper_drift_condition(
+    reconcile_result: ProtocolMapperReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if not reconcile_result.drift_detected:
+        return drift_detected_condition(
+            "False",
+            NO_DRIFT_DETECTED_REASON,
+            "Keycloak protocol mapper has no modeled drift.",
+            now=now,
+        )
+
+    if reconcile_result.ready_reason == PROTOCOL_MAPPER_MISSING_REASON:
+        message = (
+            "Keycloak protocol mapper is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        )
+    else:
+        message = (
+            "Keycloak protocol mapper differs from desired state and was not changed "
+            "because managementPolicy is ObserveOnly."
+        )
+
+    return drift_detected_condition(
+        "True",
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
 
 
 def _delete_temporary_error(message: str) -> kopf.TemporaryError:
@@ -658,8 +754,20 @@ def _set_ready_condition(
     existing_conditions: Sequence[Mapping[str, str]],
     condition: Mapping[str, str],
 ) -> None:
+    _set_conditions(patch, existing_conditions, (condition,))
+
+
+def _set_conditions(
+    patch: MutableMapping[str, Any],
+    existing_conditions: Sequence[Mapping[str, str]],
+    conditions: Sequence[Mapping[str, str]],
+) -> None:
     status_patch = patch.setdefault("status", {})
-    status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+    updated_conditions = list(existing_conditions)
+    for condition in conditions:
+        updated_conditions = upsert_condition(updated_conditions, condition)
+
+    status_patch["conditions"] = updated_conditions
 
 
 def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
@@ -686,6 +794,14 @@ def _emit_reconcile_event(
             PROTOCOL_MAPPER_UPDATED_REASON: (
                 "Normal",
                 "Keycloak protocol mapper was updated.",
+            ),
+            PROTOCOL_MAPPER_DRIFT_DETECTED_REASON: (
+                "Warning",
+                "Keycloak protocol mapper has modeled drift and was left unchanged.",
+            ),
+            PROTOCOL_MAPPER_MISSING_REASON: (
+                "Warning",
+                "Keycloak protocol mapper is missing and was left unchanged.",
             ),
         },
     )

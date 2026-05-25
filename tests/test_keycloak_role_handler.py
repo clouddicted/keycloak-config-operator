@@ -17,7 +17,11 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakRequestError,
     KeycloakResourceNotFoundError,
 )
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_DRIFT_DETECTED,
+    CONDITION_READY,
+    ready_condition,
+)
 
 NOW = datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC)
@@ -192,6 +196,13 @@ def test_patch_keycloak_role_status_observes_existing_matching_role() -> None:
         "message": "Keycloak realm role already matches desired state.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_role.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak realm role has no modeled drift.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
     assert keycloak_client_factory.calls == [
         {
@@ -239,6 +250,47 @@ def test_patch_keycloak_role_status_creates_missing_role() -> None:
     assert patch["status"]["remoteId"] == "role-uuid"
 
 
+def test_patch_keycloak_role_status_observe_only_reports_missing_role_without_create() -> None:
+    keycloak_client = FakeKeycloakClient(
+        get_error=KeycloakResourceNotFoundError("role missing")
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_role.patch_keycloak_role_status(
+        spec=_role_spec(management_policy=keycloak_role.MANAGEMENT_POLICY_OBSERVE_ONLY),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_role.ROLE_MISSING_REASON,
+        "message": (
+            "Keycloak realm role is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_role.ROLE_MISSING_REASON,
+        "message": (
+            "Keycloak realm role is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example/roles/example-role", {})]
+    assert patch["status"]["remoteId"] is None
+
+
 def test_patch_keycloak_role_status_updates_description_drift_preserving_fields() -> None:
     keycloak_client = FakeKeycloakClient(
         role_result=_existing_role(description="Old description", composite=True)
@@ -278,6 +330,50 @@ def test_patch_keycloak_role_status_updates_description_drift_preserving_fields(
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "role-uuid"
+
+
+def test_patch_keycloak_role_status_observe_only_reports_description_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        role_result=_existing_role(description="Old description", composite=True)
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_role.patch_keycloak_role_status(
+        spec=_role_spec(
+            description="Example role",
+            management_policy=keycloak_role.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_role.ROLE_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak realm role has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_role.ROLE_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak realm role differs from desired state and was not changed "
+            "because managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example/roles/example-role", {})]
     assert patch["status"]["remoteId"] == "role-uuid"
 
 
@@ -489,6 +585,7 @@ def _role_spec(
     realm: str = "example",
     name: str = "example-role",
     description: str | None = None,
+    management_policy: str | None = None,
     deletion_policy: str | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
@@ -498,6 +595,8 @@ def _role_spec(
     }
     if description is not None:
         spec["description"] = description
+    if management_policy is not None:
+        spec["managementPolicy"] = management_policy
     if deletion_policy is not None:
         spec["deletionPolicy"] = deletion_policy
 
