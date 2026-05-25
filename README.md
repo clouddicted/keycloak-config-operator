@@ -3,24 +3,21 @@
 [![CI](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/clouddicted/keycloak-config-operator?sort=semver&label=version)](https://github.com/clouddicted/keycloak-config-operator/tags)
 
-Keycloak Config Operator is an open-source Kubernetes operator for managing Keycloak configuration declaratively through custom resources. It helps DevOps and platform teams automate Keycloak realms, clients, roles, client scopes, protocol mappers, and target connections in a GitOps-friendly way.
+Keycloak Config Operator is an open-source Kubernetes operator for managing
+Keycloak configuration declaratively through custom resources. It helps DevOps
+and platform teams automate Keycloak realms, clients, roles, client scopes,
+protocol mappers, and target connections in a GitOps-friendly way.
+
+Published documentation is available on GitHub Pages:
+[clouddicted.github.io/keycloak-config-operator](https://clouddicted.github.io/keycloak-config-operator/).
+
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release flow.
 See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions and
 [docs/configuration-support.md](docs/configuration-support.md) for supported
 configuration entities and fields. See [docs/api-reference.md](docs/api-reference.md)
 for the CRD schema reference.
-
-## License
-
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and
-[NOTICE](NOTICE).
-
-## Documentation
-
-Published documentation is versioned on GitHub Pages. The `develop` branch is
-published as development docs, and each release tag is published as its own
-version with `latest` pointing at the newest release.
 
 ## Development
 

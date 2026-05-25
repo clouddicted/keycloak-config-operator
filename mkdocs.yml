@@ -16,7 +16,16 @@ theme:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - Usage Guide: usage.md
+  - Resources:
+      - Overview: resources/index.md
+      - KeycloakTarget: resources/keycloak-target.md
+      - KeycloakRealm: resources/keycloak-realm.md
+      - KeycloakClient: resources/keycloak-client.md
+      - KeycloakRole: resources/keycloak-role.md
+      - KeycloakClientScope: resources/keycloak-client-scope.md
+      - KeycloakProtocolMapper: resources/keycloak-protocol-mapper.md
   - Compatibility: compatibility.md
   - Configuration Support: configuration-support.md
   - API Reference: api-reference.md

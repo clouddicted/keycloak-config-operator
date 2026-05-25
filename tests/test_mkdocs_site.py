@@ -29,10 +29,18 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
 
     assert nav_paths == {
         "api-reference.md",
-        "index.md",
-        "usage.md",
         "compatibility.md",
         "configuration-support.md",
+        "getting-started.md",
+        "index.md",
+        "resources/index.md",
+        "resources/keycloak-client-scope.md",
+        "resources/keycloak-client.md",
+        "resources/keycloak-protocol-mapper.md",
+        "resources/keycloak-realm.md",
+        "resources/keycloak-role.md",
+        "resources/keycloak-target.md",
+        "usage.md",
     }
     for nav_path in nav_paths:
         assert (REPO_ROOT / "docs" / nav_path).exists()
