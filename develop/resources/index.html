@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/compatibility/">
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/">
       
       
-        <link rel="prev" href="../resources/keycloak-protocol-mapper/">
+        <link rel="prev" href="../usage/">
       
       
-        <link rel="next" href="../configuration-support/">
+        <link rel="next" href="keycloak-target/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Compatibility - Keycloak Config Operator</title>
+        <title>Overview - Keycloak Config Operator</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#compatibility" class="md-skip">
+        <a href="#resources" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Compatibility
+              Overview
             
           </span>
         </div>
@@ -308,8 +308,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -320,11 +322,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
@@ -345,7 +347,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -360,10 +362,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../resources/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -379,6 +408,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-think-about-the-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How To Think About The Resources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#namespace-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Namespace Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deletion-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deletion Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -391,7 +495,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-target/" class="md-nav__link">
+      <a href="keycloak-target/" class="md-nav__link">
         
   
   
@@ -419,7 +523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-realm/" class="md-nav__link">
+      <a href="keycloak-realm/" class="md-nav__link">
         
   
   
@@ -447,7 +551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-client/" class="md-nav__link">
+      <a href="keycloak-client/" class="md-nav__link">
         
   
   
@@ -475,7 +579,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-role/" class="md-nav__link">
+      <a href="keycloak-role/" class="md-nav__link">
         
   
   
@@ -503,7 +607,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-client-scope/" class="md-nav__link">
+      <a href="keycloak-client-scope/" class="md-nav__link">
         
   
   
@@ -531,7 +635,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../resources/keycloak-protocol-mapper/" class="md-nav__link">
+      <a href="keycloak-protocol-mapper/" class="md-nav__link">
         
   
   
@@ -563,37 +667,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Compatibility
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
         
   
   
@@ -609,70 +686,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Policy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tested-versions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tested Versions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#local-compatibility-testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Compatibility Testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -758,10 +771,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#policy" class="md-nav__link">
+  <a href="#how-to-think-about-the-resources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Policy
+        How To Think About The Resources
       
     </span>
   </a>
@@ -769,10 +782,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tested-versions" class="md-nav__link">
+  <a href="#namespace-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tested Versions
+        Namespace Model
       
     </span>
   </a>
@@ -780,10 +793,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#local-compatibility-testing" class="md-nav__link">
+  <a href="#reconciliation-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Local Compatibility Testing
+        Reconciliation Model
       
     </span>
   </a>
@@ -791,10 +804,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
+  <a href="#deletion-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        References
+        Deletion Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
       
     </span>
   </a>
@@ -821,67 +845,64 @@
   
 
 
-<h1 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h1>
-<p>This page documents the Keycloak server versions this operator is tested with.
-It does not replace the Keycloak project's own supported-platform policy.</p>
-<h2 id="policy">Policy<a class="headerlink" href="#policy" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The default kind e2e suite runs against the current tested Keycloak version.</li>
-<li>Release and manual compatibility runs also test one previous-minor version as
-  a smoke check.</li>
-<li>Older Keycloak versions can work, but they are unsupported unless listed here.</li>
-<li>We do not test every archived Keycloak release. The Admin API surface is large,
-  and testing every release would slow delivery without creating a useful support
-  promise.</li>
-</ul>
-<h2 id="tested-versions">Tested Versions<a class="headerlink" href="#tested-versions" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Operator version</th>
-<th>Keycloak version</th>
-<th>Status</th>
-<th>Test scope</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>0.2.x</code></td>
-<td><code>26.6.2</code></td>
-<td>Supported</td>
-<td>PR, branch, tag, and manual kind e2e</td>
-<td>Default <code>KEYCLOAK_VERSION</code>.</td>
-</tr>
-<tr>
-<td><code>0.2.x</code></td>
-<td><code>26.5.3</code></td>
-<td>Compatibility tested</td>
-<td>Tag and manual kind e2e</td>
-<td>Previous-minor smoke coverage.</td>
-</tr>
-<tr>
-<td><code>0.2.x</code></td>
-<td><code>&lt;26.5</code></td>
-<td>Unsupported</td>
-<td>Not tested</td>
-<td>Upgrade Keycloak or validate locally before use.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="local-compatibility-testing">Local Compatibility Testing<a class="headerlink" href="#local-compatibility-testing" title="Permanent link">&para;</a></h2>
-<p>Run the same e2e suite against a specific Keycloak image tag:</p>
-<pre><code class="language-bash">KEYCLOAK_VERSION=26.6.2 .venv/bin/python tests/kind/e2e.py prepare
-KEYCLOAK_VERSION=26.6.2 .venv/bin/python tests/kind/e2e.py test
-.venv/bin/python tests/kind/e2e.py cleanup
+<h1 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h1>
+<p>The operator models a small, practical part of Keycloak as Kubernetes custom
+resources. The goal is not to mirror every Keycloak screen. The goal is to make
+the configuration that platform teams commonly need repeatable, reviewable, and
+safe to apply from Git.</p>
+<p>Use the resource pages in this section for operational guidance and examples.
+Use the <a href="../api-reference/">API reference</a> when you need the complete schema.</p>
+<h2 id="how-to-think-about-the-resources">How To Think About The Resources<a class="headerlink" href="#how-to-think-about-the-resources" title="Permanent link">&para;</a></h2>
+<p><code>KeycloakTarget</code> is the connection profile. Every other resource uses it to talk
+to one Keycloak instance.</p>
+<p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
+configuration.</p>
+<p><code>KeycloakClient</code>, <code>KeycloakRole</code>, <code>KeycloakClientScope</code>, and
+<code>KeycloakProtocolMapper</code> manage selected objects inside a realm.</p>
+<p>The normal apply order is:</p>
+<pre><code class="language-text">KeycloakTarget
+KeycloakRealm
+KeycloakRole
+KeycloakClient
+KeycloakClientScope
+KeycloakProtocolMapper
 </code></pre>
-<p>The fixture image is <code>quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}</code>.</p>
-<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Keycloak downloads: https://www.keycloak.org/downloads</li>
-<li>Keycloak supported configurations: https://www.keycloak.org/server/supported-configurations</li>
-<li>Keycloak release notes: https://www.keycloak.org/docs/latest/release_notes/</li>
-</ul>
+<p>Client scopes must exist before protocol mappers that attach to them. Clients
+must exist before protocol mappers that attach directly to clients.</p>
+<h2 id="namespace-model">Namespace Model<a class="headerlink" href="#namespace-model" title="Permanent link">&para;</a></h2>
+<p>Resources are namespace-scoped. In practice, keep a target and the objects that
+use it in the same namespace. This keeps RBAC, credentials, and ownership easy to
+understand.</p>
+<p>For shared Keycloak instances, use one namespace per team or environment and
+give each namespace only the Secret access it needs.</p>
+<h2 id="reconciliation-model">Reconciliation Model<a class="headerlink" href="#reconciliation-model" title="Permanent link">&para;</a></h2>
+<p>The operator reconciles the fields it owns and leaves unknown Keycloak settings
+alone where possible. This makes it usable with existing Keycloak instances, but
+it also means you should treat the CRDs as the source of truth for the fields you
+declare.</p>
+<p>For clients, <code>managementPolicy: ObserveOnly</code> is useful during adoption. It lets
+you detect drift before allowing the operator to update Keycloak.</p>
+<h2 id="deletion-model">Deletion Model<a class="headerlink" href="#deletion-model" title="Permanent link">&para;</a></h2>
+<p>Remote deletion is intentionally conservative. Most resources default to
+<code>deletionPolicy: Orphan</code>, which removes only the Kubernetes object and leaves the
+Keycloak object in place.</p>
+<p>Use <code>deletionPolicy: Delete</code> only when the Kubernetes resource should own the
+remote object lifecycle. Do this for test environments and simple app-owned
+objects first. Be more careful with shared roles, shared scopes, and production
+clients.</p>
+<p>Realms are not deleted by the operator. A realm can contain users, clients,
+sessions, and other data that is too broad to remove as a side effect of deleting
+a Kubernetes object.</p>
+<h2 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h2>
+<p>Every resource reports readiness in <code>.status.conditions</code>. Use:</p>
+<pre><code class="language-bash">kubectl get keycloakclients
+kubectl describe keycloakclient example-web
+</code></pre>
+<p><code>kubectl describe</code> shows Events for important lifecycle actions such as create,
+update, drift detection, bootstrap completion, and remote deletion.</p>
+<p>Managed objects that have a Keycloak internal ID expose it as
+<code>.status.remoteId</code>. This is useful when comparing a Kubernetes resource with a
+Keycloak Admin API response.</p>
 
 
 

@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/usage/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../getting-started/">
       
       
-        <link rel="next" href="../compatibility/">
+        <link rel="next" href="../resources/">
       
       
         
@@ -254,6 +254,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -374,6 +401,261 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-target/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakTarget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-realm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakRealm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-role/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-client-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClientScope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-protocol-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakProtocolMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -566,14 +848,15 @@
 in the namespaces the operator watches.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A Kubernetes cluster with access to the Keycloak Admin API URL.</li>
+<li>A Kubernetes cluster with access to the Keycloak Admin API URL. When Keycloak
+  runs in the same cluster, prefer the internal Service URL.</li>
 <li>A Keycloak admin user with enough permissions to manage the target realm data.</li>
 <li><code>kubectl</code> and <code>helm</code> configured for the cluster.</li>
 </ul>
 <h2 id="install-the-operator">Install The Operator<a class="headerlink" href="#install-the-operator" title="Permanent link">&para;</a></h2>
 <pre><code class="language-bash">helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 </code></pre>
@@ -581,7 +864,7 @@ in the namespaces the operator watches.</p>
 the watch scope, install with <code>watchNamespaces</code>.</p>
 <pre><code class="language-bash">helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace \
   --set 'watchNamespaces[0]=keycloak-config'
@@ -596,14 +879,16 @@ kubectl create secret generic keycloak-admin-credentials \
   --from-literal=username='&lt;admin-user&gt;' \
   --from-literal=password='&lt;admin-password&gt;'
 </code></pre>
-<p>Create a <code>KeycloakTarget</code>. The URL must be reachable from the operator pod.</p>
+<p>Create a <code>KeycloakTarget</code>. The URL must be reachable from the operator pod. If
+Keycloak runs in the same cluster, use the Service DNS name, for example
+<code>http://keycloak.keycloak.svc.cluster.local:8080</code>.</p>
 <pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
 kind: KeycloakTarget
 metadata:
   name: production-keycloak
   namespace: keycloak-config
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   adminCredentials:
     secretRef:
       name: keycloak-admin-credentials
@@ -627,7 +912,7 @@ metadata:
   name: production-keycloak
   namespace: keycloak-config
 spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: ClientCredentials
     realm: master
@@ -642,7 +927,7 @@ bootstrap mode. The operator uses the admin credentials to create the client,
 stores the generated client secret in the referenced Secret, and then uses
 client credentials for the target.</p>
 <pre><code class="language-yaml">spec:
-  url: https://keycloak.example.com
+  url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
     type: BootstrapClientCredentials
     realm: master

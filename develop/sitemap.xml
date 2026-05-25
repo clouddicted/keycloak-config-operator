@@ -17,7 +17,39 @@
          <lastmod>2026-05-25</lastmod>
     </url>
     <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/getting-started/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
          <loc>https://clouddicted.github.io/keycloak-config-operator/develop/usage/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client-scope/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-protocol-mapper/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-realm/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-role/</loc>
+         <lastmod>2026-05-25</lastmod>
+    </url>
+    <url>
+         <loc>https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-target/</loc>
          <lastmod>2026-05-25</lastmod>
     </url>
 </urlset>
