@@ -5,7 +5,7 @@ import shutil
 import socket
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +69,7 @@ CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
 CLIENT_SCOPE_NAME = "example-profile"
 PROTOCOL_MAPPER_NAME = "email"
 ROLE_NAME = "example-admin"
+OBSERVE_ONLY_ROLE_NAME = "observe-only-admin"
 READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
@@ -314,6 +315,28 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _log("updating KeycloakRealm displayName")
         _apply_document(kind_cluster_env, _keycloak_realm(realm, display_name="Example Updated"))
         _eventually(lambda: _assert_realm(keycloak_url, realm, "Example Updated"))
+
+        _log("applying observe-only KeycloakRole")
+        _apply_document(kind_cluster_env, _keycloak_observe_only_role(realm))
+        _eventually(
+            lambda: _assert_resource_conditions(
+                kind_cluster_env,
+                "keycloakroles",
+                OBSERVE_ONLY_ROLE_NAME,
+                {
+                    "Ready": ("False", "RoleMissing"),
+                    "DriftDetected": ("True", "RoleMissing"),
+                },
+            )
+        )
+        _eventually(
+            lambda: _assert_role_missing(
+                keycloak_url,
+                realm,
+                role_name=OBSERVE_ONLY_ROLE_NAME,
+            )
+        )
+        _delete_document(kind_cluster_env, _keycloak_observe_only_role(realm))
 
         _log("applying KeycloakClientScope")
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
@@ -701,6 +724,36 @@ def _assert_remote_id_matches(
     assert resource["status"]["remoteId"] == remote_id
 
 
+def _assert_resource_conditions(
+    env: dict[str, str],
+    plural: str,
+    name: str,
+    expected: Mapping[str, tuple[str, str]],
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            plural,
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+    conditions = {
+        condition["type"]: condition
+        for condition in resource["status"]["conditions"]
+        if isinstance(condition, dict)
+    }
+
+    for condition_type, (status, reason) in expected.items():
+        assert conditions[condition_type]["status"] == status
+        assert conditions[condition_type]["reason"] == reason
+
+
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],
@@ -838,6 +891,21 @@ def _keycloak_role(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_observe_only_role(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakRole",
+        "metadata": {"name": OBSERVE_ONLY_ROLE_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "name": OBSERVE_ONLY_ROLE_NAME,
+            "description": "Observe-only role",
+            "managementPolicy": "ObserveOnly",
+        },
+    }
+
+
 def _keycloak_public_client(realm: str) -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
@@ -938,14 +1006,18 @@ def _assert_role(base_url: str, realm: str) -> None:
     assert role["description"] == "Example administrator role"
 
 
-def _assert_role_missing(base_url: str, realm: str) -> None:
+def _assert_role_missing(
+    base_url: str,
+    realm: str,
+    role_name: str = ROLE_NAME,
+) -> None:
     try:
-        _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
+        _admin_get(base_url, f"realms/{realm}/roles/{role_name}")
     except httpx.HTTPStatusError as exc:
         assert exc.response.status_code == 404
         return
 
-    raise AssertionError(f"Keycloak role {ROLE_NAME!r} still exists")
+    raise AssertionError(f"Keycloak role {role_name!r} still exists")
 
 
 def _assert_client_scope_missing(base_url: str, realm: str) -> None:
