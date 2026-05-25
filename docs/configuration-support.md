@@ -22,6 +22,24 @@ Status meanings:
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Protocol mapper | `KeycloakProtocolMapper` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client or client scope. |
 
+## Owned Fields And Drift
+
+The operator owns only the fields exposed in the CRDs. When a field is omitted,
+the operator leaves the corresponding Keycloak setting unchanged where the
+Keycloak Admin API allows it.
+
+Use `spec.managementPolicy: ObserveOnly` to check existing objects before the
+operator changes them. Observe-only resources report missing remote objects and
+modeled field drift with a `DriftDetected=True` condition and a Warning Event.
+
+| CRD | Owned remote fields |
+| --- | --- |
+| `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
+| `KeycloakClient` | `name`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakRole` | `description` when set. Role name is the lookup key. |
+| `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
+| `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
+
 ## KeycloakTarget
 
 | Field | Status | Notes |

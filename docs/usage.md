@@ -170,6 +170,25 @@ Ready resources have a `Ready=True` condition. If a resource depends on a target
 realm, client, or client scope that is not ready yet, the operator reports that in
 the resource status and retries reconciliation.
 
+## Adopt Existing Objects
+
+For existing Keycloak configuration, start with `managementPolicy: ObserveOnly`.
+The operator reads the remote object and reports whether the fields declared in
+the manifest already match Keycloak. It does not create or update remote objects
+in this mode.
+
+```yaml
+spec:
+  managementPolicy: ObserveOnly
+```
+
+Use `kubectl describe` to inspect `Ready` and `DriftDetected` conditions. If the
+remote object exists but differs, `Ready=True` and `DriftDetected=True`. If the
+remote object is missing, `Ready=False` and `DriftDetected=True`.
+
+After the manifest matches the desired state, remove `managementPolicy` or set it
+to `Reconcile` to let the operator create or update the modeled fields.
+
 ## Deletion Behavior
 
 Resource deletions leave existing Keycloak objects in place by default.

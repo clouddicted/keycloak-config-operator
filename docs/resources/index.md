@@ -66,8 +66,18 @@ alone where possible. This makes it usable with existing Keycloak instances, but
 it also means you should treat the CRDs as the source of truth for the fields you
 declare.
 
-For clients, `managementPolicy: ObserveOnly` is useful during adoption. It lets
-you detect drift before allowing the operator to update Keycloak.
+Use `managementPolicy: ObserveOnly` during adoption. It lets you check whether
+the remote Keycloak object exists and whether the modeled fields match the
+manifest before allowing the operator to create or update anything.
+
+When observe-only drift is found, the resource reports:
+
+- `Ready=True` when the remote object exists but differs.
+- `Ready=False` when the remote object is missing.
+- `DriftDetected=True` in both cases.
+
+Switch back to the default `managementPolicy: Reconcile` when the manifest is
+ready to own those fields.
 
 ## Deletion Model
 
