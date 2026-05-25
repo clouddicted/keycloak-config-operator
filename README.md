@@ -3,7 +3,7 @@
 [![CI](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/clouddicted/keycloak-config-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/clouddicted/keycloak-config-operator?sort=semver&label=version)](https://github.com/clouddicted/keycloak-config-operator/tags)
 
-Minimal Kopf-based Kubernetes operator for managing Keycloak configuration.
+Keycloak Config Operator is an open-source Kubernetes operator for managing Keycloak configuration declaratively through custom resources. It helps DevOps and platform teams automate Keycloak realms, clients, roles, client scopes, protocol mappers, and target connections in a GitOps-friendly way.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release flow.
 See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions and
