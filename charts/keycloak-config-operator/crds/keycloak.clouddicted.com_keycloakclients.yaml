@@ -95,9 +95,17 @@ spec:
                   enum:
                     - Orphan
                     - Delete
+                enabled:
+                  type: boolean
+                  description: Whether the Keycloak client is enabled.
+                  default: true
                 displayName:
                   type: string
                   description: Display name stored as the Keycloak client name.
+                  minLength: 1
+                description:
+                  type: string
+                  description: Human-readable Keycloak client description.
                   minLength: 1
                 rootUrl:
                   type: string
@@ -114,12 +122,21 @@ spec:
                 standardFlowEnabled:
                   type: boolean
                   description: Whether the authorization code flow is enabled.
+                implicitFlowEnabled:
+                  type: boolean
+                  description: Whether the implicit flow is enabled.
                 directAccessGrantsEnabled:
                   type: boolean
                   description: Whether direct access grants are enabled.
                 serviceAccountsEnabled:
                   type: boolean
                   description: Whether service accounts are enabled for a confidential client.
+                fullScopeAllowed:
+                  type: boolean
+                  description: Whether all realm scopes are available to the client.
+                frontchannelLogout:
+                  type: boolean
+                  description: Whether front-channel logout is enabled for the client.
                 secretRef:
                   type: object
                   description: Secret containing the confidential client secret.

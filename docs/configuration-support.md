@@ -35,7 +35,7 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | CRD | Owned remote fields |
 | --- | --- |
 | `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
-| `KeycloakClient` | `name`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
 | `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
 | `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
@@ -77,13 +77,18 @@ secret in Kubernetes.
 | `spec.clientType` | Supported | `Public` or `Confidential`; defaults to `Public`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+| `spec.enabled` | Supported | Reconciled with default `true`. |
 | `spec.displayName` | Supported | Reconciled to Keycloak client `name`. |
+| `spec.description` | Supported | Reconciled when set. |
 | `spec.rootUrl` | Supported | Reconciled when set. |
 | `spec.baseUrl` | Supported | Reconciled when set. |
 | `spec.adminUrl` | Supported | Reconciled when set. |
 | `spec.standardFlowEnabled` | Supported | Reconciled when set. |
+| `spec.implicitFlowEnabled` | Supported | Reconciled when set. Prefer leaving this disabled unless a legacy client requires it. |
 | `spec.directAccessGrantsEnabled` | Supported | Reconciled when set. |
 | `spec.serviceAccountsEnabled` | Supported | Reconciled when set. Intended for confidential clients. |
+| `spec.fullScopeAllowed` | Supported | Reconciled when set. Use `false` with explicit scope assignments for least privilege. |
+| `spec.frontchannelLogout` | Supported | Reconciled when set. |
 | `spec.secretRef` | Supported | Required for confidential clients. |
 | `spec.secretRef.name` | Supported | Secret name containing the client secret. |
 | `spec.secretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |

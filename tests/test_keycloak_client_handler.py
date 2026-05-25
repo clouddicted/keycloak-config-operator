@@ -272,6 +272,40 @@ def test_patch_keycloak_client_status_reports_invalid_field_values() -> None:
     }
 
 
+def test_patch_keycloak_client_status_reports_invalid_recommended_settings() -> None:
+    patch: dict[str, Any] = {}
+
+    spec = _client_spec(
+        enabled="yes",
+        description="",
+        implicit_flow_enabled="no",
+        full_scope_allowed="all",
+    )
+    spec["frontchannelLogout"] = None
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=spec,
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_handler.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakClient spec fields: enabled must be a boolean; "
+            "description must be a non-empty string; implicitFlowEnabled must be a "
+            "boolean; fullScopeAllowed must be a boolean; frontchannelLogout must be "
+            "a boolean."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+
+
 def test_patch_keycloak_client_status_reports_target_resolution_failure() -> None:
     patch: dict[str, Any] = {}
 
@@ -398,10 +432,14 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
             _existing_public_client(
                 enabled=False,
                 name="Old display name",
+                description="Old description",
                 redirectUris=["https://old.example.com/*"],
                 webOrigins=["https://old.example.com"],
                 standardFlowEnabled=True,
+                implicitFlowEnabled=True,
                 directAccessGrantsEnabled=True,
+                fullScopeAllowed=True,
+                frontchannelLogout=False,
                 rootUrl="https://old.example.com",
                 baseUrl="/old",
                 adminUrl="https://old.example.com/admin",
@@ -415,13 +453,17 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
     retry = keycloak_client_handler.patch_keycloak_client_status(
         spec=_client_spec(
             display_name="Example Web",
+            description="Example web client",
             redirect_uris=["https://app.example.com/*"],
             web_origins=["https://app.example.com"],
             root_url="https://app.example.com",
             base_url="/",
             admin_url="https://app.example.com/admin",
             standard_flow_enabled=False,
+            implicit_flow_enabled=False,
             direct_access_grants_enabled=False,
+            full_scope_allowed=False,
+            frontchannel_logout=True,
             default_client_scopes=["profile", "roles"],
             optional_client_scopes=["offline_access"],
         ),
@@ -466,11 +508,15 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
                     "protocol": "openid-connect",
                     "publicClient": True,
                     "name": "Example Web",
+                    "description": "Example web client",
                     "rootUrl": "https://app.example.com",
                     "baseUrl": "/",
                     "adminUrl": "https://app.example.com/admin",
                     "standardFlowEnabled": False,
+                    "implicitFlowEnabled": False,
                     "directAccessGrantsEnabled": False,
+                    "fullScopeAllowed": False,
+                    "frontchannelLogout": True,
                     "redirectUris": ["https://app.example.com/*"],
                     "webOrigins": ["https://app.example.com"],
                     "defaultClientScopes": ["profile", "roles"],
@@ -1229,15 +1275,20 @@ def _client_spec(
     management_policy: str | None = None,
     deletion_policy: str | None = None,
     secret_ref: dict[str, str] | None = None,
+    enabled: Any | None = None,
     display_name: str | None = None,
+    description: str | None = None,
     redirect_uris: list[str] | None = None,
     web_origins: list[str] | None = None,
     root_url: str | None = None,
     base_url: str | None = None,
     admin_url: str | None = None,
     standard_flow_enabled: bool | None = None,
+    implicit_flow_enabled: Any | None = None,
     direct_access_grants_enabled: bool | None = None,
     service_accounts_enabled: bool | None = None,
+    full_scope_allowed: Any | None = None,
+    frontchannel_logout: Any | None = None,
     default_client_scopes: list[str] | None = None,
     optional_client_scopes: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -1254,8 +1305,12 @@ def _client_spec(
         spec["deletionPolicy"] = deletion_policy
     if secret_ref is not None:
         spec["secretRef"] = secret_ref
+    if enabled is not None:
+        spec["enabled"] = enabled
     if display_name is not None:
         spec["displayName"] = display_name
+    if description is not None:
+        spec["description"] = description
     if redirect_uris is not None:
         spec["redirectUris"] = redirect_uris
     if web_origins is not None:
@@ -1268,10 +1323,16 @@ def _client_spec(
         spec["adminUrl"] = admin_url
     if standard_flow_enabled is not None:
         spec["standardFlowEnabled"] = standard_flow_enabled
+    if implicit_flow_enabled is not None:
+        spec["implicitFlowEnabled"] = implicit_flow_enabled
     if direct_access_grants_enabled is not None:
         spec["directAccessGrantsEnabled"] = direct_access_grants_enabled
     if service_accounts_enabled is not None:
         spec["serviceAccountsEnabled"] = service_accounts_enabled
+    if full_scope_allowed is not None:
+        spec["fullScopeAllowed"] = full_scope_allowed
+    if frontchannel_logout is not None:
+        spec["frontchannelLogout"] = frontchannel_logout
     if default_client_scopes is not None:
         spec["defaultClientScopes"] = default_client_scopes
     if optional_client_scopes is not None:

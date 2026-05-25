@@ -916,12 +916,17 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
             "realm": realm,
             "clientId": PUBLIC_CLIENT_ID,
             "clientType": "Public",
+            "enabled": True,
             "displayName": "Example Web",
+            "description": "Example web client",
             "rootUrl": "https://app.example.com",
             "baseUrl": "/",
             "adminUrl": "https://app.example.com/admin",
             "standardFlowEnabled": True,
+            "implicitFlowEnabled": False,
             "directAccessGrantsEnabled": False,
+            "fullScopeAllowed": False,
+            "frontchannelLogout": True,
             "redirectUris": ["https://app.example.com/*"],
             "webOrigins": ["https://app.example.com"],
             "defaultClientScopes": [CLIENT_SCOPE_NAME],
@@ -1032,14 +1037,19 @@ def _assert_client_scope_missing(base_url: str, realm: str) -> None:
 def _assert_public_client(base_url: str, realm: str) -> None:
     client = _client(base_url, realm, PUBLIC_CLIENT_ID)
     assert client["clientId"] == PUBLIC_CLIENT_ID
+    assert client["enabled"] is True
     assert client["name"] == "Example Web"
+    assert client["description"] == "Example web client"
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is True
     assert client["rootUrl"] == "https://app.example.com"
     assert client["baseUrl"] == "/"
     assert client["adminUrl"] == "https://app.example.com/admin"
     assert client["standardFlowEnabled"] is True
+    assert client["implicitFlowEnabled"] is False
     assert client["directAccessGrantsEnabled"] is False
+    assert client["fullScopeAllowed"] is False
+    assert client["frontchannelLogout"] is True
     assert client["redirectUris"] == ["https://app.example.com/*"]
     assert client["webOrigins"] == ["https://app.example.com"]
     assert CLIENT_SCOPE_NAME in client["defaultClientScopes"]
