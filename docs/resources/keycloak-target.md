@@ -9,6 +9,28 @@ Ingress routing, external DNS, public TLS termination, and firewall assumptions.
 Use the scheme and port exposed by your Keycloak Service, for example
 `http://keycloak.keycloak.svc.cluster.local:8080`.
 
+## Authentication Choices
+
+Use bootstrap client credentials for fresh Keycloak installations, direct client
+credentials when the service client already exists, and password auth mainly for
+local or temporary environments.
+
+```mermaid
+flowchart TD
+  target[KeycloakTarget] --> mode{Authentication input}
+
+  mode -->|auth.type: BootstrapClientCredentials| bootstrap[Read admin Secret once]
+  bootstrap --> create[Create operator client]
+  create --> store[Store client secret in Kubernetes Secret]
+  store --> client[Use client credentials]
+
+  mode -->|auth.type: ClientCredentials| client
+  mode -->|adminCredentials| password[Use admin username and password]
+
+  client --> api[Keycloak Admin API]
+  password --> api
+```
+
 ## Recommended Bootstrap Flow
 
 For a fresh Keycloak installation, start with bootstrap client credentials. The

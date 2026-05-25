@@ -19,6 +19,23 @@ configuration.
 `KeycloakClient`, `KeycloakRole`, `KeycloakClientScope`, and
 `KeycloakProtocolMapper` manage selected objects inside a realm.
 
+Arrows point from prerequisites to resources that depend on them:
+
+```mermaid
+flowchart TD
+  target[KeycloakTarget] --> realm[KeycloakRealm]
+  target --> client[KeycloakClient]
+  target --> role[KeycloakRole]
+  target --> scope[KeycloakClientScope]
+  target --> mapper[KeycloakProtocolMapper]
+
+  realm --> client
+  realm --> role
+  realm --> scope
+  client --> mapper
+  scope --> mapper
+```
+
 The normal apply order is:
 
 ```text
