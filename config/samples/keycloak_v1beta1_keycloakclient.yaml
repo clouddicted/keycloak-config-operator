@@ -8,11 +8,16 @@ spec:
   realm: example
   clientId: example-web
   clientType: Public
+  enabled: true
   displayName: Example Web
+  description: Example browser application
   rootUrl: https://app.example.com
   baseUrl: /
   standardFlowEnabled: true
+  implicitFlowEnabled: false
   directAccessGrantsEnabled: false
+  fullScopeAllowed: false
+  frontchannelLogout: true
   redirectUris:
     - https://app.example.com/*
   webOrigins:

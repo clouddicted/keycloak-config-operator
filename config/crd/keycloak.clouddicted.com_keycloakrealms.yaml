@@ -53,9 +53,19 @@ spec:
                   type: string
                   description: Keycloak realm name.
                   minLength: 1
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak realm.
+                    Reconcile creates or updates the modeled fields; ObserveOnly
+                    reports missing resources or drift without changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
                 displayName:
                   type: string
-                  description: Display name used when creating the realm.
+                  description: Display name reconciled when set.
                   minLength: 1
             status:
               type: object
@@ -63,7 +73,7 @@ spec:
               properties:
                 conditions:
                   type: array
-                  description: Current readiness and reconciliation conditions.
+                  description: Current Kubernetes-style status conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type

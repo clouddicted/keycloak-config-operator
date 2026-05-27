@@ -19,7 +19,11 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
 )
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_DRIFT_DETECTED,
+    CONDITION_READY,
+    ready_condition,
+)
 
 NOW = datetime(2026, 5, 24, 10, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 24, 9, 30, 45, tzinfo=UTC)
@@ -141,12 +145,53 @@ def test_patch_keycloak_client_scope_status_reports_invalid_spec_without_externa
         now=NOW,
     )
 
-    assert _conditions_by_type(patch)[CONDITION_READY] == {
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_client_scope.INVALID_SPEC_REASON,
         "message": (
             "Missing required KeycloakClientScope spec fields: targetRef.name, realm, name."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_client_scope.INVALID_SPEC_REASON,
+        "message": (
+            "Drift detection was skipped because the KeycloakClientScope spec is invalid."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+
+
+def test_patch_keycloak_client_scope_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_client_scope.patch_keycloak_client_scope_status(
+        spec=_client_scope_spec(
+            description="",
+            protocol="",
+            management_policy="Apply",
+            deletion_policy="Remove",
+        ),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_scope.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakClientScope spec fields: managementPolicy must be one of: "
+            "`ObserveOnly`, `Reconcile`; deletionPolicy must be one of: "
+            "`Delete`, `Orphan`; protocol must be a non-empty string; "
+            "description must be a non-empty string."
         ),
         "lastTransitionTime": "2026-05-24T10:30:45Z",
     }
@@ -165,9 +210,20 @@ def test_patch_keycloak_client_scope_status_reports_target_resolution_failure() 
         now=NOW,
     )
 
-    ready = _conditions_by_type(patch)[CONDITION_READY]
+    conditions = _conditions_by_type(patch)
+    ready = conditions[CONDITION_READY]
     assert ready["status"] == "False"
     assert ready["reason"] == keycloak_client_scope.TARGET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_client_scope.TARGET_UNAVAILABLE_REASON,
+        "message": (
+            "Drift detection was skipped because the referenced KeycloakTarget could "
+            "not be resolved."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
     assert retry == reconciliation.RetryRequest(
         keycloak_client_scope.TARGET_UNAVAILABLE_REASON,
         ready["message"],
@@ -208,6 +264,13 @@ def test_patch_keycloak_client_scope_status_observes_existing_matching_scope() -
         "status": "True",
         "reason": keycloak_client_scope.CLIENT_SCOPE_OBSERVED_REASON,
         "message": "Keycloak client scope already matches desired state.",
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_client_scope.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak client scope has no modeled drift.",
         "lastTransitionTime": "2026-05-24T10:30:45Z",
     }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
@@ -264,6 +327,47 @@ def test_patch_keycloak_client_scope_status_creates_missing_scope_with_default_p
     assert patch["status"]["remoteId"] == "created-client-scope-uuid"
 
 
+def test_patch_keycloak_client_scope_status_observe_only_reports_missing_scope() -> None:
+    keycloak_client = FakeKeycloakClient(scope_result=[])
+    patch: dict[str, Any] = {}
+
+    keycloak_client_scope.patch_keycloak_client_scope_status(
+        spec=_client_scope_spec(
+            management_policy=keycloak_client_scope.MANAGEMENT_POLICY_OBSERVE_ONLY
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_client_scope.CLIENT_SCOPE_MISSING_REASON,
+        "message": (
+            "Keycloak client scope is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_client_scope.CLIENT_SCOPE_MISSING_REASON,
+        "message": (
+            "Keycloak client scope is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example/client-scopes", {})]
+    assert patch["status"]["remoteId"] is None
+
+
 def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() -> None:
     keycloak_client = FakeKeycloakClient(
         scope_result=[
@@ -310,6 +414,56 @@ def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() ->
             },
         ),
     ]
+    assert patch["status"]["remoteId"] == "client-scope-uuid"
+
+
+def test_patch_keycloak_client_scope_status_observe_only_reports_modeled_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        scope_result=[
+            _existing_client_scope(
+                description="Old description",
+                protocol="saml",
+                attributes={"include.in.token.scope": "true"},
+            )
+        ],
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_scope.patch_keycloak_client_scope_status(
+        spec=_client_scope_spec(
+            description="Example scope",
+            management_policy=keycloak_client_scope.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_client_scope.CLIENT_SCOPE_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak client scope has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_client_scope.CLIENT_SCOPE_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak client scope differs from desired state and was not changed "
+            "because managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example/client-scopes", {})]
     assert patch["status"]["remoteId"] == "client-scope-uuid"
 
 
@@ -550,6 +704,7 @@ def _client_scope_spec(
     name: str = "example-scope",
     description: str | None = None,
     protocol: str | None = None,
+    management_policy: str | None = None,
     deletion_policy: str | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
@@ -561,6 +716,8 @@ def _client_scope_spec(
         spec["description"] = description
     if protocol is not None:
         spec["protocol"] = protocol
+    if management_policy is not None:
+        spec["managementPolicy"] = management_policy
     if deletion_policy is not None:
         spec["deletionPolicy"] = deletion_policy
 

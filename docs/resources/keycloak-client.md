@@ -20,13 +20,24 @@ contract. Common fields are:
 - `rootUrl`, `baseUrl`, and `adminUrl` for Keycloak client URLs.
 - `redirectUris` and `webOrigins` for browser integration.
 - `standardFlowEnabled` for authorization code flow.
+- `implicitFlowEnabled` only for legacy clients that still require implicit
+  flow.
 - `directAccessGrantsEnabled` for password grant access.
+- `frontchannelLogout` when browser logout must notify the client.
 
 Only declare fields you want the operator to own. Omitted fields are left as
 they are in Keycloak.
 
+Use `enabled: false` to keep a client defined but temporarily disabled in
+Keycloak. This is useful for staged rollouts and incident response because the
+client stays visible and reviewable in Git.
+
+Set `fullScopeAllowed: false` when you want least-privilege scope assignment.
+Then declare `defaultClientScopes` and `optionalClientScopes` explicitly.
+
 For confidential service clients, `serviceAccountsEnabled` enables service
-account usage. Do not enable service accounts for public clients.
+account usage. The CRD rejects service accounts on public clients because
+Keycloak only supports them for confidential clients.
 
 ## Client Scopes
 
@@ -37,6 +48,9 @@ explicit scope assignments. Prefer attaching common mappers to a shared
 Scope lists are reconciled when declared. During adoption, use
 `managementPolicy: ObserveOnly` first if you are not sure which scopes are
 already assigned in Keycloak.
+
+Keep each scope list unique. Duplicate values usually hide a copy-paste mistake
+and are rejected before the operator reconciles the client.
 
 ## Adoption And Drift
 
@@ -63,11 +77,16 @@ spec:
   realm: example
   clientId: example-web
   clientType: Public
+  enabled: true
   displayName: Example Web
+  description: Example browser application
   rootUrl: https://app.example.com
   baseUrl: /
   standardFlowEnabled: true
+  implicitFlowEnabled: false
   directAccessGrantsEnabled: false
+  fullScopeAllowed: false
+  frontchannelLogout: true
   redirectUris:
     - https://app.example.com/*
   webOrigins:

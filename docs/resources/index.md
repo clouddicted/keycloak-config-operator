@@ -16,14 +16,35 @@ to one Keycloak instance.
 `KeycloakRealm` creates or observes the realm that contains the rest of the
 configuration.
 
-`KeycloakClient`, `KeycloakRole`, `KeycloakClientScope`, and
-`KeycloakProtocolMapper` manage selected objects inside a realm.
+`KeycloakIdentityProvider`, `KeycloakClient`, `KeycloakRole`,
+`KeycloakClientScope`, and `KeycloakProtocolMapper` manage selected objects
+inside a realm.
+
+Arrows point from prerequisites to resources that depend on them:
+
+```mermaid
+flowchart TD
+  target[KeycloakTarget] --> realm[KeycloakRealm]
+  target --> idp[KeycloakIdentityProvider]
+  target --> client[KeycloakClient]
+  target --> role[KeycloakRole]
+  target --> scope[KeycloakClientScope]
+  target --> mapper[KeycloakProtocolMapper]
+
+  realm --> idp
+  realm --> client
+  realm --> role
+  realm --> scope
+  client --> mapper
+  scope --> mapper
+```
 
 The normal apply order is:
 
 ```text
 KeycloakTarget
 KeycloakRealm
+KeycloakIdentityProvider
 KeycloakRole
 KeycloakClient
 KeycloakClientScope
@@ -49,8 +70,18 @@ alone where possible. This makes it usable with existing Keycloak instances, but
 it also means you should treat the CRDs as the source of truth for the fields you
 declare.
 
-For clients, `managementPolicy: ObserveOnly` is useful during adoption. It lets
-you detect drift before allowing the operator to update Keycloak.
+Use `managementPolicy: ObserveOnly` during adoption. It lets you check whether
+the remote Keycloak object exists and whether the modeled fields match the
+manifest before allowing the operator to create or update anything.
+
+When observe-only drift is found, the resource reports:
+
+- `Ready=True` when the remote object exists but differs.
+- `Ready=False` when the remote object is missing.
+- `DriftDetected=True` in both cases.
+
+Switch back to the default `managementPolicy: Reconcile` when the manifest is
+ready to own those fields.
 
 ## Deletion Model
 
@@ -69,12 +100,18 @@ a Kubernetes object.
 
 ## Observability
 
-Every resource reports readiness in `.status.conditions`. Use:
+Every resource reports Kubernetes-style conditions in `.status.conditions`. Use:
 
 ```bash
 kubectl get keycloakclients
 kubectl describe keycloakclient example-web
 ```
+
+All resources use `Ready` as the aggregate condition. Managed Keycloak objects
+also use `DriftDetected`; it is `Unknown` when the operator cannot check drift
+because the spec, target, credentials, or Keycloak API request is blocked.
+`KeycloakTarget` adds target-specific conditions for Secret loading,
+authentication, and bootstrap.
 
 `kubectl describe` shows Events for important lifecycle actions such as create,
 update, drift detection, bootstrap completion, and remote deletion.

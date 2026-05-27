@@ -5,7 +5,7 @@ import shutil
 import socket
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,9 @@ INSTALL_KUSTOMIZATION = REPO_ROOT / "config" / "install"
 CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloaktargets.yaml"
 REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrealms.yaml"
 CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
+IDENTITY_PROVIDER_CRD = (
+    REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakidentityproviders.yaml"
+)
 CLIENT_SCOPE_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientscopes.yaml"
 )
@@ -36,6 +39,9 @@ PROTOCOL_MAPPER_CRD = (
 ROLE_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakroles.yaml"
 REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakrealm.yaml"
 CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient.yaml"
+IDENTITY_PROVIDER_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakidentityprovider.yaml"
+)
 CLIENT_SCOPE_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientscope.yaml"
 )
@@ -66,9 +72,12 @@ OPERATOR_CLIENT_SECRET_NAME = "keycloak-operator-client"
 PUBLIC_CLIENT_ID = "example-web"
 CONFIDENTIAL_CLIENT_ID = "example-service"
 CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
+IDENTITY_PROVIDER_ALIAS = "example-oidc"
+IDENTITY_PROVIDER_SECRET = "not-a-production-identity-provider-secret"
 CLIENT_SCOPE_NAME = "example-profile"
 PROTOCOL_MAPPER_NAME = "email"
 ROLE_NAME = "example-admin"
+OBSERVE_ONLY_ROLE_NAME = "observe-only-admin"
 READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
@@ -96,6 +105,10 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
     _run(["kubectl", "apply", "--server-side", "-f", str(CRD)], env=kind_cluster_env)
     _run(["kubectl", "apply", "--server-side", "-f", str(REALM_CRD)], env=kind_cluster_env)
     _run(["kubectl", "apply", "--server-side", "-f", str(CLIENT_CRD)], env=kind_cluster_env)
+    _run(
+        ["kubectl", "apply", "--server-side", "-f", str(IDENTITY_PROVIDER_CRD)],
+        env=kind_cluster_env,
+    )
     _run(["kubectl", "apply", "--server-side", "-f", str(ROLE_CRD)], env=kind_cluster_env)
     _run(
         ["kubectl", "apply", "--server-side", "-f", str(CLIENT_SCOPE_CRD)],
@@ -111,6 +124,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloaktargets.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakidentityproviders.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -243,6 +266,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--server-side",
             "--dry-run=server",
             "-f",
+            str(IDENTITY_PROVIDER_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
             str(ROLE_SAMPLE),
         ],
         env=kind_cluster_env,
@@ -314,6 +348,45 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _log("updating KeycloakRealm displayName")
         _apply_document(kind_cluster_env, _keycloak_realm(realm, display_name="Example Updated"))
         _eventually(lambda: _assert_realm(keycloak_url, realm, "Example Updated"))
+
+        _log("applying KeycloakIdentityProvider")
+        _apply_document(kind_cluster_env, _identity_provider_secret())
+        _apply_document(kind_cluster_env, _keycloak_identity_provider(realm))
+        _wait_for_ready(kind_cluster_env, "keycloakidentityproviders", IDENTITY_PROVIDER_ALIAS)
+        _eventually(lambda: _assert_identity_provider(keycloak_url, realm))
+        identity_provider = _identity_provider(keycloak_url, realm)
+        remote_id = identity_provider.get("internalId") or identity_provider.get("id")
+        if isinstance(remote_id, str) and remote_id:
+            _eventually(
+                lambda: _assert_remote_id_matches(
+                    kind_cluster_env,
+                    "keycloakidentityproviders",
+                    IDENTITY_PROVIDER_ALIAS,
+                    remote_id,
+                )
+            )
+
+        _log("applying observe-only KeycloakRole")
+        _apply_document(kind_cluster_env, _keycloak_observe_only_role(realm))
+        _eventually(
+            lambda: _assert_resource_conditions(
+                kind_cluster_env,
+                "keycloakroles",
+                OBSERVE_ONLY_ROLE_NAME,
+                {
+                    "Ready": ("False", "RoleMissing"),
+                    "DriftDetected": ("True", "RoleMissing"),
+                },
+            )
+        )
+        _eventually(
+            lambda: _assert_role_missing(
+                keycloak_url,
+                realm,
+                role_name=OBSERVE_ONLY_ROLE_NAME,
+            )
+        )
+        _delete_document(kind_cluster_env, _keycloak_observe_only_role(realm))
 
         _log("applying KeycloakClientScope")
         _apply_document(kind_cluster_env, _keycloak_client_scope(realm))
@@ -397,6 +470,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _delete_document(kind_cluster_env, _keycloak_client_scope(realm))
         _eventually(lambda: _assert_client_scope_missing(keycloak_url, realm))
 
+        _log("deleting KeycloakIdentityProvider with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_identity_provider(realm))
+        _eventually(lambda: _assert_identity_provider_missing(keycloak_url, realm))
+
 
 @pytest.fixture(scope="session")
 def kind_cluster_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, str]]:
@@ -428,7 +505,15 @@ def kind_cluster_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[
 
 
 def _apply_crds(env: dict[str, str]) -> None:
-    for crd in (CRD, REALM_CRD, CLIENT_CRD, ROLE_CRD, CLIENT_SCOPE_CRD, PROTOCOL_MAPPER_CRD):
+    for crd in (
+        CRD,
+        REALM_CRD,
+        CLIENT_CRD,
+        IDENTITY_PROVIDER_CRD,
+        ROLE_CRD,
+        CLIENT_SCOPE_CRD,
+        PROTOCOL_MAPPER_CRD,
+    ):
         _run(["kubectl", "apply", "--server-side", "-f", str(crd)], env=env)
 
     _wait_for_crds(env)
@@ -439,6 +524,7 @@ def _wait_for_crds(env: dict[str, str]) -> None:
         "keycloaktargets",
         "keycloakrealms",
         "keycloakclients",
+        "keycloakidentityproviders",
         "keycloakroles",
         "keycloakclientscopes",
         "keycloakprotocolmappers",
@@ -701,6 +787,36 @@ def _assert_remote_id_matches(
     assert resource["status"]["remoteId"] == remote_id
 
 
+def _assert_resource_conditions(
+    env: dict[str, str],
+    plural: str,
+    name: str,
+    expected: Mapping[str, tuple[str, str]],
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            plural,
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+    conditions = {
+        condition["type"]: condition
+        for condition in resource["status"]["conditions"]
+        if isinstance(condition, dict)
+    }
+
+    for condition_type, (status, reason) in expected.items():
+        assert conditions[condition_type]["status"] == status
+        assert conditions[condition_type]["reason"] == reason
+
+
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
     _run_with_input(
         ["kubectl", "apply", "-f", "-"],
@@ -796,6 +912,46 @@ def _keycloak_client_scope(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_identity_provider(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakIdentityProvider",
+        "metadata": {"name": IDENTITY_PROVIDER_ALIAS, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "alias": IDENTITY_PROVIDER_ALIAS,
+            "providerId": "oidc",
+            "enabled": True,
+            "displayName": "Example OIDC",
+            "deletionPolicy": "Delete",
+            "config": {
+                "clientId": "example-client",
+                "authorizationUrl": "https://idp.example.com/oauth2/authorize",
+                "tokenUrl": "https://idp.example.com/oauth2/token",
+                "userInfoUrl": "https://idp.example.com/oauth2/userinfo",
+                "defaultScope": "openid profile email",
+            },
+            "configSecretRefs": {
+                "clientSecret": {
+                    "name": "example-oidc-secret",
+                    "secretKey": "clientSecret",
+                },
+            },
+        },
+    }
+
+
+def _identity_provider_secret() -> dict[str, Any]:
+    return {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": "example-oidc-secret", "namespace": NAMESPACE},
+        "type": "Opaque",
+        "stringData": {"clientSecret": IDENTITY_PROVIDER_SECRET},
+    }
+
+
 def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
@@ -838,6 +994,21 @@ def _keycloak_role(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_observe_only_role(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakRole",
+        "metadata": {"name": OBSERVE_ONLY_ROLE_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "name": OBSERVE_ONLY_ROLE_NAME,
+            "description": "Observe-only role",
+            "managementPolicy": "ObserveOnly",
+        },
+    }
+
+
 def _keycloak_public_client(realm: str) -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
@@ -848,12 +1019,17 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
             "realm": realm,
             "clientId": PUBLIC_CLIENT_ID,
             "clientType": "Public",
+            "enabled": True,
             "displayName": "Example Web",
+            "description": "Example web client",
             "rootUrl": "https://app.example.com",
             "baseUrl": "/",
             "adminUrl": "https://app.example.com/admin",
             "standardFlowEnabled": True,
+            "implicitFlowEnabled": False,
             "directAccessGrantsEnabled": False,
+            "fullScopeAllowed": False,
+            "frontchannelLogout": True,
             "redirectUris": ["https://app.example.com/*"],
             "webOrigins": ["https://app.example.com"],
             "defaultClientScopes": [CLIENT_SCOPE_NAME],
@@ -918,6 +1094,32 @@ def _assert_protocol_mapper(base_url: str, realm: str) -> None:
     assert mapper["config"]["userinfo.token.claim"] == "true"
 
 
+def _assert_identity_provider(base_url: str, realm: str) -> None:
+    provider = _identity_provider(base_url, realm)
+
+    assert provider["alias"] == IDENTITY_PROVIDER_ALIAS
+    assert provider["providerId"] == "oidc"
+    assert provider["enabled"] is True
+    assert provider["displayName"] == "Example OIDC"
+    assert provider["config"]["clientId"] == "example-client"
+    assert provider["config"]["authorizationUrl"] == (
+        "https://idp.example.com/oauth2/authorize"
+    )
+    assert provider["config"]["tokenUrl"] == "https://idp.example.com/oauth2/token"
+    assert provider["config"]["userInfoUrl"] == "https://idp.example.com/oauth2/userinfo"
+    assert provider["config"]["defaultScope"] == "openid profile email"
+
+
+def _assert_identity_provider_missing(base_url: str, realm: str) -> None:
+    try:
+        _identity_provider(base_url, realm)
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 404
+        return
+
+    raise AssertionError(f"Keycloak identity provider {IDENTITY_PROVIDER_ALIAS!r} exists")
+
+
 def _assert_protocol_mapper_missing(base_url: str, realm: str) -> None:
     client_scope = _assert_client_scope(base_url, realm)
     mappers = _admin_get(
@@ -938,14 +1140,18 @@ def _assert_role(base_url: str, realm: str) -> None:
     assert role["description"] == "Example administrator role"
 
 
-def _assert_role_missing(base_url: str, realm: str) -> None:
+def _assert_role_missing(
+    base_url: str,
+    realm: str,
+    role_name: str = ROLE_NAME,
+) -> None:
     try:
-        _admin_get(base_url, f"realms/{realm}/roles/{ROLE_NAME}")
+        _admin_get(base_url, f"realms/{realm}/roles/{role_name}")
     except httpx.HTTPStatusError as exc:
         assert exc.response.status_code == 404
         return
 
-    raise AssertionError(f"Keycloak role {ROLE_NAME!r} still exists")
+    raise AssertionError(f"Keycloak role {role_name!r} still exists")
 
 
 def _assert_client_scope_missing(base_url: str, realm: str) -> None:
@@ -960,14 +1166,19 @@ def _assert_client_scope_missing(base_url: str, realm: str) -> None:
 def _assert_public_client(base_url: str, realm: str) -> None:
     client = _client(base_url, realm, PUBLIC_CLIENT_ID)
     assert client["clientId"] == PUBLIC_CLIENT_ID
+    assert client["enabled"] is True
     assert client["name"] == "Example Web"
+    assert client["description"] == "Example web client"
     assert client["protocol"] == "openid-connect"
     assert client["publicClient"] is True
     assert client["rootUrl"] == "https://app.example.com"
     assert client["baseUrl"] == "/"
     assert client["adminUrl"] == "https://app.example.com/admin"
     assert client["standardFlowEnabled"] is True
+    assert client["implicitFlowEnabled"] is False
     assert client["directAccessGrantsEnabled"] is False
+    assert client["fullScopeAllowed"] is False
+    assert client["frontchannelLogout"] is True
     assert client["redirectUris"] == ["https://app.example.com/*"]
     assert client["webOrigins"] == ["https://app.example.com"]
     assert CLIENT_SCOPE_NAME in client["defaultClientScopes"]
@@ -1002,6 +1213,13 @@ def _protocol_mapper(base_url: str, realm: str) -> dict[str, Any]:
         f"realms/{realm}/client-scopes/{client_scope['id']}/protocol-mappers/models",
     )
     return _one_by_field(mappers, "name", PROTOCOL_MAPPER_NAME)
+
+
+def _identity_provider(base_url: str, realm: str) -> dict[str, Any]:
+    return _admin_get(
+        base_url,
+        f"realms/{realm}/identity-provider/instances/{IDENTITY_PROVIDER_ALIAS}",
+    )
 
 
 def _admin_get(base_url: str, path: str, params: dict[str, str] | None = None) -> Any:

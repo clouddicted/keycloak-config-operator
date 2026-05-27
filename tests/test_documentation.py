@@ -83,7 +83,7 @@ def test_security_policy_documents_reporting_and_supported_versions() -> None:
 
     assert "Do not open a public issue" in text
     assert "security/advisories/new" in text
-    assert "`0.2.x`" in text
+    assert "`0.3.x`" in text
     assert "Kubernetes Secrets" in text
     assert "namespace watch scope" in text
 

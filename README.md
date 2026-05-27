@@ -5,8 +5,8 @@
 
 Keycloak Config Operator is an open-source Kubernetes operator for managing
 Keycloak configuration declaratively through custom resources. It helps DevOps
-and platform teams automate Keycloak realms, clients, roles, client scopes,
-protocol mappers, and target connections in a GitOps-friendly way.
+and platform teams automate Keycloak realms, identity providers, clients, roles,
+client scopes, protocol mappers, and target connections in a GitOps-friendly way.
 
 Published documentation is available on GitHub Pages:
 [clouddicted.github.io/keycloak-config-operator](https://clouddicted.github.io/keycloak-config-operator/).
@@ -64,7 +64,7 @@ Run the operator locally:
 
 ## Local Kubernetes Install
 
-The `v0.2.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
+The `v0.3.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
 
 Install the CRDs, RBAC, ServiceAccount, and Deployment:
 
@@ -77,7 +77,7 @@ Install a released chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -116,8 +116,8 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
   --set image.pullPolicy=Never
 ```
 
-The default Deployment image is a placeholder for the first packaged release:
-`ghcr.io/clouddicted/keycloak-config-operator:v0.2.0`. For local testing, replace it
+The default Deployment image points to the current release:
+`ghcr.io/clouddicted/keycloak-config-operator:v0.3.0`. For local testing, replace it
 with an image you built and loaded into the cluster:
 
 ```bash

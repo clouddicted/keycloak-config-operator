@@ -1,14 +1,14 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: keycloakprotocolmappers.keycloak.clouddicted.com
+  name: keycloakidentityproviders.keycloak.clouddicted.com
 spec:
   group: keycloak.clouddicted.com
   scope: Namespaced
   names:
-    kind: KeycloakProtocolMapper
-    plural: keycloakprotocolmappers
-    singular: keycloakprotocolmapper
+    kind: KeycloakIdentityProvider
+    plural: keycloakidentityproviders
+    singular: keycloakidentityprovider
   versions:
     - name: v1beta1
       served: true
@@ -19,15 +19,15 @@ spec:
         - name: Ready
           type: string
           jsonPath: .status.conditions[?(@.type=="Ready")].status
-        - name: Mapper
+        - name: Alias
           type: string
-          jsonPath: .spec.name
+          jsonPath: .spec.alias
         - name: Realm
           type: string
           jsonPath: .spec.realm
-        - name: Parent
+        - name: Provider
           type: string
-          jsonPath: .spec.parent.type
+          jsonPath: .spec.providerId
         - name: Remote ID
           type: string
           jsonPath: .status.remoteId
@@ -44,13 +44,12 @@ spec:
           properties:
             spec:
               type: object
-              description: Desired Keycloak protocol mapper.
+              description: Desired Keycloak identity provider.
               required:
                 - targetRef
                 - realm
-                - name
-                - mapperType
-                - parent
+                - alias
+                - providerId
               properties:
                 targetRef:
                   type: object
@@ -64,87 +63,72 @@ spec:
                       minLength: 1
                 realm:
                   type: string
-                  description: Realm containing the mapper parent.
+                  description: Realm containing the identity provider.
                   minLength: 1
-                name:
+                alias:
                   type: string
-                  description: Keycloak protocol mapper name.
+                  description: Identity provider alias and remote lookup key.
                   minLength: 1
-                mapperType:
+                providerId:
                   type: string
-                  description: Keycloak protocol mapper type.
+                  description: Keycloak provider type, such as oidc, saml, github, or google.
                   minLength: 1
-                protocol:
-                  type: string
-                  description: Protocol used by the mapper.
-                  default: openid-connect
-                  minLength: 1
-                config:
-                  type: object
-                  description: Mapper configuration key-value pairs.
-                  additionalProperties:
-                    type: string
-                    description: Mapper configuration value.
                 managementPolicy:
                   type: string
-                  description:
-                    Reconciliation behavior for the remote Keycloak protocol
-                    mapper. Reconcile creates or updates the modeled fields;
-                    ObserveOnly reports missing resources or drift without
-                    changing Keycloak.
+                  description: Whether the operator reconciles or only observes the provider.
                   default: Reconcile
                   enum:
                     - Reconcile
                     - ObserveOnly
                 deletionPolicy:
                   type: string
-                  description:
-                    Deletion behavior for the remote Keycloak protocol mapper
-                    when this resource is deleted. Orphan leaves the mapper in
-                    Keycloak; Delete removes it.
+                  description: What happens to the Keycloak provider when this resource is deleted.
                   default: Orphan
                   enum:
                     - Orphan
                     - Delete
-                parent:
+                enabled:
+                  type: boolean
+                  description: Whether the identity provider is enabled.
+                  default: true
+                displayName:
+                  type: string
+                  description: Display name shown for the identity provider.
+                  minLength: 1
+                config:
                   type: object
-                  description: Client or client scope that owns the mapper.
-                  required:
-                    - type
-                  properties:
-                    type:
-                      type: string
-                      description: Parent resource type.
-                      enum:
-                        - Client
-                        - ClientScope
-                    clientRef:
-                      type: object
-                      description: Parent KeycloakClient reference.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: Name of the KeycloakClient in this namespace.
-                          minLength: 1
-                    clientScopeRef:
-                      type: object
-                      description: Parent KeycloakClientScope reference.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: Name of the KeycloakClientScope in this namespace.
-                          minLength: 1
+                  description: Non-sensitive Keycloak provider configuration key-value pairs.
+                  additionalProperties:
+                    type: string
+                    description: Provider configuration value.
+                configSecretRefs:
+                  type: object
+                  description: Secret-backed provider configuration values keyed by Keycloak provider config name.
+                  additionalProperties:
+                    type: object
+                    description: Secret reference for one provider configuration value.
+                    required:
+                      - name
+                    properties:
+                      name:
+                        type: string
+                        description: Secret name.
+                        minLength: 1
+                      namespace:
+                        type: string
+                        description: Secret namespace. Defaults to this resource namespace.
+                        minLength: 1
+                      secretKey:
+                        type: string
+                        description: Secret key containing the provider configuration value. Defaults to the config key.
+                        minLength: 1
             status:
               type: object
-              description: Observed KeycloakProtocolMapper status.
+              description: Observed KeycloakIdentityProvider status.
               properties:
                 remoteId:
                   type: string
-                  description: Keycloak internal ID of the observed protocol mapper.
+                  description: Keycloak internal ID of the observed identity provider.
                 conditions:
                   type: array
                   description: Current Kubernetes-style status conditions.

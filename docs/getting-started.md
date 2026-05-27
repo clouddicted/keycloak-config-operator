@@ -8,7 +8,7 @@ Keycloak, create a realm, and create one public client.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```

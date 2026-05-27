@@ -35,6 +35,10 @@ spec:
 The operator creates the role if it is missing and updates the description when
 the declared value differs.
 
+Use `managementPolicy: ObserveOnly` when adopting existing roles. The operator
+checks whether the role exists and whether the modeled fields match, but it does
+not create or update the remote role.
+
 Remote deletion is opt-in. Keep the default `Orphan` policy for shared roles.
 Use `Delete` only when the Kubernetes resource clearly owns the role.
 

@@ -7,6 +7,7 @@ from clouddicted_keycloak_config_operator.status.conditions import (
     CONDITION_SECRET_READY,
     authenticated_condition,
     drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     secret_ready_condition,
     upsert_condition,
@@ -46,6 +47,22 @@ def test_condition_helpers_use_expected_types() -> None:
         CONDITION_SECRET_READY,
         CONDITION_DRIFT_DETECTED,
     ]
+
+
+def test_drift_unknown_condition_uses_drift_detected_type() -> None:
+    condition = drift_unknown_condition(
+        "TargetUnavailable",
+        "Drift detection was skipped.",
+        now=datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC),
+    )
+
+    assert condition == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": "TargetUnavailable",
+        "message": "Drift detection was skipped.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
 
 
 def test_upsert_condition_inserts_new_condition() -> None:

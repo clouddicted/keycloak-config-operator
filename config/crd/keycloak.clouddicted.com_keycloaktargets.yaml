@@ -222,7 +222,7 @@ spec:
                       description: Secret namespace.
                 conditions:
                   type: array
-                  description: Current readiness and authentication conditions.
+                  description: Current Kubernetes-style status conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type

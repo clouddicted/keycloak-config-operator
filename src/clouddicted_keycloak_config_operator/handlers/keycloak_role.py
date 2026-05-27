@@ -26,6 +26,11 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -36,6 +41,8 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
 from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
+    drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     upsert_condition,
 )
@@ -50,10 +57,16 @@ AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 INVALID_SPEC_REASON = "InvalidSpec"
 REQUEST_FAILED_REASON = "RequestFailed"
 ROLE_CREATED_REASON = "RoleCreated"
+ROLE_DRIFT_DETECTED_REASON = "RoleDriftDetected"
+ROLE_MISSING_REASON = "RoleMissing"
 ROLE_OBSERVED_REASON = "RoleObserved"
 ROLE_ORPHANED_REASON = "RoleOrphaned"
 ROLE_UPDATED_REASON = "RoleUpdated"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
+MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
+MANAGEMENT_POLICY_RECONCILE = "Reconcile"
+DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
 DELETION_POLICY_ORPHAN = "Orphan"
 DELETION_POLICY_DELETE = "Delete"
 DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
@@ -90,13 +103,16 @@ class RoleSpec:
     target_name: str
     realm: str
     name: str
+    management_policy: str
     deletion_policy: str
     description: str | None = None
 
 
 @dataclass(frozen=True)
 class RoleReconcileResult:
+    ready_status: str
     ready_reason: str
+    drift_detected: bool
     remote_id: str | None = None
 
 
@@ -189,10 +205,12 @@ def patch_keycloak_role_status(
 
     if role_spec is None:
         _set_remote_id(patch, None)
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             _invalid_spec_condition(spec, now=now),
+            "Drift detection was skipped because the KeycloakRole spec is invalid.",
+            now=now,
         )
         return None
 
@@ -205,7 +223,7 @@ def patch_keycloak_role_status(
             "KeycloakRole is not ready because the referenced KeycloakTarget "
             "could not be resolved.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -214,6 +232,9 @@ def patch_keycloak_role_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the referenced KeycloakTarget "
+            "could not be resolved.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -227,7 +248,7 @@ def patch_keycloak_role_status(
             AUTHENTICATION_FAILED_REASON,
             "KeycloakRole is not ready because Keycloak authentication failed.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -236,6 +257,8 @@ def patch_keycloak_role_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because Keycloak authentication failed.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -244,7 +267,7 @@ def patch_keycloak_role_status(
             REQUEST_FAILED_REASON,
             "KeycloakRole reconciliation failed while calling the Keycloak Admin API.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -253,19 +276,19 @@ def patch_keycloak_role_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection failed while calling the Keycloak Admin API.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
 
     _set_remote_id(patch, reconcile_result.remote_id)
-    _set_ready_condition(
+    _set_conditions(
         patch,
         existing_conditions,
-        ready_condition(
-            "True",
-            reconcile_result.ready_reason,
-            _ready_message(reconcile_result.ready_reason),
-            now=now,
+        (
+            _role_ready_condition(reconcile_result, now=now),
+            _role_drift_condition(reconcile_result, now=now),
         ),
     )
     return None
@@ -279,26 +302,37 @@ def ensure_keycloak_role(
     try:
         existing_role = client.request("GET", _role_path(role_spec.realm, role_spec.name))
     except KeycloakResourceNotFoundError:
+        if role_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+            return RoleReconcileResult("False", ROLE_MISSING_REASON, True)
+
         client.request("POST", _roles_path(role_spec.realm), json=_modeled_role_payload(role_spec))
         created_role = client.request("GET", _role_path(role_spec.realm, role_spec.name))
         if not isinstance(created_role, Mapping):
             raise KeycloakRequestError(
                 "Keycloak role lookup response was not an object"
             ) from None
-        return RoleReconcileResult(ROLE_CREATED_REASON, _remote_id(created_role))
+        return RoleReconcileResult("True", ROLE_CREATED_REASON, False, _remote_id(created_role))
 
     if not isinstance(existing_role, Mapping):
         raise KeycloakRequestError("Keycloak role lookup response was not an object")
 
     if not _has_modeled_drift(existing_role, role_spec):
-        return RoleReconcileResult(ROLE_OBSERVED_REASON, _remote_id(existing_role))
+        return RoleReconcileResult("True", ROLE_OBSERVED_REASON, False, _remote_id(existing_role))
+
+    if role_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+        return RoleReconcileResult(
+            "True",
+            ROLE_DRIFT_DETECTED_REASON,
+            True,
+            _remote_id(existing_role),
+        )
 
     client.request(
         "PUT",
         _role_path(role_spec.realm, role_spec.name),
         json=_role_update_payload(existing_role, role_spec),
     )
-    return RoleReconcileResult(ROLE_UPDATED_REASON, _remote_id(existing_role))
+    return RoleReconcileResult("True", ROLE_UPDATED_REASON, False, _remote_id(existing_role))
 
 
 def delete_keycloak_role_if_exists(
@@ -349,6 +383,7 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     target_name = target_ref.get("name") if isinstance(target_ref, Mapping) else None
     realm = spec.get("realm")
     name = spec.get("name")
+    management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     description = spec.get("description")
 
@@ -362,6 +397,16 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
     if description is not None and not _is_non_empty_string(description):
         return None
 
+    if not _is_non_empty_string(management_policy):
+        return None
+
+    parsed_management_policy = management_policy.strip()
+    if parsed_management_policy not in {
+        MANAGEMENT_POLICY_OBSERVE_ONLY,
+        MANAGEMENT_POLICY_RECONCILE,
+    }:
+        return None
+
     if not _is_non_empty_string(deletion_policy):
         return None
 
@@ -373,6 +418,7 @@ def _parse_role_spec(spec: Mapping[str, Any] | None) -> RoleSpec | None:
         target_name=target_name.strip(),
         realm=realm.strip(),
         name=name.strip(),
+        management_policy=parsed_management_policy,
         deletion_policy=parsed_deletion_policy,
         description=description.strip() if isinstance(description, str) else None,
     )
@@ -390,6 +436,15 @@ def _invalid_spec_condition(
             "False",
             INVALID_SPEC_REASON,
             f"Missing required KeycloakRole spec fields: {fields}.",
+            now=now,
+        )
+
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakRole", invalid_fields),
             now=now,
         )
 
@@ -416,27 +471,124 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     return missing_fields
 
 
-def _ready_message(ready_reason: str) -> str:
-    if ready_reason == ROLE_CREATED_REASON:
-        return "Keycloak realm role was created."
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
 
-    if ready_reason == ROLE_UPDATED_REASON:
-        return "Keycloak realm role was updated."
+    errors = [
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        enum_field_error(
+            spec,
+            "deletionPolicy",
+            {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE},
+            default=DEFAULT_DELETION_POLICY,
+        ),
+        non_empty_string_field_error(spec, "description"),
+    ]
 
-    return "Keycloak realm role already matches desired state."
+    return [error for error in errors if error is not None]
+
+
+def _role_ready_condition(
+    reconcile_result: RoleReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if reconcile_result.ready_reason == ROLE_CREATED_REASON:
+        message = "Keycloak realm role was created."
+    elif reconcile_result.ready_reason == ROLE_UPDATED_REASON:
+        message = "Keycloak realm role was updated."
+    elif reconcile_result.ready_reason == ROLE_DRIFT_DETECTED_REASON:
+        message = (
+            "Keycloak realm role has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        )
+    elif reconcile_result.ready_reason == ROLE_MISSING_REASON:
+        message = (
+            "Keycloak realm role is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        )
+    else:
+        message = "Keycloak realm role already matches desired state."
+
+    return ready_condition(
+        reconcile_result.ready_status,
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
+
+
+def _role_drift_condition(
+    reconcile_result: RoleReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if not reconcile_result.drift_detected:
+        return drift_detected_condition(
+            "False",
+            NO_DRIFT_DETECTED_REASON,
+            "Keycloak realm role has no modeled drift.",
+            now=now,
+        )
+
+    if reconcile_result.ready_reason == ROLE_MISSING_REASON:
+        message = (
+            "Keycloak realm role is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        )
+    else:
+        message = (
+            "Keycloak realm role differs from desired state and was not changed "
+            "because managementPolicy is ObserveOnly."
+        )
+
+    return drift_detected_condition(
+        "True",
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
 
 
 def _delete_temporary_error(message: str) -> kopf.TemporaryError:
     return kopf.TemporaryError(message, delay=DELETE_RETRY_DELAY_SECONDS)
 
 
-def _set_ready_condition(
+def _set_blocked_conditions(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
-    condition: Mapping[str, str],
+    ready: Mapping[str, str],
+    drift_message: str,
+    *,
+    now: datetime | None = None,
+) -> None:
+    _set_conditions(
+        patch,
+        existing_conditions,
+        (
+            ready,
+            drift_unknown_condition(ready["reason"], drift_message, now=now),
+        ),
+    )
+
+
+def _set_conditions(
+    patch: MutableMapping[str, Any],
+    existing_conditions: Sequence[Mapping[str, str]],
+    conditions: Sequence[Mapping[str, str]],
 ) -> None:
     status_patch = patch.setdefault("status", {})
-    status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+    updated_conditions = list(existing_conditions)
+    for condition in conditions:
+        updated_conditions = upsert_condition(updated_conditions, condition)
+
+    status_patch["conditions"] = updated_conditions
 
 
 def _set_remote_id(patch: MutableMapping[str, Any], remote_id: str | None) -> None:
@@ -458,6 +610,14 @@ def _emit_reconcile_event(
         events={
             ROLE_CREATED_REASON: ("Normal", "Keycloak realm role was created."),
             ROLE_UPDATED_REASON: ("Normal", "Keycloak realm role was updated."),
+            ROLE_DRIFT_DETECTED_REASON: (
+                "Warning",
+                "Keycloak realm role has modeled drift and was left unchanged.",
+            ),
+            ROLE_MISSING_REASON: (
+                "Warning",
+                "Keycloak realm role is missing and was left unchanged.",
+            ),
         },
     )
 

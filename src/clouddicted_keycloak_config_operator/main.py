@@ -11,6 +11,7 @@ from clouddicted_keycloak_config_operator.constants import API_GROUP, OPERATOR_N
 from clouddicted_keycloak_config_operator.handlers import (
     keycloak_client,
     keycloak_client_scope,
+    keycloak_identity_provider,
     keycloak_protocol_mapper,
     keycloak_realm,
     keycloak_role,
@@ -29,6 +30,7 @@ REGISTERED_HANDLER_MODULES = (
     keycloak_role,
     keycloak_client_scope,
     keycloak_protocol_mapper,
+    keycloak_identity_provider,
 )
 
 

@@ -66,6 +66,16 @@ def drift_detected_condition(
     return condition(CONDITION_DRIFT_DETECTED, status, reason, message, now=now)
 
 
+def drift_unknown_condition(
+    reason: str,
+    message: str,
+    *,
+    now: datetime | None = None,
+) -> Condition:
+    """Create a DriftDetected condition for cases where drift was not checked."""
+    return drift_detected_condition("Unknown", reason, message, now=now)
+
+
 def condition(
     condition_type: str,
     status: ConditionStatus,

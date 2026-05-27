@@ -14,7 +14,11 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakRequestError,
     KeycloakResourceNotFoundError,
 )
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_DRIFT_DETECTED,
+    CONDITION_READY,
+    ready_condition,
+)
 
 NOW = datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC)
@@ -121,11 +125,43 @@ def test_patch_keycloak_realm_status_reports_invalid_spec_without_external_calls
         now=NOW,
     )
 
-    assert _conditions_by_type(patch)[CONDITION_READY] == {
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_realm.INVALID_SPEC_REASON,
         "message": "Missing required KeycloakRealm spec fields: targetRef.name, realm.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_realm.INVALID_SPEC_REASON,
+        "message": "Drift detection was skipped because the KeycloakRealm spec is invalid.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+
+
+def test_patch_keycloak_realm_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_realm.patch_keycloak_realm_status(
+        spec=_realm_spec(display_name="", management_policy="Apply"),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_realm.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakRealm spec fields: managementPolicy must be one of: "
+            "`ObserveOnly`, `Reconcile`; displayName must be a non-empty string."
+        ),
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
 
@@ -143,9 +179,20 @@ def test_patch_keycloak_realm_status_reports_target_resolution_failure() -> None
         now=NOW,
     )
 
-    ready = _conditions_by_type(patch)[CONDITION_READY]
+    conditions = _conditions_by_type(patch)
+    ready = conditions[CONDITION_READY]
     assert ready["status"] == "False"
     assert ready["reason"] == keycloak_realm.TARGET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_realm.TARGET_UNAVAILABLE_REASON,
+        "message": (
+            "Drift detection was skipped because the referenced KeycloakTarget could "
+            "not be resolved."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
     assert retry == reconciliation.RetryRequest(
         keycloak_realm.TARGET_UNAVAILABLE_REASON,
         ready["message"],
@@ -175,6 +222,13 @@ def test_patch_keycloak_realm_status_observes_existing_realm() -> None:
         "status": "True",
         "reason": keycloak_realm.REALM_OBSERVED_REASON,
         "message": "Keycloak realm already matches desired state.",
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_realm.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak realm has no modeled drift.",
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
@@ -220,6 +274,46 @@ def test_patch_keycloak_realm_status_creates_missing_realm() -> None:
     ]
 
 
+def test_patch_keycloak_realm_status_observe_only_reports_missing_realm_without_create() -> None:
+    keycloak_client = FakeKeycloakClient(
+        get_error=KeycloakResourceNotFoundError("realm missing")
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_realm.patch_keycloak_realm_status(
+        spec=_realm_spec(management_policy=keycloak_realm.MANAGEMENT_POLICY_OBSERVE_ONLY),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_realm.REALM_MISSING_REASON,
+        "message": (
+            "Keycloak realm is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_realm.REALM_MISSING_REASON,
+        "message": (
+            "Keycloak realm is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example", {})]
+
+
 def test_patch_keycloak_realm_status_updates_display_name_drift_preserving_fields() -> None:
     keycloak_client = FakeKeycloakClient(
         realm_result={"realm": "example", "displayName": "Old Example", "enabled": True}
@@ -258,6 +352,49 @@ def test_patch_keycloak_realm_status_updates_display_name_drift_preserving_field
             },
         ),
     ]
+
+
+def test_patch_keycloak_realm_status_observe_only_reports_display_name_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        realm_result={"realm": "example", "displayName": "Old Example", "enabled": True}
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_realm.patch_keycloak_realm_status(
+        spec=_realm_spec(
+            display_name="Example",
+            management_policy=keycloak_realm.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_realm.REALM_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak realm has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_realm.REALM_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak realm differs from desired state and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-22T10:30:45Z",
+    }
+    assert keycloak_client.requests == [("GET", "realms/example", {})]
 
 
 def test_patch_keycloak_realm_status_reports_auth_failure_without_secret_values() -> None:
@@ -346,13 +483,19 @@ def _target_resolver() -> FakeTargetResolver:
     )
 
 
-def _realm_spec(*, display_name: str | None = None) -> dict[str, Any]:
+def _realm_spec(
+    *,
+    display_name: str | None = None,
+    management_policy: str | None = None,
+) -> dict[str, Any]:
     spec: dict[str, Any] = {
         "targetRef": {"name": "example-keycloak"},
         "realm": "example",
     }
     if display_name is not None:
         spec["displayName"] = display_name
+    if management_policy is not None:
+        spec["managementPolicy"] = management_policy
 
     return spec
 

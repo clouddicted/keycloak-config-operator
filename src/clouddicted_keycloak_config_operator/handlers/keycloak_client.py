@@ -28,6 +28,14 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    bool_field_error,
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+    string_list_field_error,
+    unique_string_list_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAdminClient,
     KeycloakAuthenticationError,
@@ -43,6 +51,7 @@ from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
     drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     upsert_condition,
 )
@@ -111,13 +120,18 @@ class ClientSpec:
     management_policy: str
     deletion_policy: str
     secret_ref: Mapping[str, Any] | None = None
+    enabled: bool = True
     display_name: str | None = None
+    description: str | None = None
     root_url: str | None = None
     base_url: str | None = None
     admin_url: str | None = None
     standard_flow_enabled: bool | None = None
+    implicit_flow_enabled: bool | None = None
     direct_access_grants_enabled: bool | None = None
     service_accounts_enabled: bool | None = None
+    full_scope_allowed: bool | None = None
+    frontchannel_logout: bool | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
     default_client_scopes: tuple[str, ...] = ()
@@ -222,10 +236,12 @@ def patch_keycloak_client_status(
 
     if client_spec is None:
         _set_remote_id(patch, None)
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             _invalid_spec_condition(spec, now=now),
+            "Drift detection was skipped because the KeycloakClient spec is invalid.",
+            now=now,
         )
         return None
 
@@ -238,7 +254,7 @@ def patch_keycloak_client_status(
             "KeycloakClient is not ready because the referenced KeycloakTarget "
             "could not be resolved.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -247,6 +263,9 @@ def patch_keycloak_client_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the referenced KeycloakTarget "
+            "could not be resolved.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -268,7 +287,7 @@ def patch_keycloak_client_status(
             AUTHENTICATION_FAILED_REASON,
             "KeycloakClient is not ready because Keycloak authentication failed.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -277,6 +296,8 @@ def patch_keycloak_client_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because Keycloak authentication failed.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -285,7 +306,7 @@ def patch_keycloak_client_status(
             SECRET_UNAVAILABLE_REASON,
             "KeycloakClient is not ready because the client Secret could not be loaded.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -294,6 +315,9 @@ def patch_keycloak_client_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the Keycloak client Secret could not "
+            "be loaded.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -302,7 +326,7 @@ def patch_keycloak_client_status(
             REQUEST_FAILED_REASON,
             "KeycloakClient reconciliation failed while calling the Keycloak Admin API.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -311,6 +335,8 @@ def patch_keycloak_client_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection failed while calling the Keycloak Admin API.",
+            now=now,
         )
         _set_remote_id(patch, None)
         return retry
@@ -448,13 +474,15 @@ def _client_create_payload(
 def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "clientId": client_spec.client_id,
-        "enabled": True,
+        "enabled": client_spec.enabled,
         "protocol": "openid-connect",
         "publicClient": client_spec.client_type == CLIENT_TYPE_PUBLIC,
     }
 
     if client_spec.display_name is not None:
         payload["name"] = client_spec.display_name
+    if client_spec.description is not None:
+        payload["description"] = client_spec.description
     if client_spec.root_url is not None:
         payload["rootUrl"] = client_spec.root_url
     if client_spec.base_url is not None:
@@ -463,10 +491,16 @@ def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
         payload["adminUrl"] = client_spec.admin_url
     if client_spec.standard_flow_enabled is not None:
         payload["standardFlowEnabled"] = client_spec.standard_flow_enabled
+    if client_spec.implicit_flow_enabled is not None:
+        payload["implicitFlowEnabled"] = client_spec.implicit_flow_enabled
     if client_spec.direct_access_grants_enabled is not None:
         payload["directAccessGrantsEnabled"] = client_spec.direct_access_grants_enabled
     if client_spec.service_accounts_enabled is not None:
         payload["serviceAccountsEnabled"] = client_spec.service_accounts_enabled
+    if client_spec.full_scope_allowed is not None:
+        payload["fullScopeAllowed"] = client_spec.full_scope_allowed
+    if client_spec.frontchannel_logout is not None:
+        payload["frontchannelLogout"] = client_spec.frontchannel_logout
     if client_spec.redirect_uris:
         payload["redirectUris"] = list(client_spec.redirect_uris)
     if client_spec.web_origins:
@@ -656,13 +690,12 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     secret_ref = spec.get("secretRef")
+    enabled = spec.get("enabled", True)
     display_name = spec.get("displayName")
+    description = spec.get("description")
     root_url = spec.get("rootUrl")
     base_url = spec.get("baseUrl")
     admin_url = spec.get("adminUrl")
-    standard_flow_enabled = spec.get("standardFlowEnabled")
-    direct_access_grants_enabled = spec.get("directAccessGrantsEnabled")
-    service_accounts_enabled = spec.get("serviceAccountsEnabled")
     redirect_uris = spec.get("redirectUris", ())
     web_origins = spec.get("webOrigins", ())
     default_client_scopes = spec.get("defaultClientScopes", ())
@@ -710,6 +743,8 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
 
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
+    if description is not None and not _is_non_empty_string(description):
+        return None
     if root_url is not None and not _is_non_empty_string(root_url):
         return None
     if base_url is not None and not _is_non_empty_string(base_url):
@@ -717,15 +752,24 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     if admin_url is not None and not _is_non_empty_string(admin_url):
         return None
 
-    parsed_standard_flow_enabled = _parse_optional_bool(standard_flow_enabled)
+    parsed_enabled = _parse_bool(enabled)
+    parsed_standard_flow_enabled = _parse_optional_bool(spec, "standardFlowEnabled")
+    parsed_implicit_flow_enabled = _parse_optional_bool(spec, "implicitFlowEnabled")
     parsed_direct_access_grants_enabled = _parse_optional_bool(
-        direct_access_grants_enabled
+        spec,
+        "directAccessGrantsEnabled",
     )
-    parsed_service_accounts_enabled = _parse_optional_bool(service_accounts_enabled)
+    parsed_service_accounts_enabled = _parse_optional_bool(spec, "serviceAccountsEnabled")
+    parsed_full_scope_allowed = _parse_optional_bool(spec, "fullScopeAllowed")
+    parsed_frontchannel_logout = _parse_optional_bool(spec, "frontchannelLogout")
     if (
-        parsed_standard_flow_enabled is _INVALID_BOOL
+        parsed_enabled is _INVALID_BOOL
+        or parsed_standard_flow_enabled is _INVALID_BOOL
+        or parsed_implicit_flow_enabled is _INVALID_BOOL
         or parsed_direct_access_grants_enabled is _INVALID_BOOL
         or parsed_service_accounts_enabled is _INVALID_BOOL
+        or parsed_full_scope_allowed is _INVALID_BOOL
+        or parsed_frontchannel_logout is _INVALID_BOOL
     ):
         return None
     if (
@@ -754,13 +798,20 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         management_policy=parsed_management_policy,
         deletion_policy=parsed_deletion_policy,
         secret_ref=parsed_secret_ref,
+        enabled=parsed_enabled,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
+        description=description.strip() if isinstance(description, str) else None,
         root_url=root_url.strip() if isinstance(root_url, str) else None,
         base_url=base_url.strip() if isinstance(base_url, str) else None,
         admin_url=admin_url.strip() if isinstance(admin_url, str) else None,
         standard_flow_enabled=(
             parsed_standard_flow_enabled
             if isinstance(parsed_standard_flow_enabled, bool)
+            else None
+        ),
+        implicit_flow_enabled=(
+            parsed_implicit_flow_enabled
+            if isinstance(parsed_implicit_flow_enabled, bool)
             else None
         ),
         direct_access_grants_enabled=(
@@ -771,6 +822,16 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         service_accounts_enabled=(
             parsed_service_accounts_enabled
             if isinstance(parsed_service_accounts_enabled, bool)
+            else None
+        ),
+        full_scope_allowed=(
+            parsed_full_scope_allowed
+            if isinstance(parsed_full_scope_allowed, bool)
+            else None
+        ),
+        frontchannel_logout=(
+            parsed_frontchannel_logout
+            if isinstance(parsed_frontchannel_logout, bool)
             else None
         ),
         redirect_uris=parsed_redirect_uris,
@@ -796,10 +857,15 @@ def _parse_string_tuple(value: Any) -> tuple[str, ...] | None:
 _INVALID_BOOL = object()
 
 
-def _parse_optional_bool(value: Any) -> bool | object | None:
-    if value is None:
+def _parse_bool(value: Any) -> bool | object:
+    return value if isinstance(value, bool) else _INVALID_BOOL
+
+
+def _parse_optional_bool(spec: Mapping[str, Any], field: str) -> bool | object | None:
+    if field not in spec:
         return None
 
+    value = spec[field]
     return value if isinstance(value, bool) else _INVALID_BOOL
 
 
@@ -826,6 +892,15 @@ def _invalid_spec_condition(
             "False",
             INVALID_SPEC_REASON,
             f"Missing required KeycloakClient spec fields: {fields}.",
+            now=now,
+        )
+
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakClient", invalid_fields),
             now=now,
         )
 
@@ -859,12 +934,75 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     return missing_fields
 
 
-def _set_ready_condition(
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
+
+    errors = [
+        enum_field_error(
+            spec,
+            "clientType",
+            {CLIENT_TYPE_PUBLIC, CLIENT_TYPE_CONFIDENTIAL},
+            default=DEFAULT_CLIENT_TYPE,
+        ),
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        enum_field_error(
+            spec,
+            "deletionPolicy",
+            {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE},
+            default=DEFAULT_DELETION_POLICY,
+        ),
+        bool_field_error(spec, "enabled"),
+        non_empty_string_field_error(spec, "displayName"),
+        non_empty_string_field_error(spec, "description"),
+        non_empty_string_field_error(spec, "rootUrl"),
+        non_empty_string_field_error(spec, "baseUrl"),
+        non_empty_string_field_error(spec, "adminUrl"),
+        bool_field_error(spec, "standardFlowEnabled"),
+        bool_field_error(spec, "implicitFlowEnabled"),
+        bool_field_error(spec, "directAccessGrantsEnabled"),
+        bool_field_error(spec, "serviceAccountsEnabled"),
+        bool_field_error(spec, "fullScopeAllowed"),
+        bool_field_error(spec, "frontchannelLogout"),
+        string_list_field_error(spec, "redirectUris"),
+        string_list_field_error(spec, "webOrigins"),
+        unique_string_list_field_error(spec, "defaultClientScopes"),
+        unique_string_list_field_error(spec, "optionalClientScopes"),
+    ]
+
+    client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    service_accounts_enabled = spec.get("serviceAccountsEnabled")
+    if (
+        isinstance(client_type, str)
+        and client_type.strip() == CLIENT_TYPE_PUBLIC
+        and service_accounts_enabled is True
+    ):
+        errors.append("serviceAccountsEnabled can be true only for Confidential clients")
+
+    return [error for error in errors if error is not None]
+
+
+def _set_blocked_conditions(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
-    condition: Mapping[str, str],
+    ready: Mapping[str, str],
+    drift_message: str,
+    *,
+    now: datetime | None = None,
 ) -> None:
-    _set_conditions(patch, existing_conditions, (condition,))
+    _set_conditions(
+        patch,
+        existing_conditions,
+        (
+            ready,
+            drift_unknown_condition(ready["reason"], drift_message, now=now),
+        ),
+    )
 
 
 def _set_conditions(

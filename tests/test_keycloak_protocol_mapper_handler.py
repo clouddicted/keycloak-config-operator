@@ -19,7 +19,11 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakAuthenticationError,
     KeycloakRequestError,
 )
-from clouddicted_keycloak_config_operator.status import CONDITION_READY, ready_condition
+from clouddicted_keycloak_config_operator.status import (
+    CONDITION_DRIFT_DETECTED,
+    CONDITION_READY,
+    ready_condition,
+)
 
 NOW = datetime(2026, 5, 24, 11, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 24, 10, 30, 45, tzinfo=UTC)
@@ -152,13 +156,58 @@ def test_patch_keycloak_protocol_mapper_status_reports_invalid_spec() -> None:
         now=NOW,
     )
 
-    assert _conditions_by_type(patch)[CONDITION_READY] == {
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_protocol_mapper.INVALID_SPEC_REASON,
         "message": (
             "Missing required KeycloakProtocolMapper spec fields: "
             "targetRef.name, realm, name, mapperType, parent.type."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_protocol_mapper.INVALID_SPEC_REASON,
+        "message": (
+            "Drift detection was skipped because the KeycloakProtocolMapper spec is "
+            "invalid."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+
+
+def test_patch_keycloak_protocol_mapper_status_reports_invalid_field_values() -> None:
+    patch: dict[str, Any] = {}
+    spec = _mapper_spec(
+        parent_type="Realm",
+        protocol="",
+        management_policy="Apply",
+        deletion_policy="Remove",
+    )
+    spec["config"] = {"claim.name": 3}
+
+    keycloak_protocol_mapper.patch_keycloak_protocol_mapper_status(
+        spec=spec,
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_protocol_mapper.INVALID_SPEC_REASON,
+        "message": (
+            "Invalid KeycloakProtocolMapper spec fields: managementPolicy must be one "
+            "of: `ObserveOnly`, `Reconcile`; deletionPolicy must be one of: "
+            "`Delete`, `Orphan`; protocol must be a non-empty string; "
+            "parent.type must be one of: `Client`, `ClientScope`; config must use "
+            "non-empty string keys and string values."
         ),
         "lastTransitionTime": "2026-05-24T11:30:45Z",
     }
@@ -177,9 +226,20 @@ def test_patch_keycloak_protocol_mapper_status_reports_target_resolution_failure
         now=NOW,
     )
 
-    ready = _conditions_by_type(patch)[CONDITION_READY]
+    conditions = _conditions_by_type(patch)
+    ready = conditions[CONDITION_READY]
     assert ready["status"] == "False"
     assert ready["reason"] == keycloak_protocol_mapper.TARGET_UNAVAILABLE_REASON
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "Unknown",
+        "reason": keycloak_protocol_mapper.TARGET_UNAVAILABLE_REASON,
+        "message": (
+            "Drift detection was skipped because the referenced KeycloakTarget could "
+            "not be resolved."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
     assert retry == reconciliation.RetryRequest(
         keycloak_protocol_mapper.TARGET_UNAVAILABLE_REASON,
         ready["message"],
@@ -224,6 +284,13 @@ def test_patch_keycloak_protocol_mapper_status_observes_existing_client_mapper()
         "status": "True",
         "reason": keycloak_protocol_mapper.PROTOCOL_MAPPER_OBSERVED_REASON,
         "message": "Keycloak protocol mapper already matches desired state.",
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "False",
+        "reason": keycloak_protocol_mapper.NO_DRIFT_DETECTED_REASON,
+        "message": "Keycloak protocol mapper has no modeled drift.",
         "lastTransitionTime": "2026-05-24T11:30:45Z",
     }
     assert resolver.calls == [{"target_name": "example-keycloak", "namespace": "apps"}]
@@ -302,6 +369,55 @@ def test_patch_keycloak_protocol_mapper_status_creates_client_scope_mapper() -> 
     assert patch["status"]["remoteId"] == "created-mapper-uuid"
 
 
+def test_patch_keycloak_protocol_mapper_status_observe_only_reports_missing_mapper() -> None:
+    keycloak_client = FakeKeycloakClient(mapper_result=[])
+    patch: dict[str, Any] = {}
+
+    keycloak_protocol_mapper.patch_keycloak_protocol_mapper_status(
+        spec=_mapper_spec(
+            config={"claim.name": "email"},
+            management_policy=keycloak_protocol_mapper.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "False",
+        "reason": keycloak_protocol_mapper.PROTOCOL_MAPPER_MISSING_REASON,
+        "message": (
+            "Keycloak protocol mapper is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_protocol_mapper.PROTOCOL_MAPPER_MISSING_REASON,
+        "message": (
+            "Keycloak protocol mapper is missing and was not created because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
+        ),
+    ]
+    assert patch["status"]["remoteId"] is None
+
+
 def test_patch_keycloak_protocol_mapper_status_updates_drift_preserving_fields() -> None:
     keycloak_client = FakeKeycloakClient(
         mapper_result=[
@@ -360,6 +476,64 @@ def test_patch_keycloak_protocol_mapper_status_updates_drift_preserving_fields()
                     },
                 }
             },
+        ),
+    ]
+    assert patch["status"]["remoteId"] == "mapper-uuid"
+
+
+def test_patch_keycloak_protocol_mapper_status_observe_only_reports_modeled_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        mapper_result=[
+            _existing_mapper(
+                protocol="saml",
+                protocolMapper="old-mapper",
+                consentRequired=True,
+                config={"claim.name": "old", "custom.keep": "true"},
+            )
+        ],
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_protocol_mapper.patch_keycloak_protocol_mapper_status(
+        spec=_mapper_spec(
+            config={"claim.name": "email", "access.token.claim": "true"},
+            management_policy=keycloak_protocol_mapper.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY] == {
+        "type": CONDITION_READY,
+        "status": "True",
+        "reason": keycloak_protocol_mapper.PROTOCOL_MAPPER_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak protocol mapper has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert conditions[CONDITION_DRIFT_DETECTED] == {
+        "type": CONDITION_DRIFT_DETECTED,
+        "status": "True",
+        "reason": keycloak_protocol_mapper.PROTOCOL_MAPPER_DRIFT_DETECTED_REASON,
+        "message": (
+            "Keycloak protocol mapper differs from desired state and was not changed "
+            "because managementPolicy is ObserveOnly."
+        ),
+        "lastTransitionTime": "2026-05-24T11:30:45Z",
+    }
+    assert keycloak_client.requests == [
+        ("GET", "realms/example/client-scopes", {}),
+        (
+            "GET",
+            "realms/example/client-scopes/client-scope-uuid/protocol-mappers/models",
+            {},
         ),
     ]
     assert patch["status"]["remoteId"] == "mapper-uuid"
@@ -643,6 +817,7 @@ def _mapper_spec(
     parent_name: str = "example-profile",
     protocol: str | None = None,
     config: dict[str, str] | None = None,
+    management_policy: str | None = None,
     deletion_policy: str | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
@@ -660,6 +835,8 @@ def _mapper_spec(
         spec["protocol"] = protocol
     if config is not None:
         spec["config"] = config
+    if management_policy is not None:
+        spec["managementPolicy"] = management_policy
     if deletion_policy is not None:
         spec["deletionPolicy"] = deletion_policy
 

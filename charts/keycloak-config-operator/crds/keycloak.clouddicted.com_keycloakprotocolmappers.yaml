@@ -85,6 +85,17 @@ spec:
                   additionalProperties:
                     type: string
                     description: Mapper configuration value.
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak protocol
+                    mapper. Reconcile creates or updates the modeled fields;
+                    ObserveOnly reports missing resources or drift without
+                    changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
                 deletionPolicy:
                   type: string
                   description:
@@ -136,7 +147,7 @@ spec:
                   description: Keycloak internal ID of the observed protocol mapper.
                 conditions:
                   type: array
-                  description: Current readiness and reconciliation conditions.
+                  description: Current Kubernetes-style status conditions.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys:
                     - type

@@ -17,10 +17,30 @@ Status meanings:
 | --- | --- | --- | --- | --- | --- | --- |
 | Keycloak target | `KeycloakTarget` | Observe only | Observe only | Not applicable | Yes | Verifies credentials and connectivity. |
 | Realm | `KeycloakRealm` | Yes | Partial | No | Yes | Reconciles `spec.displayName` when set. |
+| Identity provider | `KeycloakIdentityProvider` | Yes | Yes | Optional | Yes | Basic provider support. Delete requires `spec.deletionPolicy: Delete`. |
 | Client | `KeycloakClient` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Realm role | `KeycloakRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Protocol mapper | `KeycloakProtocolMapper` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client or client scope. |
+
+## Owned Fields And Drift
+
+The operator owns only the fields exposed in the CRDs. When a field is omitted,
+the operator leaves the corresponding Keycloak setting unchanged where the
+Keycloak Admin API allows it.
+
+Use `spec.managementPolicy: ObserveOnly` to check existing objects before the
+operator changes them. Observe-only resources report missing remote objects and
+modeled field drift with a `DriftDetected=True` condition and a Warning Event.
+
+| CRD | Owned remote fields |
+| --- | --- |
+| `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
+| `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
+| `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakRole` | `description` when set. Role name is the lookup key. |
+| `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
+| `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
 
 ## KeycloakTarget
 
@@ -46,6 +66,7 @@ secret in Kubernetes.
 | --- | --- | --- |
 | `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
 | `spec.realm` | Supported | Realm name and remote lookup key. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.displayName` | Supported | Reconciled when set. |
 
 ## KeycloakClient
@@ -58,13 +79,18 @@ secret in Kubernetes.
 | `spec.clientType` | Supported | `Public` or `Confidential`; defaults to `Public`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+| `spec.enabled` | Supported | Reconciled with default `true`. |
 | `spec.displayName` | Supported | Reconciled to Keycloak client `name`. |
+| `spec.description` | Supported | Reconciled when set. |
 | `spec.rootUrl` | Supported | Reconciled when set. |
 | `spec.baseUrl` | Supported | Reconciled when set. |
 | `spec.adminUrl` | Supported | Reconciled when set. |
 | `spec.standardFlowEnabled` | Supported | Reconciled when set. |
+| `spec.implicitFlowEnabled` | Supported | Reconciled when set. Prefer leaving this disabled unless a legacy client requires it. |
 | `spec.directAccessGrantsEnabled` | Supported | Reconciled when set. |
 | `spec.serviceAccountsEnabled` | Supported | Reconciled when set. Intended for confidential clients. |
+| `spec.fullScopeAllowed` | Supported | Reconciled when set. Use `false` with explicit scope assignments for least privilege. |
+| `spec.frontchannelLogout` | Supported | Reconciled when set. |
 | `spec.secretRef` | Supported | Required for confidential clients. |
 | `spec.secretRef.name` | Supported | Secret name containing the client secret. |
 | `spec.secretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |
@@ -74,6 +100,21 @@ secret in Kubernetes.
 | `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
 | `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
 
+## KeycloakIdentityProvider
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the identity provider. |
+| `spec.alias` | Supported | Identity provider alias and remote lookup key. |
+| `spec.providerId` | Supported | Keycloak provider type, such as `oidc`, `saml`, `github`, or `google`. |
+| `spec.enabled` | Supported | Reconciled with default `true`. |
+| `spec.displayName` | Supported | Reconciled when set. |
+| `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
+| `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
 ## KeycloakRole
 
 | Field | Status | Notes |
@@ -82,6 +123,7 @@ secret in Kubernetes.
 | `spec.realm` | Supported | Realm containing the role. |
 | `spec.name` | Supported | Role name and remote lookup key. |
 | `spec.description` | Supported | Reconciled when set. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakClientScope
@@ -93,6 +135,7 @@ secret in Kubernetes.
 | `spec.name` | Supported | Client scope name and remote lookup key. |
 | `spec.description` | Supported | Reconciled when set. |
 | `spec.protocol` | Supported | Defaults to `openid-connect`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakProtocolMapper
@@ -105,6 +148,7 @@ secret in Kubernetes.
 | `spec.mapperType` | Supported | Keycloak protocol mapper type. |
 | `spec.protocol` | Supported | Defaults to `openid-connect`. |
 | `spec.config` | Partial | Desired keys are reconciled; undeclared existing keys are preserved. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 | `spec.parent` | Supported | Selects a parent client or client scope. |
 | `spec.parent.type` | Supported | `Client` or `ClientScope`. |

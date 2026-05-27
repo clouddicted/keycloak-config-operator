@@ -23,6 +23,11 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     raise_for_retry,
 )
+from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    enum_field_error,
+    invalid_spec_message,
+    non_empty_string_field_error,
+)
 from clouddicted_keycloak_config_operator.keycloak_client import (
     AUTH_METHOD_CLIENT_CREDENTIALS,
     AUTH_METHOD_PASSWORD,
@@ -43,6 +48,8 @@ from clouddicted_keycloak_config_operator.secrets import (
 from clouddicted_keycloak_config_operator.status import (
     CONDITION_READY,
     Condition,
+    drift_detected_condition,
+    drift_unknown_condition,
     ready_condition,
     upsert_condition,
 )
@@ -56,10 +63,16 @@ KEYCLOAK_REALM_RESOURCE = {
 AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 INVALID_SPEC_REASON = "InvalidSpec"
 REALM_CREATED_REASON = "RealmCreated"
+REALM_DRIFT_DETECTED_REASON = "RealmDriftDetected"
+REALM_MISSING_REASON = "RealmMissing"
 REALM_OBSERVED_REASON = "RealmObserved"
 REALM_UPDATED_REASON = "RealmUpdated"
+NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
 REQUEST_FAILED_REASON = "RequestFailed"
 TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
+MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
+MANAGEMENT_POLICY_RECONCILE = "Reconcile"
+DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
 
@@ -91,7 +104,15 @@ class TargetResolver(Protocol):
 class RealmSpec:
     target_name: str
     realm: str
+    management_policy: str
     display_name: str | None = None
+
+
+@dataclass(frozen=True)
+class RealmReconcileResult:
+    ready_status: str
+    ready_reason: str
+    drift_detected: bool
 
 
 @dataclass(frozen=True)
@@ -147,7 +168,13 @@ def patch_keycloak_realm_status(
     realm_spec = _parse_realm_spec(spec)
 
     if realm_spec is None:
-        _set_ready_condition(patch, existing_conditions, _invalid_spec_condition(spec, now=now))
+        _set_blocked_conditions(
+            patch,
+            existing_conditions,
+            _invalid_spec_condition(spec, now=now),
+            "Drift detection was skipped because the KeycloakRealm spec is invalid.",
+            now=now,
+        )
         return None
 
     resolver = target_resolver or KubernetesTargetResolver()
@@ -159,7 +186,7 @@ def patch_keycloak_realm_status(
             "KeycloakRealm is not ready because the referenced KeycloakTarget "
             "could not be resolved.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -168,19 +195,22 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because the referenced KeycloakTarget "
+            "could not be resolved.",
+            now=now,
         )
         return retry
 
     try:
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
-        ready_reason = ensure_keycloak_realm(keycloak_client, realm_spec)
+        reconcile_result = ensure_keycloak_realm(keycloak_client, realm_spec)
     except KeycloakAuthenticationError:
         retry = RetryRequest(
             AUTHENTICATION_FAILED_REASON,
             "KeycloakRealm is not ready because Keycloak authentication failed.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -189,6 +219,8 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection was skipped because Keycloak authentication failed.",
+            now=now,
         )
         return retry
     except KeycloakClientError:
@@ -196,7 +228,7 @@ def patch_keycloak_realm_status(
             REQUEST_FAILED_REASON,
             "KeycloakRealm reconciliation failed while calling the Keycloak Admin API.",
         )
-        _set_ready_condition(
+        _set_blocked_conditions(
             patch,
             existing_conditions,
             ready_condition(
@@ -205,42 +237,51 @@ def patch_keycloak_realm_status(
                 retry.message,
                 now=now,
             ),
+            "Drift detection failed while calling the Keycloak Admin API.",
+            now=now,
         )
         return retry
 
-    _set_ready_condition(
+    _set_conditions(
         patch,
         existing_conditions,
-        ready_condition(
-            "True",
-            ready_reason,
-            _ready_message(ready_reason),
-            now=now,
+        (
+            _realm_ready_condition(reconcile_result, now=now),
+            _realm_drift_condition(reconcile_result, now=now),
         ),
     )
     return None
 
 
-def ensure_keycloak_realm(client: KeycloakRealmClient, realm_spec: RealmSpec) -> str:
-    """Create, update, or observe a realm and return the Ready reason."""
+def ensure_keycloak_realm(
+    client: KeycloakRealmClient,
+    realm_spec: RealmSpec,
+) -> RealmReconcileResult:
+    """Create, update, or observe a realm and return the result."""
     try:
         existing_realm = client.request("GET", _realm_path(realm_spec.realm))
     except KeycloakResourceNotFoundError:
+        if realm_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+            return RealmReconcileResult("False", REALM_MISSING_REASON, True)
+
         client.request("POST", "realms", json=_realm_create_payload(realm_spec))
-        return REALM_CREATED_REASON
+        return RealmReconcileResult("True", REALM_CREATED_REASON, False)
 
     if not isinstance(existing_realm, Mapping):
         raise KeycloakRequestError("Keycloak realm lookup response was not an object")
 
     if not _has_modeled_drift(existing_realm, realm_spec):
-        return REALM_OBSERVED_REASON
+        return RealmReconcileResult("True", REALM_OBSERVED_REASON, False)
+
+    if realm_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+        return RealmReconcileResult("True", REALM_DRIFT_DETECTED_REASON, True)
 
     client.request(
         "PUT",
         _realm_path(realm_spec.realm),
         json=_realm_update_payload(existing_realm, realm_spec),
     )
-    return REALM_UPDATED_REASON
+    return RealmReconcileResult("True", REALM_UPDATED_REASON, False)
 
 
 def _realm_create_payload(realm_spec: RealmSpec) -> dict[str, Any]:
@@ -393,6 +434,7 @@ def _parse_realm_spec(spec: Mapping[str, Any] | None) -> RealmSpec | None:
     target_ref = spec.get("targetRef")
     target_name = target_ref.get("name") if isinstance(target_ref, Mapping) else None
     realm = spec.get("realm")
+    management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     display_name = spec.get("displayName")
 
     if not _is_non_empty_string(target_name) or not _is_non_empty_string(realm):
@@ -401,9 +443,20 @@ def _parse_realm_spec(spec: Mapping[str, Any] | None) -> RealmSpec | None:
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
 
+    if not _is_non_empty_string(management_policy):
+        return None
+
+    parsed_management_policy = management_policy.strip()
+    if parsed_management_policy not in {
+        MANAGEMENT_POLICY_OBSERVE_ONLY,
+        MANAGEMENT_POLICY_RECONCILE,
+    }:
+        return None
+
     return RealmSpec(
         target_name=target_name.strip(),
         realm=realm.strip(),
+        management_policy=parsed_management_policy,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
     )
 
@@ -562,6 +615,15 @@ def _invalid_spec_condition(
             now=now,
         )
 
+    invalid_fields = _invalid_spec_fields(spec)
+    if invalid_fields:
+        return ready_condition(
+            "False",
+            INVALID_SPEC_REASON,
+            invalid_spec_message("KeycloakRealm", invalid_fields),
+            now=now,
+        )
+
     return ready_condition("False", INVALID_SPEC_REASON, "KeycloakRealm spec is invalid.", now=now)
 
 
@@ -582,23 +644,114 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     return missing_fields
 
 
-def _ready_message(ready_reason: str) -> str:
-    if ready_reason == REALM_CREATED_REASON:
-        return "Keycloak realm was created."
+def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(spec, Mapping):
+        return []
 
-    if ready_reason == REALM_UPDATED_REASON:
-        return "Keycloak realm was updated."
+    errors = [
+        enum_field_error(
+            spec,
+            "managementPolicy",
+            {MANAGEMENT_POLICY_RECONCILE, MANAGEMENT_POLICY_OBSERVE_ONLY},
+            default=DEFAULT_MANAGEMENT_POLICY,
+        ),
+        non_empty_string_field_error(spec, "displayName"),
+    ]
 
-    return "Keycloak realm already matches desired state."
+    return [error for error in errors if error is not None]
 
 
-def _set_ready_condition(
+def _realm_ready_condition(
+    reconcile_result: RealmReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if reconcile_result.ready_reason == REALM_CREATED_REASON:
+        message = "Keycloak realm was created."
+    elif reconcile_result.ready_reason == REALM_UPDATED_REASON:
+        message = "Keycloak realm was updated."
+    elif reconcile_result.ready_reason == REALM_DRIFT_DETECTED_REASON:
+        message = (
+            "Keycloak realm has modeled drift and was not changed because "
+            "managementPolicy is ObserveOnly."
+        )
+    elif reconcile_result.ready_reason == REALM_MISSING_REASON:
+        message = (
+            "Keycloak realm is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        )
+    else:
+        message = "Keycloak realm already matches desired state."
+
+    return ready_condition(
+        reconcile_result.ready_status,
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
+
+
+def _realm_drift_condition(
+    reconcile_result: RealmReconcileResult,
+    *,
+    now: datetime | None,
+) -> Condition:
+    if not reconcile_result.drift_detected:
+        return drift_detected_condition(
+            "False",
+            NO_DRIFT_DETECTED_REASON,
+            "Keycloak realm has no modeled drift.",
+            now=now,
+        )
+
+    if reconcile_result.ready_reason == REALM_MISSING_REASON:
+        message = (
+            "Keycloak realm is missing and was not created because managementPolicy "
+            "is ObserveOnly."
+        )
+    else:
+        message = (
+            "Keycloak realm differs from desired state and was not changed because "
+            "managementPolicy is ObserveOnly."
+        )
+
+    return drift_detected_condition(
+        "True",
+        reconcile_result.ready_reason,
+        message,
+        now=now,
+    )
+
+
+def _set_blocked_conditions(
     patch: MutableMapping[str, Any],
     existing_conditions: Sequence[Mapping[str, str]],
-    condition: Mapping[str, str],
+    ready: Mapping[str, str],
+    drift_message: str,
+    *,
+    now: datetime | None = None,
+) -> None:
+    _set_conditions(
+        patch,
+        existing_conditions,
+        (
+            ready,
+            drift_unknown_condition(ready["reason"], drift_message, now=now),
+        ),
+    )
+
+
+def _set_conditions(
+    patch: MutableMapping[str, Any],
+    existing_conditions: Sequence[Mapping[str, str]],
+    conditions: Sequence[Mapping[str, str]],
 ) -> None:
     status_patch = patch.setdefault("status", {})
-    status_patch["conditions"] = upsert_condition(existing_conditions, condition)
+    updated_conditions = list(existing_conditions)
+    for condition in conditions:
+        updated_conditions = upsert_condition(updated_conditions, condition)
+
+    status_patch["conditions"] = updated_conditions
 
 
 def _emit_reconcile_event(
@@ -615,6 +768,14 @@ def _emit_reconcile_event(
         events={
             REALM_CREATED_REASON: ("Normal", "Keycloak realm was created."),
             REALM_UPDATED_REASON: ("Normal", "Keycloak realm was updated."),
+            REALM_DRIFT_DETECTED_REASON: (
+                "Warning",
+                "Keycloak realm has modeled drift and was left unchanged.",
+            ),
+            REALM_MISSING_REASON: (
+                "Warning",
+                "Keycloak realm is missing and was left unchanged.",
+            ),
         },
     )
 
