@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-target/">
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-identity-provider/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../keycloak-realm/">
       
       
-        <link rel="next" href="../keycloak-realm/">
+        <link rel="next" href="../keycloak-client/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>KeycloakTarget - Keycloak Config Operator</title>
+        <title>KeycloakIdentityProvider - Keycloak Config Operator</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#keycloaktarget" class="md-skip">
+        <a href="#keycloakidentityprovider" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              KeycloakTarget
+              KeycloakIdentityProvider
             
           </span>
         </div>
@@ -390,37 +390,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    KeycloakTarget
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../keycloak-target/" class="md-nav__link">
         
   
   
@@ -436,81 +409,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#authentication-choices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authentication Choices
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recommended-bootstrap-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended Bootstrap Flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#existing-service-account-client" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Existing Service Account Client
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#password-auth" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Password Auth
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operational-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Operational Notes
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -548,10 +446,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../keycloak-identity-provider/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -567,6 +492,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#basic-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption And Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -799,10 +799,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#authentication-choices" class="md-nav__link">
+  <a href="#basic-shape" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authentication Choices
+        Basic Shape
       
     </span>
   </a>
@@ -810,10 +810,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#recommended-bootstrap-flow" class="md-nav__link">
+  <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Recommended Bootstrap Flow
+        Secrets
       
     </span>
   </a>
@@ -821,10 +821,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#existing-service-account-client" class="md-nav__link">
+  <a href="#adoption-and-lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Existing Service Account Client
+        Adoption And Lifecycle
       
     </span>
   </a>
@@ -832,10 +832,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#password-auth" class="md-nav__link">
+  <a href="#example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Password Auth
+        Example
       
     </span>
   </a>
@@ -843,10 +843,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#operational-notes" class="md-nav__link">
+  <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Operational Notes
+        Operations
       
     </span>
   </a>
@@ -873,110 +873,73 @@
   
 
 
-<h1 id="keycloaktarget">KeycloakTarget<a class="headerlink" href="#keycloaktarget" title="Permanent link">&para;</a></h1>
-<p><code>KeycloakTarget</code> tells the operator how to reach a Keycloak Admin API. Create it
-before any resource that manages a realm, client, role, scope, or mapper.</p>
-<p>Prefer the in-cluster Kubernetes Service URL when Keycloak runs in the same
-cluster. The operator runs inside Kubernetes, so an internal URL avoids public
-Ingress routing, external DNS, public TLS termination, and firewall assumptions.
-Use the scheme and port exposed by your Keycloak Service, for example
-<code>http://keycloak.keycloak.svc.cluster.local:8080</code>.</p>
-<h2 id="authentication-choices">Authentication Choices<a class="headerlink" href="#authentication-choices" title="Permanent link">&para;</a></h2>
-<p>Use bootstrap client credentials for fresh Keycloak installations, direct client
-credentials when the service client already exists, and password auth mainly for
-local or temporary environments.</p>
-<div class="highlight"><pre><span></span><code>flowchart TD
-  target[KeycloakTarget] --&gt; mode{Authentication input}
-
-  mode --&gt;|auth.type: BootstrapClientCredentials| bootstrap[Read admin Secret once]
-  bootstrap --&gt; create[Create operator client]
-  create --&gt; store[Store client secret in Kubernetes Secret]
-  store --&gt; client[Use client credentials]
-
-  mode --&gt;|auth.type: ClientCredentials| client
-  mode --&gt;|adminCredentials| password[Use admin username and password]
-
-  client --&gt; api[Keycloak Admin API]
-  password --&gt; api
-</code></pre></div>
-<h2 id="recommended-bootstrap-flow">Recommended Bootstrap Flow<a class="headerlink" href="#recommended-bootstrap-flow" title="Permanent link">&para;</a></h2>
-<p>For a fresh Keycloak installation, start with bootstrap client credentials. The
-operator uses an admin username and password once, creates a confidential client
-for itself, stores the generated client secret in Kubernetes, and then switches
-to client credentials for normal reconciliation.</p>
-<p>This keeps the initial setup simple while avoiding long-term use of admin
-password authentication by the operator.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
+<h1 id="keycloakidentityprovider">KeycloakIdentityProvider<a class="headerlink" href="#keycloakidentityprovider" title="Permanent link">&para;</a></h1>
+<p><code>KeycloakIdentityProvider</code> manages one identity provider instance inside a
+realm. The first version is intentionally small: it creates, observes, updates,
+and optionally deletes a provider by alias.</p>
+<p>Use it when teams need a repeatable way to configure login through an external
+OIDC, SAML, or social provider. Keep non-sensitive provider-specific settings in
+<code>config</code> and sensitive values in <code>configSecretRefs</code>; Keycloak decides which keys
+are meaningful for the selected <code>providerId</code>.</p>
+<h2 id="basic-shape">Basic Shape<a class="headerlink" href="#basic-shape" title="Permanent link">&para;</a></h2>
+<p>The alias is the lookup key. Pick a stable alias and avoid renaming it unless
+you are ready to create a new provider instance.</p>
+<p><code>providerId</code> is the Keycloak provider type, for example <code>oidc</code>, <code>saml</code>,
+<code>github</code>, or <code>google</code>. The operator does not validate provider-specific config
+yet because each provider type has different requirements.</p>
+<p>Only declare config keys you want the operator to own. During updates,
+undeclared existing config keys are preserved. If the same key exists in both
+<code>config</code> and <code>configSecretRefs</code>, the Secret value wins.</p>
+<h2 id="secrets">Secrets<a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h2>
+<p>Use <code>configSecretRefs</code> for values such as OIDC client secrets. Each map key is
+the Keycloak provider config key. The Secret key defaults to the same value, or
+you can set <code>secretKey</code> explicitly.</p>
+<p>Keep real Secret values out of Git. Store them with your normal Kubernetes
+Secret management flow.</p>
+<h2 id="adoption-and-lifecycle">Adoption And Lifecycle<a class="headerlink" href="#adoption-and-lifecycle" title="Permanent link">&para;</a></h2>
+<p>Use <code>managementPolicy: ObserveOnly</code> when adopting an existing identity provider.
+The operator reports whether the provider exists and whether declared fields
+match, without changing Keycloak.</p>
+<p>Keep the default <code>deletionPolicy: Orphan</code> for shared or production providers.
+Use <code>deletionPolicy: Delete</code> only when the Kubernetes resource fully owns the
+remote provider lifecycle.</p>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
 <span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
-<span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BootstrapClientCredentials</span>
-<span class="w">    </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">master</span>
-<span class="w">    </span><span class="nt">bootstrapAdminCredentials</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">secretRef</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-admin-credentials</span>
-<span class="w">    </span><span class="nt">clientCredentials</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config-operator</span>
-<span class="w">      </span><span class="nt">secretRef</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-operator-client</span>
-<span class="w">        </span><span class="nt">clientSecretKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clientSecret</span>
-</code></pre></div>
-<p>After bootstrap, the target status points to the generated Secret through
-<code>status.clientCredentialsSecretRef</code>. You can then remove the admin credentials
-from the target spec and use direct client credentials.</p>
-<h2 id="existing-service-account-client">Existing Service Account Client<a class="headerlink" href="#existing-service-account-client" title="Permanent link">&para;</a></h2>
-<p>Use direct client credentials when a suitable confidential client already exists
-in Keycloak.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc-secret</span>
+<span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Opaque</span>
+<span class="nt">stringData</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">clientSecret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">not-a-production-secret</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakIdentityProvider</span>
 <span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc</span>
 <span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
-<span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClientCredentials</span>
-<span class="w">    </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">master</span>
-<span class="w">    </span><span class="nt">clientCredentials</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config-operator</span>
-<span class="w">      </span><span class="nt">secretRef</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-operator-client</span>
-<span class="w">        </span><span class="nt">clientSecretKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clientSecret</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">alias</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc</span>
+<span class="w">  </span><span class="nt">providerId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example OIDC</span>
+<span class="w">  </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-client</span>
+<span class="w">    </span><span class="nt">authorizationUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://idp.example.com/oauth2/authorize</span>
+<span class="w">    </span><span class="nt">tokenUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://idp.example.com/oauth2/token</span>
+<span class="w">    </span><span class="nt">userInfoUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://idp.example.com/oauth2/userinfo</span>
+<span class="w">    </span><span class="nt">defaultScope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openid profile email</span>
+<span class="w">  </span><span class="nt">configSecretRefs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">clientSecret</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc-secret</span>
 </code></pre></div>
-<p>This is the preferred steady-state mode for production because the credential is
-scoped to a client instead of a human admin account.</p>
-<h2 id="password-auth">Password Auth<a class="headerlink" href="#password-auth" title="Permanent link">&para;</a></h2>
-<p>Password auth is still useful for local development, throwaway environments, or
-simple bootstrap scenarios.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
-<span class="w">  </span><span class="nt">adminCredentials</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">secretRef</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-admin-credentials</span>
-<span class="w">      </span><span class="nt">usernameKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">username</span>
-<span class="w">      </span><span class="nt">passwordKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">password</span>
-</code></pre></div>
-<p>Avoid this mode as the long-term production setup when client credentials are
-available.</p>
-<h2 id="operational-notes">Operational Notes<a class="headerlink" href="#operational-notes" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The URL must be reachable from the operator pod, not only from your laptop.</li>
-<li>Prefer the Keycloak Service DNS name over a public hostname when Keycloak is
-  deployed in the same cluster.</li>
-<li>Keep credentials in Kubernetes Secrets and grant Secret access only to the
-  namespaces the operator watches.</li>
-<li>Wait for <code>Ready=True</code> before applying dependent resources.</li>
-<li>Use <code>kubectl describe keycloaktarget &lt;name&gt;</code> to inspect authentication and
-  bootstrap Events.</li>
-<li><code>Authenticated=False</code> means the operator reached the Secret but Keycloak
-  rejected the credentials or the endpoint connection.</li>
-</ul>
+<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
+<p><code>.status.remoteId</code> contains the Keycloak internal identity provider ID when
+Keycloak returns one.</p>
+<p><code>kubectl describe keycloakidentityprovider &lt;name&gt;</code> shows Events for creation,
+updates, observe-only drift, missing observe-only providers, and deletion
+behavior.</p>
 
 
 

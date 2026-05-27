@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client/">
       
       
-        <link rel="prev" href="../keycloak-realm/">
+        <link rel="prev" href="../keycloak-identity-provider/">
       
       
         <link rel="next" href="../keycloak-role/">
@@ -429,6 +429,34 @@
     
   
     KeycloakRealm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
   
 
     
@@ -927,12 +955,21 @@ contract. Common fields are:</p>
 <li><code>rootUrl</code>, <code>baseUrl</code>, and <code>adminUrl</code> for Keycloak client URLs.</li>
 <li><code>redirectUris</code> and <code>webOrigins</code> for browser integration.</li>
 <li><code>standardFlowEnabled</code> for authorization code flow.</li>
+<li><code>implicitFlowEnabled</code> only for legacy clients that still require implicit
+  flow.</li>
 <li><code>directAccessGrantsEnabled</code> for password grant access.</li>
+<li><code>frontchannelLogout</code> when browser logout must notify the client.</li>
 </ul>
 <p>Only declare fields you want the operator to own. Omitted fields are left as
 they are in Keycloak.</p>
+<p>Use <code>enabled: false</code> to keep a client defined but temporarily disabled in
+Keycloak. This is useful for staged rollouts and incident response because the
+client stays visible and reviewable in Git.</p>
+<p>Set <code>fullScopeAllowed: false</code> when you want least-privilege scope assignment.
+Then declare <code>defaultClientScopes</code> and <code>optionalClientScopes</code> explicitly.</p>
 <p>For confidential service clients, <code>serviceAccountsEnabled</code> enables service
-account usage. Do not enable service accounts for public clients.</p>
+account usage. The CRD rejects service accounts on public clients because
+Keycloak only supports them for confidential clients.</p>
 <h2 id="client-scopes">Client Scopes<a class="headerlink" href="#client-scopes" title="Permanent link">&para;</a></h2>
 <p>Use <code>defaultClientScopes</code> and <code>optionalClientScopes</code> when the client needs
 explicit scope assignments. Prefer attaching common mappers to a shared
@@ -940,6 +977,8 @@ explicit scope assignments. Prefer attaching common mappers to a shared
 <p>Scope lists are reconciled when declared. During adoption, use
 <code>managementPolicy: ObserveOnly</code> first if you are not sure which scopes are
 already assigned in Keycloak.</p>
+<p>Keep each scope list unique. Duplicate values usually hide a copy-paste mistake
+and are rejected before the operator reconciles the client.</p>
 <h2 id="adoption-and-drift">Adoption And Drift<a class="headerlink" href="#adoption-and-drift" title="Permanent link">&para;</a></h2>
 <p>For new clients, use the default reconcile behavior. The operator creates the
 client if it is missing and updates the fields it owns when they drift.</p>
@@ -949,46 +988,51 @@ the operator to update anything.</p>
 <p>When you are comfortable with the observed state, switch to the default
 reconcile mode.</p>
 <h2 id="public-client-example">Public Client Example<a class="headerlink" href="#public-client-example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakClient
-metadata:
-  name: example-web
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  clientId: example-web
-  clientType: Public
-  displayName: Example Web
-  rootUrl: https://app.example.com
-  baseUrl: /
-  standardFlowEnabled: true
-  directAccessGrantsEnabled: false
-  redirectUris:
-    - https://app.example.com/*
-  webOrigins:
-    - https://app.example.com
-  defaultClientScopes:
-    - example-profile
-  optionalClientScopes:
-    - offline_access
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">  </span><span class="nt">clientType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example Web</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example browser application</span>
+<span class="w">  </span><span class="nt">rootUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com</span>
+<span class="w">  </span><span class="nt">baseUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/</span>
+<span class="w">  </span><span class="nt">standardFlowEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">implicitFlowEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">directAccessGrantsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">fullScopeAllowed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">frontchannelLogout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">redirectUris</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com/*</span>
+<span class="w">  </span><span class="nt">webOrigins</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com</span>
+<span class="w">  </span><span class="nt">defaultClientScopes</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
+<span class="w">  </span><span class="nt">optionalClientScopes</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">offline_access</span>
+</code></pre></div>
 <h2 id="confidential-client-example">Confidential Client Example<a class="headerlink" href="#confidential-client-example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakClient
-metadata:
-  name: example-service
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  clientId: example-service
-  clientType: Confidential
-  serviceAccountsEnabled: true
-  secretRef:
-    name: example-service-client-secret
-    secretKey: clientSecret
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-service</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-service</span>
+<span class="w">  </span><span class="nt">clientType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Confidential</span>
+<span class="w">  </span><span class="nt">serviceAccountsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">secretRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-service-client-secret</span>
+<span class="w">    </span><span class="nt">secretKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clientSecret</span>
+</code></pre></div>
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
 <p>Keep the default <code>deletionPolicy: Orphan</code> for shared or production clients. This
 prevents accidental remote deletion if a manifest is removed from Git or a

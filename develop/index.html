@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="resources/keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="resources/keycloak-client/" class="md-nav__link">
         
   
@@ -821,14 +849,16 @@
 
 <h1 id="keycloak-config-operator">Keycloak Config Operator<a class="headerlink" href="#keycloak-config-operator" title="Permanent link">&para;</a></h1>
 <p>The Keycloak Config Operator manages selected Keycloak configuration from
-Kubernetes custom resources. It lets teams keep Keycloak realms, clients, roles,
-client scopes, and protocol mappers close to the applications that use them.</p>
+Kubernetes custom resources. It lets teams keep Keycloak realms, identity
+providers, clients, roles, client scopes, and protocol mappers close to the
+applications that use them.</p>
 <h2 id="why-use-it">Why Use It<a class="headerlink" href="#why-use-it" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Bring Keycloak configuration into the same GitOps workflow as your applications.</li>
 <li>Turn repeatable identity setup into reviewed, versioned Kubernetes manifests.</li>
 <li>Reduce manual console work and make environment rebuilds predictable.</li>
-<li>Give platform teams a clear contract for supported realms, clients, roles, scopes, and mappers.</li>
+<li>Give platform teams a clear contract for supported realms, identity providers,
+  clients, roles, scopes, and mappers.</li>
 </ul>
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>You describe the Keycloak state you want in Kubernetes. The operator watches
@@ -845,12 +875,12 @@ dependency is not ready yet.</p>
 <li><a href="api-reference/">API reference</a> for the generated CRD schema.</li>
 </ul>
 <p>Install the released Helm chart from GitHub Container Registry:</p>
-<pre><code class="language-bash">helm upgrade --install keycloak-config-operator \
-  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.2.0 \
-  --namespace keycloak-config-operator-system \
-  --create-namespace
-</code></pre>
+<div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>oci://ghcr.io/clouddicted/charts/keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.3.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--namespace<span class="w"> </span>keycloak-config-operator-system<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--create-namespace
+</code></pre></div>
 <h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
 <p>See <a href="compatibility/">compatibility</a> for tested Keycloak versions and the support
 policy.</p>

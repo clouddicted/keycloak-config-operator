@@ -449,6 +449,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../keycloak-client/" class="md-nav__link">
         
   
@@ -880,47 +908,47 @@ claim is specific to that one client.</p>
 <p>Create the parent first. The operator resolves the parent object before it
 creates or updates the mapper.</p>
 <h2 id="client-scope-mapper-example">Client Scope Mapper Example<a class="headerlink" href="#client-scope-mapper-example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakProtocolMapper
-metadata:
-  name: example-profile-email
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  name: email
-  mapperType: oidc-usermodel-property-mapper
-  parent:
-    type: ClientScope
-    clientScopeRef:
-      name: example-profile
-  config:
-    user.attribute: email
-    claim.name: email
-    jsonType.label: String
-    id.token.claim: &quot;true&quot;
-    access.token.claim: &quot;true&quot;
-    userinfo.token.claim: &quot;true&quot;
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakProtocolMapper</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile-email</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+<span class="w">  </span><span class="nt">mapperType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc-usermodel-property-mapper</span>
+<span class="w">  </span><span class="nt">parent</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClientScope</span>
+<span class="w">    </span><span class="nt">clientScopeRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
+<span class="w">  </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">user.attribute</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+<span class="w">    </span><span class="nt">claim.name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+<span class="w">    </span><span class="nt">jsonType.label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">String</span>
+<span class="w">    </span><span class="nt">id.token.claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<span class="w">    </span><span class="nt">access.token.claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<span class="w">    </span><span class="nt">userinfo.token.claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</code></pre></div>
 <h2 id="client-mapper-example">Client Mapper Example<a class="headerlink" href="#client-mapper-example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakProtocolMapper
-metadata:
-  name: example-web-audience
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  name: audience
-  mapperType: oidc-audience-mapper
-  parent:
-    type: Client
-    clientRef:
-      name: example-web
-  config:
-    included.client.audience: example-web
-    access.token.claim: &quot;true&quot;
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakProtocolMapper</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web-audience</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">audience</span>
+<span class="w">  </span><span class="nt">mapperType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc-audience-mapper</span>
+<span class="w">  </span><span class="nt">parent</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Client</span>
+<span class="w">    </span><span class="nt">clientRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">  </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">included.client.audience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">    </span><span class="nt">access.token.claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</code></pre></div>
 <h2 id="config-practices">Config Practices<a class="headerlink" href="#config-practices" title="Permanent link">&para;</a></h2>
 <p>Mapper types and config keys are Keycloak Admin API values. The operator does
 not try to invent a friendlier abstraction over them, because the valid keys
@@ -931,6 +959,12 @@ first, then move the relevant Admin API values into the manifest.</p>
 keys. This makes adoption safer, but it also means removing a key from the
 manifest does not necessarily remove it from Keycloak.</p>
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
+<p>The operator creates the mapper if it is missing and updates the modeled fields
+when they drift. For <code>spec.config</code>, only declared keys are owned; undeclared
+existing keys are preserved.</p>
+<p>Use <code>managementPolicy: ObserveOnly</code> when adopting mappers created manually or by
+another automation path. This reports missing mappers and modeled drift without
+creating or updating the remote mapper.</p>
 <p>Remote deletion is opt-in. Use <code>Delete</code> for mappers that are fully owned by the
 resource. Keep <code>Orphan</code> for shared or manually managed mappers.</p>
 <h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>

@@ -560,6 +560,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
@@ -869,74 +897,74 @@
 <p>This page shows the smallest useful setup: install the operator, connect it to
 Keycloak, create a realm, and create one public client.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<pre><code class="language-bash">helm upgrade --install keycloak-config-operator \
-  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.2.0 \
-  --namespace keycloak-config-operator-system \
-  --create-namespace
-</code></pre>
+<div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>oci://ghcr.io/clouddicted/charts/keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.3.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--namespace<span class="w"> </span>keycloak-config-operator-system<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--create-namespace
+</code></pre></div>
 <h2 id="create-a-configuration-namespace">Create A Configuration Namespace<a class="headerlink" href="#create-a-configuration-namespace" title="Permanent link">&para;</a></h2>
-<pre><code class="language-bash">kubectl create namespace keycloak-config
-</code></pre>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>keycloak-config
+</code></pre></div>
 <h2 id="add-keycloak-credentials">Add Keycloak Credentials<a class="headerlink" href="#add-keycloak-credentials" title="Permanent link">&para;</a></h2>
 <p>For a quick start, use an admin username and password stored in a Kubernetes
 Secret.</p>
-<pre><code class="language-bash">kubectl create secret generic keycloak-admin-credentials \
-  --namespace keycloak-config \
-  --from-literal=username='&lt;admin-user&gt;' \
-  --from-literal=password='&lt;admin-password&gt;'
-</code></pre>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>keycloak-admin-credentials<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--namespace<span class="w"> </span>keycloak-config<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">&#39;&lt;admin-user&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">&#39;&lt;admin-password&gt;&#39;</span>
+</code></pre></div>
 <h2 id="create-a-target">Create A Target<a class="headerlink" href="#create-a-target" title="Permanent link">&para;</a></h2>
 <p>The target tells the operator how to reach Keycloak. When Keycloak runs in the
 same cluster, use the internal Service URL instead of the public hostname.</p>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakTarget
-metadata:
-  name: example-keycloak
-  namespace: keycloak-config
-spec:
-  url: http://keycloak.keycloak.svc.cluster.local:8080
-  adminCredentials:
-    secretRef:
-      name: keycloak-admin-credentials
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
+<span class="w">  </span><span class="nt">adminCredentials</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">secretRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-admin-credentials</span>
+</code></pre></div>
 <p>Apply it and wait until the connection is ready.</p>
-<pre><code class="language-bash">kubectl apply -f keycloak-target.yaml
-kubectl wait -n keycloak-config --for=condition=Ready \
-  keycloaktarget/example-keycloak --timeout=120s
-</code></pre>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>keycloak-target.yaml
+kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>-n<span class="w"> </span>keycloak-config<span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>keycloaktarget/example-keycloak<span class="w"> </span>--timeout<span class="o">=</span>120s
+</code></pre></div>
 <h2 id="create-a-realm-and-client">Create A Realm And Client<a class="headerlink" href="#create-a-realm-and-client" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakRealm
-metadata:
-  name: example-realm
-  namespace: keycloak-config
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  displayName: Example
----
-apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakClient
-metadata:
-  name: example-web
-  namespace: keycloak-config
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  clientId: example-web
-  clientType: Public
-  displayName: Example Web
-  redirectUris:
-    - https://app.example.com/*
-  webOrigins:
-    - https://app.example.com
-</code></pre>
-<pre><code class="language-bash">kubectl apply -f keycloak-config.yaml
-kubectl get -n keycloak-config keycloakrealms,keycloakclients
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakRealm</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-realm</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">  </span><span class="nt">clientType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
+<span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example Web</span>
+<span class="w">  </span><span class="nt">redirectUris</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com/*</span>
+<span class="w">  </span><span class="nt">webOrigins</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>keycloak-config.yaml
+kubectl<span class="w"> </span>get<span class="w"> </span>-n<span class="w"> </span>keycloak-config<span class="w"> </span>keycloakrealms,keycloakclients
+</code></pre></div>
 <p>Both resources should eventually report <code>Ready=True</code>.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

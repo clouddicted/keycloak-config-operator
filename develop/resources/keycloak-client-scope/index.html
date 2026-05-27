@@ -449,6 +449,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../keycloak-client/" class="md-nav__link">
         
   
@@ -829,17 +857,17 @@ reusable protocol behavior that can be shared by multiple clients.</p>
 <p>Client scopes are especially useful when several applications need the same
 claims or mapper setup. Model the scope once, then attach mappers to it.</p>
 <h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakClientScope
-metadata:
-  name: example-profile
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  name: example-profile
-  description: Example profile client scope
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClientScope</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile client scope</span>
+</code></pre></div>
 <h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Create client scopes before protocol mappers that reference them.</li>
@@ -851,6 +879,9 @@ spec:
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
 <p>The operator creates the client scope if it is missing and updates the modeled
 fields when they drift.</p>
+<p>Use <code>managementPolicy: ObserveOnly</code> during adoption if a scope already exists or
+is shared. The operator reports missing scopes and modeled drift without
+changing Keycloak.</p>
 <p>Remote deletion is opt-in. Keep <code>Orphan</code> for shared scopes. Use <code>Delete</code> for
 test scopes or scopes that are owned by one application lifecycle.</p>
 <h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>

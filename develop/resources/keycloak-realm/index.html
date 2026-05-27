@@ -16,7 +16,7 @@
         <link rel="prev" href="../keycloak-target/">
       
       
-        <link rel="next" href="../keycloak-client/">
+        <link rel="next" href="../keycloak-identity-provider/">
       
       
         
@@ -529,6 +529,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../keycloak-client/" class="md-nav__link">
         
   
@@ -807,16 +835,16 @@ operator currently owns.</p>
 <p>Use it to make environment setup repeatable. For example, a test cluster can
 create the realm before clients, roles, scopes, and mappers are applied.</p>
 <h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakRealm
-metadata:
-  name: example-realm
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  displayName: Example
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakRealm</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-realm</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example</span>
+</code></pre></div>
 <h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Create the <code>KeycloakTarget</code> first and wait until it is ready.</li>
@@ -829,6 +857,10 @@ spec:
 <h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
 <p>The operator creates the realm if it does not exist and updates the modeled
 fields when they drift.</p>
+<p>For existing realms, use <code>managementPolicy: ObserveOnly</code> during adoption if you
+want to verify the desired manifest before allowing the operator to change
+Keycloak. In observe-only mode, missing realms and modeled drift are reported in
+<code>.status.conditions</code> and Events, but the remote realm is not created or updated.</p>
 <p>Realm deletion is intentionally not supported. Deleting a realm can remove a
 large amount of configuration and user data, so that action should stay an
 explicit Keycloak administration task.</p>

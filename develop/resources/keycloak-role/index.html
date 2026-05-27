@@ -449,6 +449,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../keycloak-client/" class="md-nav__link">
         
   
@@ -829,17 +857,17 @@ available consistently wherever the application is deployed.</p>
 <p>Roles are usually referenced by applications, clients, mappers, or other
 automation. Keeping them in Git makes role creation explicit and reviewable.</p>
 <h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
-<pre><code class="language-yaml">apiVersion: keycloak.clouddicted.com/v1beta1
-kind: KeycloakRole
-metadata:
-  name: example-admin
-spec:
-  targetRef:
-    name: example-keycloak
-  realm: example
-  name: example-admin
-  description: Example administrator role
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakRole</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-admin</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-admin</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example administrator role</span>
+</code></pre></div>
 <h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Create the realm before creating roles inside it.</li>
@@ -852,11 +880,14 @@ spec:
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
 <p>The operator creates the role if it is missing and updates the description when
 the declared value differs.</p>
+<p>Use <code>managementPolicy: ObserveOnly</code> when adopting existing roles. The operator
+checks whether the role exists and whether the modeled fields match, but it does
+not create or update the remote role.</p>
 <p>Remote deletion is opt-in. Keep the default <code>Orphan</code> policy for shared roles.
 Use <code>Delete</code> only when the Kubernetes resource clearly owns the role.</p>
-<pre><code class="language-yaml">spec:
-  deletionPolicy: Delete
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">deletionPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Delete</span>
+</code></pre></div>
 <h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
 <p><code>.status.remoteId</code> contains the Keycloak internal role ID. <code>kubectl describe</code>
 shows Events for create, update, and delete/orphan decisions.</p>

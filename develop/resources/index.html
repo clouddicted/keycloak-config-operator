@@ -551,6 +551,34 @@
   
   
     <li class="md-nav__item">
+      <a href="keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="keycloak-client/" class="md-nav__link">
         
   
@@ -857,16 +885,34 @@ Use the <a href="../api-reference/">API reference</a> when you need the complete
 to one Keycloak instance.</p>
 <p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
 configuration.</p>
-<p><code>KeycloakClient</code>, <code>KeycloakRole</code>, <code>KeycloakClientScope</code>, and
-<code>KeycloakProtocolMapper</code> manage selected objects inside a realm.</p>
+<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakRole</code>,
+<code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage selected objects
+inside a realm.</p>
+<p>Arrows point from prerequisites to resources that depend on them:</p>
+<div class="highlight"><pre><span></span><code>flowchart TD
+  target[KeycloakTarget] --&gt; realm[KeycloakRealm]
+  target --&gt; idp[KeycloakIdentityProvider]
+  target --&gt; client[KeycloakClient]
+  target --&gt; role[KeycloakRole]
+  target --&gt; scope[KeycloakClientScope]
+  target --&gt; mapper[KeycloakProtocolMapper]
+
+  realm --&gt; idp
+  realm --&gt; client
+  realm --&gt; role
+  realm --&gt; scope
+  client --&gt; mapper
+  scope --&gt; mapper
+</code></pre></div>
 <p>The normal apply order is:</p>
-<pre><code class="language-text">KeycloakTarget
+<div class="highlight"><pre><span></span><code>KeycloakTarget
 KeycloakRealm
+KeycloakIdentityProvider
 KeycloakRole
 KeycloakClient
 KeycloakClientScope
 KeycloakProtocolMapper
-</code></pre>
+</code></pre></div>
 <p>Client scopes must exist before protocol mappers that attach to them. Clients
 must exist before protocol mappers that attach directly to clients.</p>
 <h2 id="namespace-model">Namespace Model<a class="headerlink" href="#namespace-model" title="Permanent link">&para;</a></h2>
@@ -880,8 +926,17 @@ give each namespace only the Secret access it needs.</p>
 alone where possible. This makes it usable with existing Keycloak instances, but
 it also means you should treat the CRDs as the source of truth for the fields you
 declare.</p>
-<p>For clients, <code>managementPolicy: ObserveOnly</code> is useful during adoption. It lets
-you detect drift before allowing the operator to update Keycloak.</p>
+<p>Use <code>managementPolicy: ObserveOnly</code> during adoption. It lets you check whether
+the remote Keycloak object exists and whether the modeled fields match the
+manifest before allowing the operator to create or update anything.</p>
+<p>When observe-only drift is found, the resource reports:</p>
+<ul>
+<li><code>Ready=True</code> when the remote object exists but differs.</li>
+<li><code>Ready=False</code> when the remote object is missing.</li>
+<li><code>DriftDetected=True</code> in both cases.</li>
+</ul>
+<p>Switch back to the default <code>managementPolicy: Reconcile</code> when the manifest is
+ready to own those fields.</p>
 <h2 id="deletion-model">Deletion Model<a class="headerlink" href="#deletion-model" title="Permanent link">&para;</a></h2>
 <p>Remote deletion is intentionally conservative. Most resources default to
 <code>deletionPolicy: Orphan</code>, which removes only the Kubernetes object and leaves the
@@ -894,10 +949,15 @@ clients.</p>
 sessions, and other data that is too broad to remove as a side effect of deleting
 a Kubernetes object.</p>
 <h2 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h2>
-<p>Every resource reports readiness in <code>.status.conditions</code>. Use:</p>
-<pre><code class="language-bash">kubectl get keycloakclients
-kubectl describe keycloakclient example-web
-</code></pre>
+<p>Every resource reports Kubernetes-style conditions in <code>.status.conditions</code>. Use:</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>keycloakclients
+kubectl<span class="w"> </span>describe<span class="w"> </span>keycloakclient<span class="w"> </span>example-web
+</code></pre></div>
+<p>All resources use <code>Ready</code> as the aggregate condition. Managed Keycloak objects
+also use <code>DriftDetected</code>; it is <code>Unknown</code> when the operator cannot check drift
+because the spec, target, credentials, or Keycloak API request is blocked.
+<code>KeycloakTarget</code> adds target-specific conditions for Secret loading,
+authentication, and bootstrap.</p>
 <p><code>kubectl describe</code> shows Events for important lifecycle actions such as create,
 update, drift detection, bootstrap completion, and remote deletion.</p>
 <p>Managed objects that have a Keycloak internal ID expose it as

@@ -447,6 +447,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
@@ -664,6 +692,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#owned-fields-and-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Owned Fields And Drift
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keycloaktarget" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -690,6 +729,17 @@
     <span class="md-ellipsis">
       
         KeycloakClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakidentityprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakIdentityProvider
       
     </span>
   </a>
@@ -813,6 +863,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#owned-fields-and-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Owned Fields And Drift
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keycloaktarget" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -839,6 +900,17 @@
     <span class="md-ellipsis">
       
         KeycloakClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakidentityprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakIdentityProvider
       
     </span>
   </a>
@@ -953,6 +1025,15 @@ Admin API.</p>
 <td>Reconciles <code>spec.displayName</code> when set.</td>
 </tr>
 <tr>
+<td>Identity provider</td>
+<td><code>KeycloakIdentityProvider</code></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Optional</td>
+<td>Yes</td>
+<td>Basic provider support. Delete requires <code>spec.deletionPolicy: Delete</code>.</td>
+</tr>
+<tr>
 <td>Client</td>
 <td><code>KeycloakClient</code></td>
 <td>Yes</td>
@@ -987,6 +1068,47 @@ Admin API.</p>
 <td>Optional</td>
 <td>Yes</td>
 <td>Delete requires <code>spec.deletionPolicy: Delete</code>. Parent must be a managed client or client scope.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="owned-fields-and-drift">Owned Fields And Drift<a class="headerlink" href="#owned-fields-and-drift" title="Permanent link">&para;</a></h2>
+<p>The operator owns only the fields exposed in the CRDs. When a field is omitted,
+the operator leaves the corresponding Keycloak setting unchanged where the
+Keycloak Admin API allows it.</p>
+<p>Use <code>spec.managementPolicy: ObserveOnly</code> to check existing objects before the
+operator changes them. Observe-only resources report missing remote objects and
+modeled field drift with a <code>DriftDetected=True</code> condition and a Warning Event.</p>
+<table>
+<thead>
+<tr>
+<th>CRD</th>
+<th>Owned remote fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KeycloakRealm</code></td>
+<td><code>displayName</code> when set. Realm creation also sets <code>enabled: true</code>.</td>
+</tr>
+<tr>
+<td><code>KeycloakIdentityProvider</code></td>
+<td><code>providerId</code>, <code>enabled</code>, <code>displayName</code>, declared <code>config</code> keys, and declared <code>configSecretRefs</code> keys. Undeclared existing config keys are preserved. Provider alias is the lookup key.</td>
+</tr>
+<tr>
+<td><code>KeycloakClient</code></td>
+<td><code>enabled</code>, <code>name</code>, <code>description</code>, <code>rootUrl</code>, <code>baseUrl</code>, <code>adminUrl</code>, flow toggles, <code>fullScopeAllowed</code>, <code>frontchannelLogout</code>, <code>redirectUris</code>, <code>webOrigins</code>, default and optional client scopes, public/confidential type, and confidential client secret on create.</td>
+</tr>
+<tr>
+<td><code>KeycloakRole</code></td>
+<td><code>description</code> when set. Role name is the lookup key.</td>
+</tr>
+<tr>
+<td><code>KeycloakClientScope</code></td>
+<td><code>description</code> when set and <code>protocol</code>. Scope name is the lookup key.</td>
+</tr>
+<tr>
+<td><code>KeycloakProtocolMapper</code></td>
+<td><code>protocol</code>, <code>protocolMapper</code>, and declared <code>config</code> keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys.</td>
 </tr>
 </tbody>
 </table>
@@ -1063,6 +1185,11 @@ secret in Kubernetes.</p>
 <td>Realm name and remote lookup key.</td>
 </tr>
 <tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
 <td><code>spec.displayName</code></td>
 <td>Supported</td>
 <td>Reconciled when set.</td>
@@ -1110,9 +1237,19 @@ secret in Kubernetes.</p>
 <td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
 </tr>
 <tr>
+<td><code>spec.enabled</code></td>
+<td>Supported</td>
+<td>Reconciled with default <code>true</code>.</td>
+</tr>
+<tr>
 <td><code>spec.displayName</code></td>
 <td>Supported</td>
 <td>Reconciled to Keycloak client <code>name</code>.</td>
+</tr>
+<tr>
+<td><code>spec.description</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
 </tr>
 <tr>
 <td><code>spec.rootUrl</code></td>
@@ -1135,6 +1272,11 @@ secret in Kubernetes.</p>
 <td>Reconciled when set.</td>
 </tr>
 <tr>
+<td><code>spec.implicitFlowEnabled</code></td>
+<td>Supported</td>
+<td>Reconciled when set. Prefer leaving this disabled unless a legacy client requires it.</td>
+</tr>
+<tr>
 <td><code>spec.directAccessGrantsEnabled</code></td>
 <td>Supported</td>
 <td>Reconciled when set.</td>
@@ -1143,6 +1285,16 @@ secret in Kubernetes.</p>
 <td><code>spec.serviceAccountsEnabled</code></td>
 <td>Supported</td>
 <td>Reconciled when set. Intended for confidential clients.</td>
+</tr>
+<tr>
+<td><code>spec.fullScopeAllowed</code></td>
+<td>Supported</td>
+<td>Reconciled when set. Use <code>false</code> with explicit scope assignments for least privilege.</td>
+</tr>
+<tr>
+<td><code>spec.frontchannelLogout</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
 </tr>
 <tr>
 <td><code>spec.secretRef</code></td>
@@ -1186,6 +1338,68 @@ secret in Kubernetes.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="keycloakidentityprovider">KeycloakIdentityProvider<a class="headerlink" href="#keycloakidentityprovider" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.targetRef</code></td>
+<td>Supported</td>
+<td>References a <code>KeycloakTarget</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.realm</code></td>
+<td>Supported</td>
+<td>Realm containing the identity provider.</td>
+</tr>
+<tr>
+<td><code>spec.alias</code></td>
+<td>Supported</td>
+<td>Identity provider alias and remote lookup key.</td>
+</tr>
+<tr>
+<td><code>spec.providerId</code></td>
+<td>Supported</td>
+<td>Keycloak provider type, such as <code>oidc</code>, <code>saml</code>, <code>github</code>, or <code>google</code>.</td>
+</tr>
+<tr>
+<td><code>spec.enabled</code></td>
+<td>Supported</td>
+<td>Reconciled with default <code>true</code>.</td>
+</tr>
+<tr>
+<td><code>spec.displayName</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.config</code></td>
+<td>Partial</td>
+<td>Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved.</td>
+</tr>
+<tr>
+<td><code>spec.configSecretRefs</code></td>
+<td>Partial</td>
+<td>Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in <code>spec.config</code>.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="keycloakrole">KeycloakRole<a class="headerlink" href="#keycloakrole" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1215,6 +1429,11 @@ secret in Kubernetes.</p>
 <td><code>spec.description</code></td>
 <td>Supported</td>
 <td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
 </tr>
 <tr>
 <td><code>spec.deletionPolicy</code></td>
@@ -1257,6 +1476,11 @@ secret in Kubernetes.</p>
 <td><code>spec.protocol</code></td>
 <td>Supported</td>
 <td>Defaults to <code>openid-connect</code>.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
 </tr>
 <tr>
 <td><code>spec.deletionPolicy</code></td>
@@ -1304,6 +1528,11 @@ secret in Kubernetes.</p>
 <td><code>spec.config</code></td>
 <td>Partial</td>
 <td>Desired keys are reconciled; undeclared existing keys are preserved.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
 </tr>
 <tr>
 <td><code>spec.deletionPolicy</code></td>
