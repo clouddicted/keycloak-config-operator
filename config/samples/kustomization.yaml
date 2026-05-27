@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - keycloak_v1beta1_keycloaktarget.yaml
   - keycloak_v1beta1_keycloakrealm.yaml
+  - keycloak_v1beta1_keycloakidentityprovider.yaml
   - keycloak_v1beta1_keycloakclientscope.yaml
   - keycloak_v1beta1_keycloakrole.yaml
   - keycloak_v1beta1_keycloakprotocolmapper.yaml

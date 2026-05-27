@@ -22,6 +22,7 @@ nav:
       - Overview: resources/index.md
       - KeycloakTarget: resources/keycloak-target.md
       - KeycloakRealm: resources/keycloak-realm.md
+      - KeycloakIdentityProvider: resources/keycloak-identity-provider.md
       - KeycloakClient: resources/keycloak-client.md
       - KeycloakRole: resources/keycloak-role.md
       - KeycloakClientScope: resources/keycloak-client-scope.md

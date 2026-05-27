@@ -1,0 +1,173 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keycloakidentityproviders.keycloak.clouddicted.com
+spec:
+  group: keycloak.clouddicted.com
+  scope: Namespaced
+  names:
+    kind: KeycloakIdentityProvider
+    plural: keycloakidentityproviders
+    singular: keycloakidentityprovider
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Alias
+          type: string
+          jsonPath: .spec.alias
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Provider
+          type: string
+          jsonPath: .spec.providerId
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              description: Desired Keycloak identity provider.
+              required:
+                - targetRef
+                - realm
+                - alias
+                - providerId
+              properties:
+                targetRef:
+                  type: object
+                  description: KeycloakTarget used to reach Keycloak.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakTarget in this namespace.
+                      minLength: 1
+                realm:
+                  type: string
+                  description: Realm containing the identity provider.
+                  minLength: 1
+                alias:
+                  type: string
+                  description: Identity provider alias and remote lookup key.
+                  minLength: 1
+                providerId:
+                  type: string
+                  description: Keycloak provider type, such as oidc, saml, github, or google.
+                  minLength: 1
+                managementPolicy:
+                  type: string
+                  description: Whether the operator reconciles or only observes the provider.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
+                deletionPolicy:
+                  type: string
+                  description: What happens to the Keycloak provider when this resource is deleted.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
+                enabled:
+                  type: boolean
+                  description: Whether the identity provider is enabled.
+                  default: true
+                displayName:
+                  type: string
+                  description: Display name shown for the identity provider.
+                  minLength: 1
+                config:
+                  type: object
+                  description: Non-sensitive Keycloak provider configuration key-value pairs.
+                  additionalProperties:
+                    type: string
+                    description: Provider configuration value.
+                configSecretRefs:
+                  type: object
+                  description: Secret-backed provider configuration values keyed by Keycloak provider config name.
+                  additionalProperties:
+                    type: object
+                    description: Secret reference for one provider configuration value.
+                    required:
+                      - name
+                    properties:
+                      name:
+                        type: string
+                        description: Secret name.
+                        minLength: 1
+                      namespace:
+                        type: string
+                        description: Secret namespace. Defaults to this resource namespace.
+                        minLength: 1
+                      secretKey:
+                        type: string
+                        description: Secret key containing the provider configuration value. Defaults to the config key.
+                        minLength: 1
+            status:
+              type: object
+              description: Observed KeycloakIdentityProvider status.
+              properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed identity provider.
+                conditions:
+                  type: array
+                  description: Current Kubernetes-style status conditions.
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                        description: Condition type.
+                        minLength: 1
+                      status:
+                        type: string
+                        description: Condition status.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        description: Resource generation observed by the operator.
+                        format: int64
+                        minimum: 0
+                      lastTransitionTime:
+                        type: string
+                        description: Time when the condition last changed.
+                        format: date-time
+                      reason:
+                        type: string
+                        description: Short reason for the condition state.
+                        minLength: 1
+                      message:
+                        type: string
+                        description: Human-readable condition details.

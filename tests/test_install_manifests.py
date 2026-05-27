@@ -8,6 +8,7 @@ from clouddicted_keycloak_config_operator.constants import (
     API_VERSION,
     KEYCLOAK_CLIENT_PLURAL,
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
+    KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,
     KEYCLOAK_REALM_PLURAL,
     KEYCLOAK_ROLE_PLURAL,
@@ -19,7 +20,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.2.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.3.0"
 OPERATOR_ARGS = [
     "run",
     "-m",
@@ -30,6 +31,7 @@ CUSTOM_RESOURCES = {
     KEYCLOAK_TARGET_PLURAL,
     KEYCLOAK_REALM_PLURAL,
     KEYCLOAK_CLIENT_PLURAL,
+    KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
     KEYCLOAK_ROLE_PLURAL,
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,

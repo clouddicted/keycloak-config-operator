@@ -1,15 +1,17 @@
 # Keycloak Config Operator
 
 The Keycloak Config Operator manages selected Keycloak configuration from
-Kubernetes custom resources. It lets teams keep Keycloak realms, clients, roles,
-client scopes, and protocol mappers close to the applications that use them.
+Kubernetes custom resources. It lets teams keep Keycloak realms, identity
+providers, clients, roles, client scopes, and protocol mappers close to the
+applications that use them.
 
 ## Why Use It
 
 - Bring Keycloak configuration into the same GitOps workflow as your applications.
 - Turn repeatable identity setup into reviewed, versioned Kubernetes manifests.
 - Reduce manual console work and make environment rebuilds predictable.
-- Give platform teams a clear contract for supported realms, clients, roles, scopes, and mappers.
+- Give platform teams a clear contract for supported realms, identity providers,
+  clients, roles, scopes, and mappers.
 
 ## How It Works
 
@@ -33,7 +35,7 @@ Install the released Helm chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```

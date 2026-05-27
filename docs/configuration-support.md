@@ -17,6 +17,7 @@ Status meanings:
 | --- | --- | --- | --- | --- | --- | --- |
 | Keycloak target | `KeycloakTarget` | Observe only | Observe only | Not applicable | Yes | Verifies credentials and connectivity. |
 | Realm | `KeycloakRealm` | Yes | Partial | No | Yes | Reconciles `spec.displayName` when set. |
+| Identity provider | `KeycloakIdentityProvider` | Yes | Yes | Optional | Yes | Basic provider support. Delete requires `spec.deletionPolicy: Delete`. |
 | Client | `KeycloakClient` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Realm role | `KeycloakRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
@@ -35,6 +36,7 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | CRD | Owned remote fields |
 | --- | --- |
 | `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
+| `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
 | `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
 | `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
@@ -97,6 +99,21 @@ secret in Kubernetes.
 | `spec.webOrigins` | Supported | Reconciled list of web origins. |
 | `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
 | `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
+
+## KeycloakIdentityProvider
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the identity provider. |
+| `spec.alias` | Supported | Identity provider alias and remote lookup key. |
+| `spec.providerId` | Supported | Keycloak provider type, such as `oidc`, `saml`, `github`, or `google`. |
+| `spec.enabled` | Supported | Reconciled with default `true`. |
+| `spec.displayName` | Supported | Reconciled when set. |
+| `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
+| `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakRole
 

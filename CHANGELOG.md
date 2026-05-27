@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.3.0 - 2026-05-28
+
+### Highlights
+
+- Added basic `KeycloakIdentityProvider` support for creating, observing,
+  updating, and optionally deleting identity provider instances.
+- Added Secret-backed identity provider config through `spec.configSecretRefs`
+  for values such as OIDC client secrets.
+- Improved validation feedback for invalid custom resource specs.
+- Standardized `Ready` and `DriftDetected` condition style across managed
+  Keycloak resources.
+- Extended `KeycloakClient` with additional common settings for URLs, flows,
+  service accounts, and scope assignments.
+
+### Documentation
+
+- Added a `KeycloakIdentityProvider` resource guide and API reference entry.
+- Updated the configuration support matrix and examples for identity provider
+  secret-backed config.
+- Bumped installation examples and release metadata to `v0.3.0`.
+
+### Testing
+
+- Added unit coverage for identity provider reconciliation, validation, secret
+  loading, drift detection, and deletion behavior.
+- Extended kind e2e tests to create an identity provider and verify it through
+  the Keycloak Admin API.
+
+### Upgrade Notes
+
+- CRDs are still served as `keycloak.clouddicted.com/v1beta1`.
+- Upgrade the CRDs before applying `KeycloakIdentityProvider` resources or
+  resources using new `KeycloakClient` fields.
+- Keep sensitive identity provider config in Kubernetes Secrets and reference
+  it with `spec.configSecretRefs`.
+
 ## v0.2.0 - 2026-05-25
 
 ### Highlights
