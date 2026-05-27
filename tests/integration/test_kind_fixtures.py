@@ -27,6 +27,9 @@ INSTALL_KUSTOMIZATION = REPO_ROOT / "config" / "install"
 CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloaktargets.yaml"
 REALM_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakrealms.yaml"
 CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclients.yaml"
+CLIENT_ROLE_CRD = (
+    REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientroles.yaml"
+)
 IDENTITY_PROVIDER_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakidentityproviders.yaml"
 )
@@ -39,6 +42,9 @@ PROTOCOL_MAPPER_CRD = (
 ROLE_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakroles.yaml"
 REALM_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakrealm.yaml"
 CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient.yaml"
+CLIENT_ROLE_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientrole.yaml"
+)
 IDENTITY_PROVIDER_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakidentityprovider.yaml"
 )
@@ -78,6 +84,7 @@ CLIENT_SCOPE_NAME = "example-profile"
 PROTOCOL_MAPPER_NAME = "email"
 ROLE_NAME = "example-admin"
 OBSERVE_ONLY_ROLE_NAME = "observe-only-admin"
+CLIENT_ROLE_NAME = "reader"
 READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
@@ -106,6 +113,10 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
     _run(["kubectl", "apply", "--server-side", "-f", str(REALM_CRD)], env=kind_cluster_env)
     _run(["kubectl", "apply", "--server-side", "-f", str(CLIENT_CRD)], env=kind_cluster_env)
     _run(
+        ["kubectl", "apply", "--server-side", "-f", str(CLIENT_ROLE_CRD)],
+        env=kind_cluster_env,
+    )
+    _run(
         ["kubectl", "apply", "--server-side", "-f", str(IDENTITY_PROVIDER_CRD)],
         env=kind_cluster_env,
     )
@@ -124,6 +135,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloaktargets.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakclientroles.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -245,6 +266,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(CLIENT_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(CLIENT_ROLE_SAMPLE),
         ],
         env=kind_cluster_env,
     )
@@ -444,6 +476,19 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
         )
 
+        _log("applying KeycloakClientRole")
+        _apply_document(kind_cluster_env, _keycloak_client_role(realm))
+        _wait_for_ready(kind_cluster_env, "keycloakclientroles", "example-web-reader")
+        _eventually(lambda: _assert_client_role(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclientroles",
+                "example-web-reader",
+                _client_role(keycloak_url, realm)["id"],
+            )
+        )
+
         _log("applying confidential KeycloakClient")
         _apply_document(kind_cluster_env, _confidential_client_secret())
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
@@ -457,6 +502,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
                 _client(keycloak_url, realm, CONFIDENTIAL_CLIENT_ID)["id"],
             )
         )
+
+        _log("deleting KeycloakClientRole with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_client_role(realm))
+        _eventually(lambda: _assert_client_role_missing(keycloak_url, realm))
 
         _log("deleting KeycloakProtocolMapper with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
@@ -509,6 +558,7 @@ def _apply_crds(env: dict[str, str]) -> None:
         CRD,
         REALM_CRD,
         CLIENT_CRD,
+        CLIENT_ROLE_CRD,
         IDENTITY_PROVIDER_CRD,
         ROLE_CRD,
         CLIENT_SCOPE_CRD,
@@ -524,6 +574,7 @@ def _wait_for_crds(env: dict[str, str]) -> None:
         "keycloaktargets",
         "keycloakrealms",
         "keycloakclients",
+        "keycloakclientroles",
         "keycloakidentityproviders",
         "keycloakroles",
         "keycloakclientscopes",
@@ -1038,6 +1089,22 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_client_role(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakClientRole",
+        "metadata": {"name": "example-web-reader", "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "clientRef": {"name": PUBLIC_CLIENT_ID},
+            "name": CLIENT_ROLE_NAME,
+            "description": "Example web reader role",
+            "deletionPolicy": "Delete",
+        },
+    }
+
+
 def _confidential_client_secret() -> dict[str, Any]:
     return {
         "apiVersion": "v1",
@@ -1140,6 +1207,12 @@ def _assert_role(base_url: str, realm: str) -> None:
     assert role["description"] == "Example administrator role"
 
 
+def _assert_client_role(base_url: str, realm: str) -> None:
+    role = _client_role(base_url, realm)
+    assert role["name"] == CLIENT_ROLE_NAME
+    assert role["description"] == "Example web reader role"
+
+
 def _assert_role_missing(
     base_url: str,
     realm: str,
@@ -1152,6 +1225,16 @@ def _assert_role_missing(
         return
 
     raise AssertionError(f"Keycloak role {role_name!r} still exists")
+
+
+def _assert_client_role_missing(base_url: str, realm: str) -> None:
+    try:
+        _client_role(base_url, realm)
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 404
+        return
+
+    raise AssertionError(f"Keycloak client role {CLIENT_ROLE_NAME!r} still exists")
 
 
 def _assert_client_scope_missing(base_url: str, realm: str) -> None:
@@ -1199,6 +1282,14 @@ def _assert_confidential_client(base_url: str, realm: str) -> None:
 def _client(base_url: str, realm: str, client_id: str) -> dict[str, Any]:
     clients = _admin_get(base_url, f"realms/{realm}/clients", params={"clientId": client_id})
     return _one_by_field(clients, "clientId", client_id)
+
+
+def _client_role(base_url: str, realm: str) -> dict[str, Any]:
+    client = _client(base_url, realm, PUBLIC_CLIENT_ID)
+    return _admin_get(
+        base_url,
+        f"realms/{realm}/clients/{client['id']}/roles/{CLIENT_ROLE_NAME}",
+    )
 
 
 def _client_scope(base_url: str, realm: str, name: str) -> dict[str, Any]:

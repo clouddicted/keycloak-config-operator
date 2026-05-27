@@ -34,6 +34,7 @@ rules:
       - keycloaktargets
       - keycloakrealms
       - keycloakclients
+      - keycloakclientroles
       - keycloakidentityproviders
       - keycloakroles
       - keycloakclientscopes
@@ -50,6 +51,7 @@ rules:
       - keycloaktargets/status
       - keycloakrealms/status
       - keycloakclients/status
+      - keycloakclientroles/status
       - keycloakidentityproviders/status
       - keycloakroles/status
       - keycloakclientscopes/status
@@ -64,6 +66,7 @@ rules:
       - keycloaktargets/finalizers
       - keycloakrealms/finalizers
       - keycloakclients/finalizers
+      - keycloakclientroles/finalizers
       - keycloakidentityproviders/finalizers
       - keycloakroles/finalizers
       - keycloakclientscopes/finalizers

@@ -34,6 +34,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
         "getting-started.md",
         "index.md",
         "resources/index.md",
+        "resources/keycloak-client-role.md",
         "resources/keycloak-client-scope.md",
         "resources/keycloak-client.md",
         "resources/keycloak-identity-provider.md",

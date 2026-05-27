@@ -2,8 +2,8 @@
 
 The Keycloak Config Operator manages selected Keycloak configuration from
 Kubernetes custom resources. It lets teams keep Keycloak realms, identity
-providers, clients, roles, client scopes, and protocol mappers close to the
-applications that use them.
+providers, clients, client roles, realm roles, client scopes, and protocol
+mappers close to the applications that use them.
 
 ## Why Use It
 

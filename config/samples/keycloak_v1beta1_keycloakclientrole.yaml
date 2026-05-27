@@ -1,0 +1,12 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakClientRole
+metadata:
+  name: example-web-reader
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientRef:
+    name: example-web
+  name: reader
+  description: Example web client reader role

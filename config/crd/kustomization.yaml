@@ -4,6 +4,7 @@ resources:
   - keycloak.clouddicted.com_keycloaktargets.yaml
   - keycloak.clouddicted.com_keycloakrealms.yaml
   - keycloak.clouddicted.com_keycloakclients.yaml
+  - keycloak.clouddicted.com_keycloakclientroles.yaml
   - keycloak.clouddicted.com_keycloakidentityproviders.yaml
   - keycloak.clouddicted.com_keycloakroles.yaml
   - keycloak.clouddicted.com_keycloakclientscopes.yaml

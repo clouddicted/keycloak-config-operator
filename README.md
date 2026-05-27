@@ -5,8 +5,9 @@
 
 Keycloak Config Operator is an open-source Kubernetes operator for managing
 Keycloak configuration declaratively through custom resources. It helps DevOps
-and platform teams automate Keycloak realms, identity providers, clients, roles,
-client scopes, protocol mappers, and target connections in a GitOps-friendly way.
+and platform teams automate Keycloak realms, identity providers, clients, client
+roles, realm roles, client scopes, protocol mappers, and target connections in a
+GitOps-friendly way.
 
 Published documentation is available on GitHub Pages:
 [clouddicted.github.io/keycloak-config-operator](https://clouddicted.github.io/keycloak-config-operator/).

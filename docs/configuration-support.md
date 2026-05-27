@@ -19,6 +19,7 @@ Status meanings:
 | Realm | `KeycloakRealm` | Yes | Partial | No | Yes | Reconciles `spec.displayName` when set. |
 | Identity provider | `KeycloakIdentityProvider` | Yes | Yes | Optional | Yes | Basic provider support. Delete requires `spec.deletionPolicy: Delete`. |
 | Client | `KeycloakClient` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
+| Client role | `KeycloakClientRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client. |
 | Realm role | `KeycloakRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Protocol mapper | `KeycloakProtocolMapper` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client or client scope. |
@@ -38,6 +39,7 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
 | `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
 | `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakClientRole` | `description` when set. Client reference and role name are lookup keys. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
 | `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
 | `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
@@ -99,6 +101,19 @@ secret in Kubernetes.
 | `spec.webOrigins` | Supported | Reconciled list of web origins. |
 | `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
 | `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
+
+## KeycloakClientRole
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the parent client. |
+| `spec.clientRef` | Supported | References a managed `KeycloakClient` in the same namespace. |
+| `spec.clientRef.name` | Supported | KeycloakClient name and Keycloak client ID used as the parent lookup key. |
+| `spec.name` | Supported | Client role name and remote lookup key under the parent client. |
+| `spec.description` | Supported | Reconciled when set. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## KeycloakIdentityProvider
 

@@ -8,4 +8,5 @@ resources:
   - keycloak_v1beta1_keycloakrole.yaml
   - keycloak_v1beta1_keycloakprotocolmapper.yaml
   - keycloak_v1beta1_keycloakclient.yaml
+  - keycloak_v1beta1_keycloakclientrole.yaml
   - keycloak_v1beta1_keycloakclient_confidential.yaml

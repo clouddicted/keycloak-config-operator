@@ -1,5 +1,21 @@
 # Release Notes
 
+## Unreleased
+
+### Highlights
+
+- Added `KeycloakClientRole` for managing roles owned by a specific Keycloak
+  client, including observe-only mode and opt-in remote deletion.
+
+### Documentation
+
+- Added a `KeycloakClientRole` resource guide and API reference entry.
+
+### Testing
+
+- Added unit and kind e2e coverage that verifies client role creation, status,
+  and deletion through the Keycloak Admin API.
+
 ## v0.3.0 - 2026-05-28
 
 ### Highlights
