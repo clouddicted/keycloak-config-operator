@@ -607,6 +607,34 @@
   
   
     <li class="md-nav__item">
+      <a href="keycloak-client-role/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClientRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="keycloak-role/" class="md-nav__link">
         
   
@@ -885,7 +913,7 @@ Use the <a href="../api-reference/">API reference</a> when you need the complete
 to one Keycloak instance.</p>
 <p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
 configuration.</p>
-<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakRole</code>,
+<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakClientRole</code>, <code>KeycloakRole</code>,
 <code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage selected objects
 inside a realm.</p>
 <p>Arrows point from prerequisites to resources that depend on them:</p>
@@ -893,14 +921,17 @@ inside a realm.</p>
   target[KeycloakTarget] --&gt; realm[KeycloakRealm]
   target --&gt; idp[KeycloakIdentityProvider]
   target --&gt; client[KeycloakClient]
+  target --&gt; clientRole[KeycloakClientRole]
   target --&gt; role[KeycloakRole]
   target --&gt; scope[KeycloakClientScope]
   target --&gt; mapper[KeycloakProtocolMapper]
 
   realm --&gt; idp
   realm --&gt; client
+  realm --&gt; clientRole
   realm --&gt; role
   realm --&gt; scope
+  client --&gt; clientRole
   client --&gt; mapper
   scope --&gt; mapper
 </code></pre></div>
@@ -910,6 +941,7 @@ KeycloakRealm
 KeycloakIdentityProvider
 KeycloakRole
 KeycloakClient
+KeycloakClientRole
 KeycloakClientScope
 KeycloakProtocolMapper
 </code></pre></div>

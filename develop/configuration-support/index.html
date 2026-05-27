@@ -503,6 +503,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-client-role/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClientRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-role/" class="md-nav__link">
         
   
@@ -736,6 +764,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keycloakclientrole" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakClientRole
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keycloakidentityprovider" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -907,6 +946,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keycloakclientrole" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakClientRole
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keycloakidentityprovider" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1043,6 +1093,15 @@ Admin API.</p>
 <td>Delete requires <code>spec.deletionPolicy: Delete</code>.</td>
 </tr>
 <tr>
+<td>Client role</td>
+<td><code>KeycloakClientRole</code></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Optional</td>
+<td>Yes</td>
+<td>Delete requires <code>spec.deletionPolicy: Delete</code>. Parent must be a managed client.</td>
+</tr>
+<tr>
 <td>Realm role</td>
 <td><code>KeycloakRole</code></td>
 <td>Yes</td>
@@ -1097,6 +1156,10 @@ modeled field drift with a <code>DriftDetected=True</code> condition and a Warni
 <tr>
 <td><code>KeycloakClient</code></td>
 <td><code>enabled</code>, <code>name</code>, <code>description</code>, <code>rootUrl</code>, <code>baseUrl</code>, <code>adminUrl</code>, flow toggles, <code>fullScopeAllowed</code>, <code>frontchannelLogout</code>, <code>redirectUris</code>, <code>webOrigins</code>, default and optional client scopes, public/confidential type, and confidential client secret on create.</td>
+</tr>
+<tr>
+<td><code>KeycloakClientRole</code></td>
+<td><code>description</code> when set. Client reference and role name are lookup keys.</td>
 </tr>
 <tr>
 <td><code>KeycloakRole</code></td>
@@ -1335,6 +1398,58 @@ secret in Kubernetes.</p>
 <td><code>spec.optionalClientScopes</code></td>
 <td>Supported</td>
 <td>Reconciled list of optional client scope assignments when set.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keycloakclientrole">KeycloakClientRole<a class="headerlink" href="#keycloakclientrole" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.targetRef</code></td>
+<td>Supported</td>
+<td>References a <code>KeycloakTarget</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.realm</code></td>
+<td>Supported</td>
+<td>Realm containing the parent client.</td>
+</tr>
+<tr>
+<td><code>spec.clientRef</code></td>
+<td>Supported</td>
+<td>References a managed <code>KeycloakClient</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.clientRef.name</code></td>
+<td>Supported</td>
+<td>KeycloakClient name and Keycloak client ID used as the parent lookup key.</td>
+</tr>
+<tr>
+<td><code>spec.name</code></td>
+<td>Supported</td>
+<td>Client role name and remote lookup key under the parent client.</td>
+</tr>
+<tr>
+<td><code>spec.description</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
 </tr>
 </tbody>
 </table>
