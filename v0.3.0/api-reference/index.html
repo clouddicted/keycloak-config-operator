@@ -1,0 +1,3345 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Kubernetes operator for managing Keycloak configuration.">
+      
+      
+      
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/v0.3.0/api-reference/">
+      
+      
+        <link rel="prev" href="../configuration-support/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>API Reference - Keycloak Config Operator</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs-crd-viewer/crd-viewer.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Keycloak Config Operator" class="md-header__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Keycloak Config Operator
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/clouddicted/keycloak-config-operator" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    clouddicted/keycloak-config-operator
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Keycloak Config Operator" class="md-nav__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Keycloak Config Operator
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/clouddicted/keycloak-config-operator" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    clouddicted/keycloak-config-operator
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-target/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakTarget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-realm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakRealm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-role/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-client-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakClientScope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-protocol-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakProtocolMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<p>This page is generated from the Kubernetes CustomResourceDefinition schemas.</p>
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-20fa89b896">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakTarget</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired connection settings for a Keycloak instance.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-url">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-url-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">url<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-url" aria-label="Link to url">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-url-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Base URL of the Keycloak instance.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>format:</strong> uri</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">adminCredentials</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials" aria-label="Link to adminCredentials">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Credentials used to authenticate to Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing Keycloak admin credentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-usernamekey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-secretref-usernamekey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">usernameKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials-secretref-usernamekey" aria-label="Link to usernameKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-usernamekey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin username.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;username&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-passwordkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-admincredentials-secretref-passwordkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">passwordKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-admincredentials-secretref-passwordkey" aria-label="Link to passwordKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-admincredentials-secretref-passwordkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin password.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;password&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">auth</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth" aria-label="Link to auth">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Authentication method used to reach the Keycloak Admin API.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-type">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-type-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">type<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-type" aria-label="Link to type">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-type-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Authentication method.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Password&quot;, &quot;ClientCredentials&quot;, &quot;BootstrapClientCredentials&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm used for token acquisition.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;master&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientId</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientid" aria-label="Link to clientId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">OAuth client ID used with Password authentication.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;admin-cli&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">password</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password" aria-label="Link to password">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Username and password credentials for Password authentication.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing username and password credentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">usernameKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey" aria-label="Link to usernameKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-usernamekey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the username.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;username&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">passwordKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey" aria-label="Link to passwordKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-password-secretref-passwordkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the password.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;password&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">bootstrapAdminCredentials</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials" aria-label="Link to bootstrapAdminCredentials">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Admin credentials used only to bootstrap a service-account client when type is BootstrapClientCredentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing bootstrap admin credentials.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">usernameKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey" aria-label="Link to usernameKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-usernamekey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin username.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;username&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">passwordKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey" aria-label="Link to passwordKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstrapadmincredentials-secretref-passwordkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the admin password.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;password&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientCredentials</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials" aria-label="Link to clientCredentials">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Client credentials used directly or generated during bootstrap.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientId<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid" aria-label="Link to clientId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-clientid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Confidential client ID.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing the client secret.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientSecretKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey" aria-label="Link to clientSecretKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-clientcredentials-secretref-clientsecretkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the client secret.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;clientSecret&quot;</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">bootstrapRealmRoles</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-20fa89b896-spec-auth-bootstraprealmroles" aria-label="Link to bootstrapRealmRoles">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-20fa89b896-spec-auth-bootstraprealmroles-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm roles assigned to the bootstrapped service account. Defaults to the broad admin role for bootstrap simplicity.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> [&quot;admin&quot;]</span></div>
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-f371abc7f2">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakRealm</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak realm.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-f371abc7f2-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-f371abc7f2-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-f371abc7f2-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-f371abc7f2-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-f371abc7f2-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-f371abc7f2-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-f371abc7f2-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-f371abc7f2-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-f371abc7f2-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-f371abc7f2-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-f371abc7f2-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-f371abc7f2-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak realm name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-f371abc7f2-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-f371abc7f2-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-f371abc7f2-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-f371abc7f2-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Reconciliation behavior for the remote Keycloak realm. Reconcile creates or updates the modeled fields; ObserveOnly reports missing resources or drift without changing Keycloak.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-f371abc7f2-spec-displayname">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-f371abc7f2-spec-displayname-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">displayName</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-f371abc7f2-spec-displayname" aria-label="Link to displayName">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-f371abc7f2-spec-displayname-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Display name reconciled when set.</p>
+
+</div></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-b9f2e841cb">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakIdentityProvider</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak identity provider.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm containing the identity provider.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-alias">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-alias-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">alias<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-alias" aria-label="Link to alias">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-alias-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Identity provider alias and remote lookup key.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-providerid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-providerid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">providerId<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-providerid" aria-label="Link to providerId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-providerid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak provider type, such as oidc, saml, github, or google.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the operator reconciles or only observes the provider.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-deletionpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-deletionpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">deletionPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-deletionpolicy" aria-label="Link to deletionPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-deletionpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">What happens to the Keycloak provider when this resource is deleted.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Orphan&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Orphan&quot;, &quot;Delete&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-enabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-enabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">enabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-enabled" aria-label="Link to enabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-enabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the identity provider is enabled.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> true</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-displayname">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-displayname-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">displayName</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-displayname" aria-label="Link to displayName">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-displayname-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Display name shown for the identity provider.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-config">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-config-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">config</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-config" aria-label="Link to config">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-config-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Non-sensitive Keycloak provider configuration key-value pairs.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-config-key">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-config-key-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">&lt;key&gt;</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-config-key" aria-label="Link to &lt;key&gt;">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-config-key-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Provider configuration value.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-configsecretrefs">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-configsecretrefs-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">configSecretRefs</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-configsecretrefs" aria-label="Link to configSecretRefs">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret-backed provider configuration values keyed by Keycloak provider config name.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">&lt;key&gt;</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-configsecretrefs-key" aria-label="Link to &lt;key&gt;">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret reference for one provider configuration value.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-configsecretrefs-key-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-configsecretrefs-key-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-secretkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-secretkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-b9f2e841cb-spec-configsecretrefs-key-secretkey" aria-label="Link to secretKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-b9f2e841cb-spec-configsecretrefs-key-secretkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the provider configuration value. Defaults to the config key.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-8567942d4e">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakClient</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak client.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm containing the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-clientid">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-clientid-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientId<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-clientid" aria-label="Link to clientId">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-clientid-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak client ID.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-clienttype">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-clienttype-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientType</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-clienttype" aria-label="Link to clientType">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-clienttype-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Client access type.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Public&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Public&quot;, &quot;Confidential&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the operator reconciles or only observes the client.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-deletionpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-deletionpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">deletionPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-deletionpolicy" aria-label="Link to deletionPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-deletionpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">What happens to the Keycloak client when this resource is deleted.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Orphan&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Orphan&quot;, &quot;Delete&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-enabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-enabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">enabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-enabled" aria-label="Link to enabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-enabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the Keycloak client is enabled.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> true</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-displayname">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-displayname-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">displayName</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-displayname" aria-label="Link to displayName">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-displayname-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Display name stored as the Keycloak client name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-description">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-description-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">description</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-description" aria-label="Link to description">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-description-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Human-readable Keycloak client description.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-rooturl">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-rooturl-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">rootUrl</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-rooturl" aria-label="Link to rootUrl">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-rooturl-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Root URL used by Keycloak for relative client URLs.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-baseurl">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-baseurl-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">baseUrl</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-baseurl" aria-label="Link to baseUrl">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-baseurl-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Base URL shown by Keycloak for the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-adminurl">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-adminurl-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">adminUrl</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-adminurl" aria-label="Link to adminUrl">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-adminurl-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Admin URL used by Keycloak for the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-standardflowenabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-standardflowenabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">standardFlowEnabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-standardflowenabled" aria-label="Link to standardFlowEnabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-standardflowenabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the authorization code flow is enabled.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-implicitflowenabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-implicitflowenabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">implicitFlowEnabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-implicitflowenabled" aria-label="Link to implicitFlowEnabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-implicitflowenabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether the implicit flow is enabled.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-directaccessgrantsenabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-directaccessgrantsenabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">directAccessGrantsEnabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-directaccessgrantsenabled" aria-label="Link to directAccessGrantsEnabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-directaccessgrantsenabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether direct access grants are enabled.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-serviceaccountsenabled">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-serviceaccountsenabled-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">serviceAccountsEnabled</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-serviceaccountsenabled" aria-label="Link to serviceAccountsEnabled">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-serviceaccountsenabled-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether service accounts are enabled for a confidential client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-fullscopeallowed">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-fullscopeallowed-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">fullScopeAllowed</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-fullscopeallowed" aria-label="Link to fullScopeAllowed">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-fullscopeallowed-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether all realm scopes are available to the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-frontchannellogout">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-frontchannellogout-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">frontchannelLogout</span>
+        <span class="crd-viewer__badge">boolean</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-frontchannellogout" aria-label="Link to frontchannelLogout">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-frontchannellogout-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Whether front-channel logout is enabled for the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-secretref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-secretref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretRef</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-secretref" aria-label="Link to secretRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-secretref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret containing the confidential client secret.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-secretref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-secretref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-secretref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-secretref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-secretref-namespace">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-secretref-namespace-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">namespace</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-secretref-namespace" aria-label="Link to namespace">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-secretref-namespace-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret namespace. Defaults to this resource namespace.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-secretref-secretkey">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-secretref-secretkey-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">secretKey</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-secretref-secretkey" aria-label="Link to secretKey">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-secretref-secretkey-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Secret key containing the client secret.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-redirecturis">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-redirecturis-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">redirectUris</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-redirecturis" aria-label="Link to redirectUris">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-redirecturis-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Allowed redirect URI patterns.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-weborigins">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-weborigins-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">webOrigins</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-weborigins" aria-label="Link to webOrigins">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-weborigins-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Allowed web origins.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-defaultclientscopes">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-defaultclientscopes-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">defaultClientScopes</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-defaultclientscopes" aria-label="Link to defaultClientScopes">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-defaultclientscopes-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Default client scopes assigned to the client.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-8567942d4e-spec-optionalclientscopes">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-8567942d4e-spec-optionalclientscopes-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">optionalClientScopes</span>
+        <span class="crd-viewer__badge">array[string]</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-8567942d4e-spec-optionalclientscopes" aria-label="Link to optionalClientScopes">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-8567942d4e-spec-optionalclientscopes-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Optional client scopes assigned to the client.</p>
+
+</div></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-147b18e86d">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakRole</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak realm role.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm containing the role.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak role name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-description">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-description-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">description</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-description" aria-label="Link to description">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-description-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak role description.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Reconciliation behavior for the remote Keycloak role. Reconcile creates or updates the modeled fields; ObserveOnly reports missing resources or drift without changing Keycloak.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-147b18e86d-spec-deletionpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-147b18e86d-spec-deletionpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">deletionPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-147b18e86d-spec-deletionpolicy" aria-label="Link to deletionPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-147b18e86d-spec-deletionpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Deletion behavior for the remote Keycloak role when this resource is deleted. Orphan leaves the role in Keycloak; Delete removes it.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Orphan&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Orphan&quot;, &quot;Delete&quot;</span></div>
+</div></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-9b0c437da0">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakClientScope</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak client scope.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm containing the client scope.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak client scope name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-description">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-description-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">description</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-description" aria-label="Link to description">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-description-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak client scope description.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-protocol">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-protocol-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">protocol</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-protocol" aria-label="Link to protocol">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-protocol-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Client scope protocol.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;openid-connect&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Reconciliation behavior for the remote Keycloak client scope. Reconcile creates or updates the modeled fields; ObserveOnly reports missing resources or drift without changing Keycloak.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-9b0c437da0-spec-deletionpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-9b0c437da0-spec-deletionpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">deletionPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-9b0c437da0-spec-deletionpolicy" aria-label="Link to deletionPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-9b0c437da0-spec-deletionpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Deletion behavior for the remote Keycloak client scope when this resource is deleted. Orphan leaves the client scope in Keycloak; Delete removes it.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Orphan&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Orphan&quot;, &quot;Delete&quot;</span></div>
+</div></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+<section class="crd-viewer" data-crd-viewer-root id="crd-viewer-27deca60a9">
+
+  <div class="crd-viewer__header">
+    <div>
+      <p class="crd-viewer__title">KeycloakProtocolMapper</p>
+      <p class="crd-viewer__meta">keycloak.clouddicted.com / v1beta1</p>
+    </div>
+    <button type="button" class="crd-viewer__toggle" data-crd-toggle-all data-expanded="false">Expand All</button>
+  </div>
+  <section class="crd-viewer__section crd-viewer__section--spec">
+  <p class="crd-viewer__section-title">SPEC</p>
+  <p class="crd-viewer__section-description">Desired Keycloak protocol mapper.</p>
+  <ul class="crd-viewer__tree">
+    <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-targetref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-targetref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">targetRef<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-targetref" aria-label="Link to targetRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-targetref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">KeycloakTarget used to reach Keycloak.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-targetref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-targetref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-targetref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-targetref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakTarget in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-realm">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-realm-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">realm<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-realm" aria-label="Link to realm">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-realm-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Realm containing the mapper parent.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak protocol mapper name.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-mappertype">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-mappertype-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">mapperType<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-mappertype" aria-label="Link to mapperType">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-mappertype-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Keycloak protocol mapper type.</p>
+
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-protocol">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-protocol-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">protocol</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-protocol" aria-label="Link to protocol">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-protocol-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Protocol used by the mapper.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;openid-connect&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-config">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-config-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">config</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-config" aria-label="Link to config">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-config-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Mapper configuration key-value pairs.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-config-key">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-config-key-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">&lt;key&gt;</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-config-key" aria-label="Link to &lt;key&gt;">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-config-key-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Mapper configuration value.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-managementpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-managementpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">managementPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-managementpolicy" aria-label="Link to managementPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-managementpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Reconciliation behavior for the remote Keycloak protocol mapper. Reconcile creates or updates the modeled fields; ObserveOnly reports missing resources or drift without changing Keycloak.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Reconcile&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Reconcile&quot;, &quot;ObserveOnly&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-deletionpolicy">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-deletionpolicy-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">deletionPolicy</span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-deletionpolicy" aria-label="Link to deletionPolicy">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-deletionpolicy-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Deletion behavior for the remote Keycloak protocol mapper when this resource is deleted. Orphan leaves the mapper in Keycloak; Delete removes it.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>default:</strong> &quot;Orphan&quot;</span><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Orphan&quot;, &quot;Delete&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">parent<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent" aria-label="Link to parent">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Client or client scope that owns the mapper.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent-type">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-type-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">type<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent-type" aria-label="Link to type">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-type-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Parent resource type.</p>
+  <div class="crd-viewer__facts"><span class="crd-viewer__fact"><strong>enum:</strong> &quot;Client&quot;, &quot;ClientScope&quot;</span></div>
+</div></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent-clientref">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-clientref-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientRef</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent-clientref" aria-label="Link to clientRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-clientref-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Parent KeycloakClient reference.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent-clientref-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-clientref-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent-clientref-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-clientref-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakClient in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+<li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent-clientscoperef">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-clientscoperef-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">clientScopeRef</span>
+        <span class="crd-viewer__badge">object</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent-clientscoperef" aria-label="Link to clientScopeRef">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-clientscoperef-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Parent KeycloakClientScope reference.</p>
+
+</div>
+<ul class="crd-viewer__children">
+  <li class="crd-viewer__item" id="crd-viewer-27deca60a9-spec-parent-clientscoperef-name">
+  <div class="crd-viewer__node" data-crd-node data-open="false">
+    <div class="crd-viewer__row">
+      <button
+        type="button"
+        class="crd-viewer__summary"
+        data-crd-toggle-node
+        aria-expanded="false"
+        aria-controls="crd-viewer-27deca60a9-spec-parent-clientscoperef-name-content"
+      >
+        <span class="crd-viewer__chevron" aria-hidden="true"></span>
+        <span class="crd-viewer__label">name<sup class="crd-viewer__required" title="Required">*</sup></span>
+        <span class="crd-viewer__badge">string</span>
+      </button>
+      <a class="crd-viewer__anchor" href="#crd-viewer-27deca60a9-spec-parent-clientscoperef-name" aria-label="Link to name">#</a>
+    </div>
+    <div class="crd-viewer__content" id="crd-viewer-27deca60a9-spec-parent-clientscoperef-name-content" hidden><div class="crd-viewer__body">
+  <p class="crd-viewer__description">Name of the KeycloakClientScope in this namespace.</p>
+
+</div></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+</ul></div>
+  </div>
+</li>
+  </ul>
+</section>
+</section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
+      
+    
+  </body>
+</html>
