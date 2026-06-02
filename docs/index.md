@@ -35,7 +35,7 @@ Install the released Helm chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.3.0 \
+  --version 0.4.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```

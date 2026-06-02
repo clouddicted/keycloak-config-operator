@@ -11,6 +11,29 @@ Status meanings:
 - Partial: supported with documented limits.
 - Unsupported: not exposed or not reconciled by this operator.
 
+## Scope And Known Gaps
+
+The operator is not a full replacement for Keycloak realm import/export. It
+manages a focused set of resources that are useful for GitOps workflows. A
+complete realm export can contain many settings that are intentionally not part
+of the current CRDs.
+
+Use this page to decide whether a Keycloak setting is covered before moving it
+from the Admin Console or a realm export into Kubernetes manifests.
+
+| Area | Current coverage | Notes |
+| --- | --- | --- |
+| Application clients | Partial | Core client settings are covered. Some Keycloak client attributes, such as PKCE, post-logout redirect URIs, backchannel logout options, and advanced token flags, are not modeled yet. |
+| Identity providers | Partial | Basic provider creation and config are covered. Identity provider mappers and several top-level provider flags are not modeled yet. |
+| Protocol mappers on clients and client scopes | Supported | Generic mapper type and config support covers common OIDC and SAML mappers. |
+| Realm and client roles | Partial | Simple roles are covered. Composite roles are not modeled yet. |
+| Groups and group role assignments | Partial | Top-level groups and one declared group-to-role assignment are covered. Nested groups and user membership are not modeled yet. |
+| Client scopes | Partial | Scope name, protocol, description, and mappers are covered. Client scope attributes such as consent text and token-scope display flags are not modeled yet. |
+| Realm-wide settings | Limited | Realm creation and display name updates are covered. Lifespans, browser security headers, OTP/WebAuthn policy, brute-force settings, themes, events, SMTP, and default scope settings are not modeled yet. |
+| Authentication flows and required actions | Unsupported | Custom flows, flow bindings, authenticator config, and required actions are not modeled yet. |
+| Components | Unsupported | User profile provider config, client registration policies, and key provider components are not modeled. |
+| Users, credentials, and sessions | Unsupported | These are operational or identity data, not configuration the operator should own by default. |
+
 ## Entity Overview
 
 | Entity | CRD | Create | Update | Delete | E2E tested | Notes |

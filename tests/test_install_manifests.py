@@ -23,7 +23,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.3.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.4.0"
 OPERATOR_ARGS = [
     "run",
     "-m",

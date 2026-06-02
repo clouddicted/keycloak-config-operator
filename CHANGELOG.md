@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.0 - 2026-06-02
+
 ### Highlights
 
 - Added `KeycloakClientRole` for managing roles owned by a specific Keycloak
@@ -16,6 +18,8 @@
 - Added a `KeycloakClientRole` resource guide and API reference entry.
 - Added a `KeycloakGroup` resource guide and API reference entry.
 - Added a `KeycloakGroupRoleMapping` resource guide and API reference entry.
+- Clarified current support gaps so users can distinguish supported CRD fields
+  from broader Keycloak realm import/export settings.
 
 ### Testing
 
@@ -25,6 +29,18 @@
   deletion.
 - Added unit and kind e2e coverage for group role mapping assignment and
   removal.
+
+### Release
+
+- Bumped installation examples and release metadata to `v0.4.0`.
+
+### Upgrade Notes
+
+- CRDs are still served as `keycloak.clouddicted.com/v1beta1`.
+- Upgrade the CRDs before applying `KeycloakClientRole`, `KeycloakGroup`, or
+  `KeycloakGroupRoleMapping` resources.
+- Remote deletion remains opt-in. New resources continue to default to
+  `deletionPolicy: Orphan`.
 
 ## v0.3.0 - 2026-05-28
 
