@@ -14,6 +14,8 @@ This page is generated from the Kubernetes CustomResourceDefinition schemas.
 
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakgroups.yaml", title="KeycloakGroup", show_status=False) }}
 
+{{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakgrouprolemappings.yaml", title="KeycloakGroupRoleMapping", show_status=False) }}
+
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakroles.yaml", title="KeycloakRole", show_status=False) }}
 
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakclientscopes.yaml", title="KeycloakClientScope", show_status=False) }}

@@ -26,6 +26,7 @@ nav:
       - KeycloakClient: resources/keycloak-client.md
       - KeycloakClientRole: resources/keycloak-client-role.md
       - KeycloakGroup: resources/keycloak-group.md
+      - KeycloakGroupRoleMapping: resources/keycloak-group-role-mapping.md
       - KeycloakRole: resources/keycloak-role.md
       - KeycloakClientScope: resources/keycloak-client-scope.md
       - KeycloakProtocolMapper: resources/keycloak-protocol-mapper.md

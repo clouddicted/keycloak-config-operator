@@ -8,11 +8,14 @@
   client, including observe-only mode and opt-in remote deletion.
 - Added `KeycloakGroup` for managing top-level groups and optional group
   attributes.
+- Added `KeycloakGroupRoleMapping` for assigning realm roles or client roles to
+  groups.
 
 ### Documentation
 
 - Added a `KeycloakClientRole` resource guide and API reference entry.
 - Added a `KeycloakGroup` resource guide and API reference entry.
+- Added a `KeycloakGroupRoleMapping` resource guide and API reference entry.
 
 ### Testing
 
@@ -20,6 +23,8 @@
   and deletion through the Keycloak Admin API.
 - Added unit and kind e2e coverage for group creation, status, attributes, and
   deletion.
+- Added unit and kind e2e coverage for group role mapping assignment and
+  removal.
 
 ## v0.3.0 - 2026-05-28
 

@@ -31,6 +31,12 @@ CLIENT_ROLE_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientroles.yaml"
 )
 GROUP_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakgroups.yaml"
+GROUP_ROLE_MAPPING_CRD = (
+    REPO_ROOT
+    / "config"
+    / "crd"
+    / "keycloak.clouddicted.com_keycloakgrouprolemappings.yaml"
+)
 IDENTITY_PROVIDER_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakidentityproviders.yaml"
 )
@@ -47,6 +53,9 @@ CLIENT_ROLE_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientrole.yaml"
 )
 GROUP_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakgroup.yaml"
+GROUP_ROLE_MAPPING_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakgrouprolemapping.yaml"
+)
 IDENTITY_PROVIDER_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakidentityprovider.yaml"
 )
@@ -88,6 +97,8 @@ ROLE_NAME = "example-admin"
 OBSERVE_ONLY_ROLE_NAME = "observe-only-admin"
 CLIENT_ROLE_NAME = "reader"
 GROUP_NAME = "example-users"
+GROUP_REALM_ROLE_MAPPING_NAME = "example-users-admin"
+GROUP_CLIENT_ROLE_MAPPING_NAME = "example-users-web-reader"
 READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
@@ -121,6 +132,10 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
     )
     _run(["kubectl", "apply", "--server-side", "-f", str(GROUP_CRD)], env=kind_cluster_env)
     _run(
+        ["kubectl", "apply", "--server-side", "-f", str(GROUP_ROLE_MAPPING_CRD)],
+        env=kind_cluster_env,
+    )
+    _run(
         ["kubectl", "apply", "--server-side", "-f", str(IDENTITY_PROVIDER_CRD)],
         env=kind_cluster_env,
     )
@@ -139,6 +154,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloaktargets.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakgrouprolemappings.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -302,6 +327,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(GROUP_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(GROUP_ROLE_MAPPING_SAMPLE),
         ],
         env=kind_cluster_env,
     )
@@ -501,6 +537,23 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
         )
 
+        _log("applying realm KeycloakGroupRoleMapping")
+        _apply_document(kind_cluster_env, _keycloak_group_realm_role_mapping(realm))
+        _wait_for_ready(
+            kind_cluster_env,
+            "keycloakgrouprolemappings",
+            GROUP_REALM_ROLE_MAPPING_NAME,
+        )
+        _eventually(lambda: _assert_group_realm_role_mapping(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_group_role_mapping_remote_ids_match(
+                kind_cluster_env,
+                GROUP_REALM_ROLE_MAPPING_NAME,
+                group_id=_group(keycloak_url, realm)["id"],
+                role_id=_admin_get(keycloak_url, f"realms/{realm}/roles/{ROLE_NAME}")["id"],
+            )
+        )
+
         _log("applying public KeycloakClient")
         _apply_document(kind_cluster_env, _keycloak_public_client(realm))
         _wait_for_ready(kind_cluster_env, "keycloakclients", PUBLIC_CLIENT_ID)
@@ -527,6 +580,24 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
         )
 
+        _log("applying client KeycloakGroupRoleMapping")
+        _apply_document(kind_cluster_env, _keycloak_group_client_role_mapping(realm))
+        _wait_for_ready(
+            kind_cluster_env,
+            "keycloakgrouprolemappings",
+            GROUP_CLIENT_ROLE_MAPPING_NAME,
+        )
+        _eventually(lambda: _assert_group_client_role_mapping(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_group_role_mapping_remote_ids_match(
+                kind_cluster_env,
+                GROUP_CLIENT_ROLE_MAPPING_NAME,
+                group_id=_group(keycloak_url, realm)["id"],
+                role_id=_client_role(keycloak_url, realm)["id"],
+                client_id=_client(keycloak_url, realm, PUBLIC_CLIENT_ID)["id"],
+            )
+        )
+
         _log("applying confidential KeycloakClient")
         _apply_document(kind_cluster_env, _confidential_client_secret())
         _apply_document(kind_cluster_env, _keycloak_confidential_client(realm))
@@ -540,6 +611,14 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
                 _client(keycloak_url, realm, CONFIDENTIAL_CLIENT_ID)["id"],
             )
         )
+
+        _log("deleting client KeycloakGroupRoleMapping with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_group_client_role_mapping(realm))
+        _eventually(lambda: _assert_group_client_role_mapping_missing(keycloak_url, realm))
+
+        _log("deleting realm KeycloakGroupRoleMapping with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_group_realm_role_mapping(realm))
+        _eventually(lambda: _assert_group_realm_role_mapping_missing(keycloak_url, realm))
 
         _log("deleting KeycloakClientRole with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_client_role(realm))
@@ -602,6 +681,7 @@ def _apply_crds(env: dict[str, str]) -> None:
         CLIENT_CRD,
         CLIENT_ROLE_CRD,
         GROUP_CRD,
+        GROUP_ROLE_MAPPING_CRD,
         IDENTITY_PROVIDER_CRD,
         ROLE_CRD,
         CLIENT_SCOPE_CRD,
@@ -619,6 +699,7 @@ def _wait_for_crds(env: dict[str, str]) -> None:
         "keycloakclients",
         "keycloakclientroles",
         "keycloakgroups",
+        "keycloakgrouprolemappings",
         "keycloakidentityproviders",
         "keycloakroles",
         "keycloakclientscopes",
@@ -882,6 +963,35 @@ def _assert_remote_id_matches(
     assert resource["status"]["remoteId"] == remote_id
 
 
+def _assert_group_role_mapping_remote_ids_match(
+    env: dict[str, str],
+    name: str,
+    *,
+    group_id: str,
+    role_id: str,
+    client_id: str | None = None,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            "keycloakgrouprolemappings",
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+    status = resource["status"]
+
+    assert status["groupRemoteId"] == group_id
+    assert status["roleRemoteId"] == role_id
+    if client_id is not None:
+        assert status["clientRemoteId"] == client_id
+
+
 def _assert_resource_conditions(
     env: dict[str, str],
     plural: str,
@@ -1057,6 +1167,43 @@ def _keycloak_group(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": GROUP_NAME,
             "attributes": {"team": ["platform"]},
+            "deletionPolicy": "Delete",
+        },
+    }
+
+
+def _keycloak_group_realm_role_mapping(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakGroupRoleMapping",
+        "metadata": {"name": GROUP_REALM_ROLE_MAPPING_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "groupRef": {"name": GROUP_NAME},
+            "role": {
+                "type": "RealmRole",
+                "roleRef": {"name": ROLE_NAME},
+            },
+            "deletionPolicy": "Delete",
+        },
+    }
+
+
+def _keycloak_group_client_role_mapping(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakGroupRoleMapping",
+        "metadata": {"name": GROUP_CLIENT_ROLE_MAPPING_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "groupRef": {"name": GROUP_NAME},
+            "role": {
+                "type": "ClientRole",
+                "clientRef": {"name": PUBLIC_CLIENT_ID},
+                "roleRef": {"name": CLIENT_ROLE_NAME},
+            },
             "deletionPolicy": "Delete",
         },
     }
@@ -1262,6 +1409,29 @@ def _assert_group_missing(base_url: str, realm: str) -> None:
     assert all(not isinstance(group, dict) or group.get("name") != GROUP_NAME for group in groups)
 
 
+def _assert_group_realm_role_mapping(base_url: str, realm: str) -> None:
+    role = _group_realm_role_mapping(base_url, realm)
+    assert role["name"] == ROLE_NAME
+
+
+def _assert_group_client_role_mapping(base_url: str, realm: str) -> None:
+    role = _group_client_role_mapping(base_url, realm)
+    assert role["name"] == CLIENT_ROLE_NAME
+
+
+def _assert_group_realm_role_mapping_missing(base_url: str, realm: str) -> None:
+    roles = _group_realm_role_mappings(base_url, realm)
+    assert all(not isinstance(role, dict) or role.get("name") != ROLE_NAME for role in roles)
+
+
+def _assert_group_client_role_mapping_missing(base_url: str, realm: str) -> None:
+    roles = _group_client_role_mappings(base_url, realm)
+    assert all(
+        not isinstance(role, dict) or role.get("name") != CLIENT_ROLE_NAME
+        for role in roles
+    )
+
+
 def _assert_protocol_mapper_missing(base_url: str, realm: str) -> None:
     client_scope = _assert_client_scope(base_url, realm)
     mappers = _admin_get(
@@ -1373,7 +1543,41 @@ def _group(base_url: str, realm: str) -> dict[str, Any]:
         f"realms/{realm}/groups",
         params={"search": GROUP_NAME, "exact": "true"},
     )
-    return _one_by_field(groups, "name", GROUP_NAME)
+    group = _one_by_field(groups, "name", GROUP_NAME)
+    return _admin_get(base_url, f"realms/{realm}/groups/{group['id']}")
+
+
+def _group_realm_role_mapping(base_url: str, realm: str) -> dict[str, Any]:
+    return _one_by_field(_group_realm_role_mappings(base_url, realm), "name", ROLE_NAME)
+
+
+def _group_client_role_mapping(base_url: str, realm: str) -> dict[str, Any]:
+    return _one_by_field(
+        _group_client_role_mappings(base_url, realm),
+        "name",
+        CLIENT_ROLE_NAME,
+    )
+
+
+def _group_realm_role_mappings(base_url: str, realm: str) -> list[dict[str, Any]]:
+    group = _group(base_url, realm)
+    roles = _admin_get(
+        base_url,
+        f"realms/{realm}/groups/{group['id']}/role-mappings/realm",
+    )
+    assert isinstance(roles, list)
+    return roles
+
+
+def _group_client_role_mappings(base_url: str, realm: str) -> list[dict[str, Any]]:
+    group = _group(base_url, realm)
+    client = _client(base_url, realm, PUBLIC_CLIENT_ID)
+    roles = _admin_get(
+        base_url,
+        f"realms/{realm}/groups/{group['id']}/role-mappings/clients/{client['id']}",
+    )
+    assert isinstance(roles, list)
+    return roles
 
 
 def _client_scope(base_url: str, realm: str, name: str) -> dict[str, Any]:

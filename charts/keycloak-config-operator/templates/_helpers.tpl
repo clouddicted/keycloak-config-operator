@@ -89,6 +89,7 @@ Rules for namespace-scoped objects managed by the operator.
     - keycloakclients
     - keycloakclientroles
     - keycloakgroups
+    - keycloakgrouprolemappings
     - keycloakidentityproviders
     - keycloakroles
     - keycloakclientscopes
@@ -107,6 +108,7 @@ Rules for namespace-scoped objects managed by the operator.
     - keycloakclients/status
     - keycloakclientroles/status
     - keycloakgroups/status
+    - keycloakgrouprolemappings/status
     - keycloakidentityproviders/status
     - keycloakroles/status
     - keycloakclientscopes/status
@@ -123,6 +125,7 @@ Rules for namespace-scoped objects managed by the operator.
     - keycloakclients/finalizers
     - keycloakclientroles/finalizers
     - keycloakgroups/finalizers
+    - keycloakgrouprolemappings/finalizers
     - keycloakidentityproviders/finalizers
     - keycloakroles/finalizers
     - keycloakclientscopes/finalizers
