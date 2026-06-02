@@ -635,6 +635,62 @@
   
   
     <li class="md-nav__item">
+      <a href="keycloak-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakGroup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keycloak-group-role-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakGroupRoleMapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="keycloak-role/" class="md-nav__link">
         
   
@@ -913,7 +969,8 @@ Use the <a href="../api-reference/">API reference</a> when you need the complete
 to one Keycloak instance.</p>
 <p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
 configuration.</p>
-<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakClientRole</code>, <code>KeycloakRole</code>,
+<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakClientRole</code>,
+<code>KeycloakGroup</code>, <code>KeycloakGroupRoleMapping</code>, <code>KeycloakRole</code>,
 <code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage selected objects
 inside a realm.</p>
 <p>Arrows point from prerequisites to resources that depend on them:</p>
@@ -922,6 +979,8 @@ inside a realm.</p>
   target --&gt; idp[KeycloakIdentityProvider]
   target --&gt; client[KeycloakClient]
   target --&gt; clientRole[KeycloakClientRole]
+  target --&gt; group[KeycloakGroup]
+  target --&gt; groupRoleMapping[KeycloakGroupRoleMapping]
   target --&gt; role[KeycloakRole]
   target --&gt; scope[KeycloakClientScope]
   target --&gt; mapper[KeycloakProtocolMapper]
@@ -929,19 +988,26 @@ inside a realm.</p>
   realm --&gt; idp
   realm --&gt; client
   realm --&gt; clientRole
+  realm --&gt; group
+  realm --&gt; groupRoleMapping
   realm --&gt; role
   realm --&gt; scope
   client --&gt; clientRole
   client --&gt; mapper
+  clientRole --&gt; groupRoleMapping
+  group --&gt; groupRoleMapping
+  role --&gt; groupRoleMapping
   scope --&gt; mapper
 </code></pre></div>
 <p>The normal apply order is:</p>
 <div class="highlight"><pre><span></span><code>KeycloakTarget
 KeycloakRealm
 KeycloakIdentityProvider
+KeycloakGroup
 KeycloakRole
 KeycloakClient
 KeycloakClientRole
+KeycloakGroupRoleMapping
 KeycloakClientScope
 KeycloakProtocolMapper
 </code></pre></div>

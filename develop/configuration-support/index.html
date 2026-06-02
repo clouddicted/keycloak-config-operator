@@ -531,6 +531,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakGroup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-group-role-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakGroupRoleMapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-role/" class="md-nav__link">
         
   
@@ -709,6 +765,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#scope-and-known-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope And Known Gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#entity-overview" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -779,6 +846,28 @@
     <span class="md-ellipsis">
       
         KeycloakIdentityProvider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakGroup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakgrouprolemapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakGroupRoleMapping
       
     </span>
   </a>
@@ -891,6 +980,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#scope-and-known-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope And Known Gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#entity-overview" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -961,6 +1061,28 @@
     <span class="md-ellipsis">
       
         KeycloakIdentityProvider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakGroup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakgrouprolemapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakGroupRoleMapping
       
     </span>
   </a>
@@ -1042,6 +1164,74 @@ Admin API.</p>
 <li>Partial: supported with documented limits.</li>
 <li>Unsupported: not exposed or not reconciled by this operator.</li>
 </ul>
+<h2 id="scope-and-known-gaps">Scope And Known Gaps<a class="headerlink" href="#scope-and-known-gaps" title="Permanent link">&para;</a></h2>
+<p>The operator is not a full replacement for Keycloak realm import/export. It
+manages a focused set of resources that are useful for GitOps workflows. A
+complete realm export can contain many settings that are intentionally not part
+of the current CRDs.</p>
+<p>Use this page to decide whether a Keycloak setting is covered before moving it
+from the Admin Console or a realm export into Kubernetes manifests.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Current coverage</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Application clients</td>
+<td>Partial</td>
+<td>Core client settings are covered. Some Keycloak client attributes, such as PKCE, post-logout redirect URIs, backchannel logout options, and advanced token flags, are not modeled yet.</td>
+</tr>
+<tr>
+<td>Identity providers</td>
+<td>Partial</td>
+<td>Basic provider creation and config are covered. Identity provider mappers and several top-level provider flags are not modeled yet.</td>
+</tr>
+<tr>
+<td>Protocol mappers on clients and client scopes</td>
+<td>Supported</td>
+<td>Generic mapper type and config support covers common OIDC and SAML mappers.</td>
+</tr>
+<tr>
+<td>Realm and client roles</td>
+<td>Partial</td>
+<td>Simple roles are covered. Composite roles are not modeled yet.</td>
+</tr>
+<tr>
+<td>Groups and group role assignments</td>
+<td>Partial</td>
+<td>Top-level groups and one declared group-to-role assignment are covered. Nested groups and user membership are not modeled yet.</td>
+</tr>
+<tr>
+<td>Client scopes</td>
+<td>Partial</td>
+<td>Scope name, protocol, description, and mappers are covered. Client scope attributes such as consent text and token-scope display flags are not modeled yet.</td>
+</tr>
+<tr>
+<td>Realm-wide settings</td>
+<td>Limited</td>
+<td>Realm creation and display name updates are covered. Lifespans, browser security headers, OTP/WebAuthn policy, brute-force settings, themes, events, SMTP, and default scope settings are not modeled yet.</td>
+</tr>
+<tr>
+<td>Authentication flows and required actions</td>
+<td>Unsupported</td>
+<td>Custom flows, flow bindings, authenticator config, and required actions are not modeled yet.</td>
+</tr>
+<tr>
+<td>Components</td>
+<td>Unsupported</td>
+<td>User profile provider config, client registration policies, and key provider components are not modeled.</td>
+</tr>
+<tr>
+<td>Users, credentials, and sessions</td>
+<td>Unsupported</td>
+<td>These are operational or identity data, not configuration the operator should own by default.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="entity-overview">Entity Overview<a class="headerlink" href="#entity-overview" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1102,6 +1292,24 @@ Admin API.</p>
 <td>Delete requires <code>spec.deletionPolicy: Delete</code>. Parent must be a managed client.</td>
 </tr>
 <tr>
+<td>Group</td>
+<td><code>KeycloakGroup</code></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Optional</td>
+<td>Yes</td>
+<td>Top-level groups only. Delete requires <code>spec.deletionPolicy: Delete</code>.</td>
+</tr>
+<tr>
+<td>Group role mapping</td>
+<td><code>KeycloakGroupRoleMapping</code></td>
+<td>Yes</td>
+<td>Observe only</td>
+<td>Optional</td>
+<td>Yes</td>
+<td>Assigns one realm role or client role to one group. Delete removes only the declared assignment.</td>
+</tr>
+<tr>
 <td>Realm role</td>
 <td><code>KeycloakRole</code></td>
 <td>Yes</td>
@@ -1160,6 +1368,14 @@ modeled field drift with a <code>DriftDetected=True</code> condition and a Warni
 <tr>
 <td><code>KeycloakClientRole</code></td>
 <td><code>description</code> when set. Client reference and role name are lookup keys.</td>
+</tr>
+<tr>
+<td><code>KeycloakGroup</code></td>
+<td><code>attributes</code> when set. Group name is the lookup key.</td>
+</tr>
+<tr>
+<td><code>KeycloakGroupRoleMapping</code></td>
+<td>Presence of one declared group-to-role assignment. It does not prune other role assignments on the group.</td>
 </tr>
 <tr>
 <td><code>KeycloakRole</code></td>
@@ -1502,6 +1718,105 @@ secret in Kubernetes.</p>
 <td><code>spec.configSecretRefs</code></td>
 <td>Partial</td>
 <td>Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in <code>spec.config</code>.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keycloakgroup">KeycloakGroup<a class="headerlink" href="#keycloakgroup" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.targetRef</code></td>
+<td>Supported</td>
+<td>References a <code>KeycloakTarget</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.realm</code></td>
+<td>Supported</td>
+<td>Realm containing the group.</td>
+</tr>
+<tr>
+<td><code>spec.name</code></td>
+<td>Supported</td>
+<td>Top-level group name and remote lookup key.</td>
+</tr>
+<tr>
+<td><code>spec.attributes</code></td>
+<td>Supported</td>
+<td>Reconciled when set. Values are lists of strings.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keycloakgrouprolemapping">KeycloakGroupRoleMapping<a class="headerlink" href="#keycloakgrouprolemapping" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.targetRef</code></td>
+<td>Supported</td>
+<td>References a <code>KeycloakTarget</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.realm</code></td>
+<td>Supported</td>
+<td>Realm containing the group and role.</td>
+</tr>
+<tr>
+<td><code>spec.groupRef</code></td>
+<td>Supported</td>
+<td>References a managed <code>KeycloakGroup</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.role</code></td>
+<td>Supported</td>
+<td>Declares one role assignment.</td>
+</tr>
+<tr>
+<td><code>spec.role.type</code></td>
+<td>Supported</td>
+<td><code>RealmRole</code> or <code>ClientRole</code>.</td>
+</tr>
+<tr>
+<td><code>spec.role.roleRef.name</code></td>
+<td>Supported</td>
+<td>Name of the <code>KeycloakRole</code> or <code>KeycloakClientRole</code>.</td>
+</tr>
+<tr>
+<td><code>spec.role.clientRef.name</code></td>
+<td>Supported</td>
+<td>Required when <code>spec.role.type</code> is <code>ClientRole</code>.</td>
 </tr>
 <tr>
 <td><code>spec.managementPolicy</code></td>

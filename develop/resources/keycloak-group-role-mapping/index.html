@@ -10,22 +10,28 @@
       
       
       
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-group-role-mapping/">
       
+      
+        <link rel="prev" href="../keycloak-group/">
+      
+      
+        <link rel="next" href="../keycloak-role/">
       
       
         
       
       
-      <link rel="icon" href="/keycloak-config-operator/develop/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Keycloak Config Operator</title>
+        <title>KeycloakGroupRoleMapping - Keycloak Config Operator</title>
       
     
     
-      <link rel="stylesheet" href="/keycloak-config-operator/develop/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
       
 
@@ -44,9 +50,9 @@
       
     
     
-      <link rel="stylesheet" href="/keycloak-config-operator/develop/assets/mkdocs-crd-viewer/crd-viewer.css">
+      <link rel="stylesheet" href="../../assets/mkdocs-crd-viewer/crd-viewer.css">
     
-    <script>__md_scope=new URL("/keycloak-config-operator/develop",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -62,6 +68,11 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
+      
+        
+        <a href="#keycloakgrouprolemapping" class="md-skip">
+          Skip to content
+        </a>
       
     </div>
     <div data-md-component="announce">
@@ -79,7 +90,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/keycloak-config-operator/develop/." title="Keycloak Config Operator" class="md-header__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+    <a href="../.." title="Keycloak Config Operator" class="md-header__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -99,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              KeycloakGroupRoleMapping
             
           </span>
         </div>
@@ -189,7 +200,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/keycloak-config-operator/develop/." title="Keycloak Config Operator" class="md-nav__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+    <a href="../.." title="Keycloak Config Operator" class="md-nav__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -219,7 +230,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -246,7 +257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/getting-started/" class="md-nav__link">
+      <a href="../../getting-started/" class="md-nav__link">
         
   
   
@@ -273,7 +284,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/usage/" class="md-nav__link">
+      <a href="../../usage/" class="md-nav__link">
         
   
   
@@ -297,8 +308,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -309,11 +322,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
@@ -334,7 +347,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -352,7 +365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -380,7 +393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-target/" class="md-nav__link">
+      <a href="../keycloak-target/" class="md-nav__link">
         
   
   
@@ -408,7 +421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-realm/" class="md-nav__link">
+      <a href="../keycloak-realm/" class="md-nav__link">
         
   
   
@@ -436,7 +449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-identity-provider/" class="md-nav__link">
+      <a href="../keycloak-identity-provider/" class="md-nav__link">
         
   
   
@@ -464,7 +477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-client/" class="md-nav__link">
+      <a href="../keycloak-client/" class="md-nav__link">
         
   
   
@@ -492,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-client-role/" class="md-nav__link">
+      <a href="../keycloak-client-role/" class="md-nav__link">
         
   
   
@@ -520,7 +533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-group/" class="md-nav__link">
+      <a href="../keycloak-group/" class="md-nav__link">
         
   
   
@@ -545,10 +558,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-group-role-mapping/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakGroupRoleMapping
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -564,6 +604,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#realm-role-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Realm Role Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-role-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Role Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle-choices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle Choices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -576,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-role/" class="md-nav__link">
+      <a href="../keycloak-role/" class="md-nav__link">
         
   
   
@@ -604,7 +719,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-client-scope/" class="md-nav__link">
+      <a href="../keycloak-client-scope/" class="md-nav__link">
         
   
   
@@ -632,7 +747,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/resources/keycloak-protocol-mapper/" class="md-nav__link">
+      <a href="../keycloak-protocol-mapper/" class="md-nav__link">
         
   
   
@@ -667,7 +782,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/compatibility/" class="md-nav__link">
+      <a href="../../compatibility/" class="md-nav__link">
         
   
   
@@ -694,7 +809,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/configuration-support/" class="md-nav__link">
+      <a href="../../configuration-support/" class="md-nav__link">
         
   
   
@@ -721,7 +836,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/keycloak-config-operator/develop/api-reference/" class="md-nav__link">
+      <a href="../../api-reference/" class="md-nav__link">
         
   
   
@@ -758,6 +873,71 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#realm-role-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Realm Role Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-role-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Role Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle-choices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle Choices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -770,8 +950,99 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="keycloakgrouprolemapping">KeycloakGroupRoleMapping<a class="headerlink" href="#keycloakgrouprolemapping" title="Permanent link">&para;</a></h1>
+<p><code>KeycloakGroupRoleMapping</code> assigns one role to one Keycloak group. Use it to
+connect group membership to realm roles or client roles that are already managed
+by the operator.</p>
+<p>One resource represents one assignment. This keeps ownership clear: deleting the
+resource with <code>deletionPolicy: Delete</code> removes only that declared assignment and
+does not touch other roles on the group.</p>
+<h2 id="realm-role-example">Realm Role Example<a class="headerlink" href="#realm-role-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakGroupRoleMapping</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-users-admin</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">groupRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-users</span>
+<span class="w">  </span><span class="nt">role</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RealmRole</span>
+<span class="w">    </span><span class="nt">roleRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-admin</span>
+</code></pre></div>
+<h2 id="client-role-example">Client Role Example<a class="headerlink" href="#client-role-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakGroupRoleMapping</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-users-web-reader</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">groupRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-users</span>
+<span class="w">  </span><span class="nt">role</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClientRole</span>
+<span class="w">    </span><span class="nt">clientRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-web</span>
+<span class="w">    </span><span class="nt">roleRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reader</span>
+</code></pre></div>
+<h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Create the realm, group, and role before creating the mapping.</li>
+<li>Use one mapping resource per role assignment.</li>
+<li>Keep names descriptive enough to show the group and role being connected.</li>
+<li>Prefer group mappings for human access; prefer service accounts for
+  machine-to-machine access.</li>
+<li>Avoid using one broad group for unrelated permissions.</li>
+</ul>
+<p><code>groupRef.name</code>, <code>role.roleRef.name</code>, and <code>role.clientRef.name</code> refer to
+operator-managed resources in the same namespace. The operator uses those names
+as Keycloak lookup keys.</p>
+<h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
+<p>The operator assigns the role when the mapping is missing. It does not remove
+roles that are assigned outside this resource.</p>
+<p>Use <code>managementPolicy: ObserveOnly</code> when adopting existing mappings. The
+operator checks whether the assignment exists, but it does not add it.</p>
+<p>Remote removal is opt-in:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">deletionPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Delete</span>
+</code></pre></div>
+<p>With <code>Delete</code>, the operator removes only this declared assignment. It does not
+delete the group, role, client, or any other assignments.</p>
+<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
+<p>Status includes the Keycloak IDs used for the assignment:</p>
+<ul>
+<li><code>.status.groupRemoteId</code></li>
+<li><code>.status.roleRemoteId</code></li>
+<li><code>.status.clientRemoteId</code> for client role mappings</li>
+</ul>
+<p><code>kubectl describe</code> shows Events when a mapping is assigned, missing in
+observe-only mode, removed, or orphaned.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -814,12 +1085,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/keycloak-config-operator/develop", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "/keycloak-config-operator/develop/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="/keycloak-config-operator/develop/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="/keycloak-config-operator/develop/assets/mkdocs-crd-viewer/crd-viewer.js"></script>
+        <script src="../../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
       
     
   </body>
