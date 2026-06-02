@@ -1,0 +1,146 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keycloakgroups.keycloak.clouddicted.com
+spec:
+  group: keycloak.clouddicted.com
+  scope: Namespaced
+  names:
+    kind: KeycloakGroup
+    plural: keycloakgroups
+    singular: keycloakgroup
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Group
+          type: string
+          jsonPath: .spec.name
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              description: Desired top-level Keycloak group.
+              required:
+                - targetRef
+                - realm
+                - name
+              properties:
+                targetRef:
+                  type: object
+                  description: KeycloakTarget used to reach Keycloak.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakTarget in this namespace.
+                      minLength: 1
+                realm:
+                  type: string
+                  description: Realm containing the group.
+                  minLength: 1
+                name:
+                  type: string
+                  description: Top-level Keycloak group name and remote lookup key.
+                  minLength: 1
+                attributes:
+                  type: object
+                  description: Keycloak group attributes reconciled when set.
+                  additionalProperties:
+                    type: array
+                    description: Attribute values.
+                    items:
+                      type: string
+                      description: Attribute value.
+                      minLength: 1
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak group.
+                    Reconcile creates or updates the modeled fields; ObserveOnly
+                    reports missing resources or drift without changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak group when this
+                    resource is deleted. Orphan leaves the group in Keycloak;
+                    Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
+            status:
+              type: object
+              description: Observed KeycloakGroup status.
+              properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed group.
+                conditions:
+                  type: array
+                  description: Current Kubernetes-style status conditions.
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                        description: Condition type.
+                        minLength: 1
+                      status:
+                        type: string
+                        description: Condition status.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        description: Resource generation observed by the operator.
+                        format: int64
+                        minimum: 0
+                      lastTransitionTime:
+                        type: string
+                        description: Time when the condition last changed.
+                        format: date-time
+                      reason:
+                        type: string
+                        description: Short reason for the condition state.
+                        minLength: 1
+                      message:
+                        type: string
+                        description: Human-readable condition details.

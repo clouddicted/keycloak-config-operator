@@ -20,6 +20,7 @@ Status meanings:
 | Identity provider | `KeycloakIdentityProvider` | Yes | Yes | Optional | Yes | Basic provider support. Delete requires `spec.deletionPolicy: Delete`. |
 | Client | `KeycloakClient` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client role | `KeycloakClientRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client. |
+| Group | `KeycloakGroup` | Yes | Yes | Optional | Yes | Top-level groups only. Delete requires `spec.deletionPolicy: Delete`. |
 | Realm role | `KeycloakRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Protocol mapper | `KeycloakProtocolMapper` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client or client scope. |
@@ -40,6 +41,7 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
 | `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
 | `KeycloakClientRole` | `description` when set. Client reference and role name are lookup keys. |
+| `KeycloakGroup` | `attributes` when set. Group name is the lookup key. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
 | `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
 | `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
@@ -127,6 +129,17 @@ secret in Kubernetes.
 | `spec.displayName` | Supported | Reconciled when set. |
 | `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
 | `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
+## KeycloakGroup
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the group. |
+| `spec.name` | Supported | Top-level group name and remote lookup key. |
+| `spec.attributes` | Supported | Reconciled when set. Values are lists of strings. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 

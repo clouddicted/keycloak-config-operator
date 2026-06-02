@@ -30,6 +30,7 @@ CLIENT_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakcl
 CLIENT_ROLE_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientroles.yaml"
 )
+GROUP_CRD = REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakgroups.yaml"
 IDENTITY_PROVIDER_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakidentityproviders.yaml"
 )
@@ -45,6 +46,7 @@ CLIENT_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakcli
 CLIENT_ROLE_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientrole.yaml"
 )
+GROUP_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakgroup.yaml"
 IDENTITY_PROVIDER_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakidentityprovider.yaml"
 )
@@ -85,6 +87,7 @@ PROTOCOL_MAPPER_NAME = "email"
 ROLE_NAME = "example-admin"
 OBSERVE_ONLY_ROLE_NAME = "observe-only-admin"
 CLIENT_ROLE_NAME = "reader"
+GROUP_NAME = "example-users"
 READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
@@ -116,6 +119,7 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
         ["kubectl", "apply", "--server-side", "-f", str(CLIENT_ROLE_CRD)],
         env=kind_cluster_env,
     )
+    _run(["kubectl", "apply", "--server-side", "-f", str(GROUP_CRD)], env=kind_cluster_env)
     _run(
         ["kubectl", "apply", "--server-side", "-f", str(IDENTITY_PROVIDER_CRD)],
         env=kind_cluster_env,
@@ -135,6 +139,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloaktargets.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakgroups.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -287,6 +301,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--server-side",
             "--dry-run=server",
             "-f",
+            str(GROUP_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
             str(REALM_SAMPLE),
         ],
         env=kind_cluster_env,
@@ -380,6 +405,19 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _log("updating KeycloakRealm displayName")
         _apply_document(kind_cluster_env, _keycloak_realm(realm, display_name="Example Updated"))
         _eventually(lambda: _assert_realm(keycloak_url, realm, "Example Updated"))
+
+        _log("applying KeycloakGroup")
+        _apply_document(kind_cluster_env, _keycloak_group(realm))
+        _wait_for_ready(kind_cluster_env, "keycloakgroups", GROUP_NAME)
+        _eventually(lambda: _assert_group(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakgroups",
+                GROUP_NAME,
+                _group(keycloak_url, realm)["id"],
+            )
+        )
 
         _log("applying KeycloakIdentityProvider")
         _apply_document(kind_cluster_env, _identity_provider_secret())
@@ -523,6 +561,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _delete_document(kind_cluster_env, _keycloak_identity_provider(realm))
         _eventually(lambda: _assert_identity_provider_missing(keycloak_url, realm))
 
+        _log("deleting KeycloakGroup with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_group(realm))
+        _eventually(lambda: _assert_group_missing(keycloak_url, realm))
+
 
 @pytest.fixture(scope="session")
 def kind_cluster_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, str]]:
@@ -559,6 +601,7 @@ def _apply_crds(env: dict[str, str]) -> None:
         REALM_CRD,
         CLIENT_CRD,
         CLIENT_ROLE_CRD,
+        GROUP_CRD,
         IDENTITY_PROVIDER_CRD,
         ROLE_CRD,
         CLIENT_SCOPE_CRD,
@@ -575,6 +618,7 @@ def _wait_for_crds(env: dict[str, str]) -> None:
         "keycloakrealms",
         "keycloakclients",
         "keycloakclientroles",
+        "keycloakgroups",
         "keycloakidentityproviders",
         "keycloakroles",
         "keycloakclientscopes",
@@ -1003,6 +1047,21 @@ def _identity_provider_secret() -> dict[str, Any]:
     }
 
 
+def _keycloak_group(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakGroup",
+        "metadata": {"name": GROUP_NAME, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "name": GROUP_NAME,
+            "attributes": {"team": ["platform"]},
+            "deletionPolicy": "Delete",
+        },
+    }
+
+
 def _keycloak_protocol_mapper(realm: str) -> dict[str, Any]:
     return {
         "apiVersion": "keycloak.clouddicted.com/v1beta1",
@@ -1187,6 +1246,22 @@ def _assert_identity_provider_missing(base_url: str, realm: str) -> None:
     raise AssertionError(f"Keycloak identity provider {IDENTITY_PROVIDER_ALIAS!r} exists")
 
 
+def _assert_group(base_url: str, realm: str) -> None:
+    group = _group(base_url, realm)
+    assert group["name"] == GROUP_NAME
+    assert group["attributes"]["team"] == ["platform"]
+
+
+def _assert_group_missing(base_url: str, realm: str) -> None:
+    groups = _admin_get(
+        base_url,
+        f"realms/{realm}/groups",
+        params={"search": GROUP_NAME, "exact": "true"},
+    )
+    assert isinstance(groups, list)
+    assert all(not isinstance(group, dict) or group.get("name") != GROUP_NAME for group in groups)
+
+
 def _assert_protocol_mapper_missing(base_url: str, realm: str) -> None:
     client_scope = _assert_client_scope(base_url, realm)
     mappers = _admin_get(
@@ -1290,6 +1365,15 @@ def _client_role(base_url: str, realm: str) -> dict[str, Any]:
         base_url,
         f"realms/{realm}/clients/{client['id']}/roles/{CLIENT_ROLE_NAME}",
     )
+
+
+def _group(base_url: str, realm: str) -> dict[str, Any]:
+    groups = _admin_get(
+        base_url,
+        f"realms/{realm}/groups",
+        params={"search": GROUP_NAME, "exact": "true"},
+    )
+    return _one_by_field(groups, "name", GROUP_NAME)
 
 
 def _client_scope(base_url: str, realm: str, name: str) -> dict[str, Any]:

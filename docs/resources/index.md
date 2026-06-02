@@ -16,9 +16,9 @@ to one Keycloak instance.
 `KeycloakRealm` creates or observes the realm that contains the rest of the
 configuration.
 
-`KeycloakIdentityProvider`, `KeycloakClient`, `KeycloakClientRole`, `KeycloakRole`,
-`KeycloakClientScope`, and `KeycloakProtocolMapper` manage selected objects
-inside a realm.
+`KeycloakIdentityProvider`, `KeycloakClient`, `KeycloakClientRole`,
+`KeycloakGroup`, `KeycloakRole`, `KeycloakClientScope`, and
+`KeycloakProtocolMapper` manage selected objects inside a realm.
 
 Arrows point from prerequisites to resources that depend on them:
 
@@ -28,6 +28,7 @@ flowchart TD
   target --> idp[KeycloakIdentityProvider]
   target --> client[KeycloakClient]
   target --> clientRole[KeycloakClientRole]
+  target --> group[KeycloakGroup]
   target --> role[KeycloakRole]
   target --> scope[KeycloakClientScope]
   target --> mapper[KeycloakProtocolMapper]
@@ -35,6 +36,7 @@ flowchart TD
   realm --> idp
   realm --> client
   realm --> clientRole
+  realm --> group
   realm --> role
   realm --> scope
   client --> clientRole
@@ -48,6 +50,7 @@ The normal apply order is:
 KeycloakTarget
 KeycloakRealm
 KeycloakIdentityProvider
+KeycloakGroup
 KeycloakRole
 KeycloakClient
 KeycloakClientRole

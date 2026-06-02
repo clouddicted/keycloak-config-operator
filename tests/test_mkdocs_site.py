@@ -37,6 +37,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
         "resources/keycloak-client-role.md",
         "resources/keycloak-client-scope.md",
         "resources/keycloak-client.md",
+        "resources/keycloak-group.md",
         "resources/keycloak-identity-provider.md",
         "resources/keycloak-protocol-mapper.md",
         "resources/keycloak-realm.md",
