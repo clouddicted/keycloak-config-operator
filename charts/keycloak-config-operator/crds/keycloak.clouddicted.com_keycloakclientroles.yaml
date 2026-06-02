@@ -1,0 +1,154 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keycloakclientroles.keycloak.clouddicted.com
+spec:
+  group: keycloak.clouddicted.com
+  scope: Namespaced
+  names:
+    kind: KeycloakClientRole
+    plural: keycloakclientroles
+    singular: keycloakclientrole
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Role
+          type: string
+          jsonPath: .spec.name
+        - name: Client
+          type: string
+          jsonPath: .spec.clientRef.name
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              description: Desired Keycloak client role.
+              required:
+                - targetRef
+                - realm
+                - clientRef
+                - name
+              properties:
+                targetRef:
+                  type: object
+                  description: KeycloakTarget used to reach Keycloak.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakTarget in this namespace.
+                      minLength: 1
+                realm:
+                  type: string
+                  description: Realm containing the client role.
+                  minLength: 1
+                clientRef:
+                  type: object
+                  description: KeycloakClient that owns the role.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakClient in this namespace.
+                      minLength: 1
+                name:
+                  type: string
+                  description: Keycloak client role name.
+                  minLength: 1
+                description:
+                  type: string
+                  description: Keycloak client role description.
+                  minLength: 1
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak client role.
+                    Reconcile creates or updates the modeled fields; ObserveOnly
+                    reports missing resources or drift without changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak client role when
+                    this resource is deleted. Orphan leaves the role in Keycloak;
+                    Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
+            status:
+              type: object
+              description: Observed KeycloakClientRole status.
+              properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed client role.
+                conditions:
+                  type: array
+                  description: Current Kubernetes-style status conditions.
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                        description: Condition type.
+                        minLength: 1
+                      status:
+                        type: string
+                        description: Condition status.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        description: Resource generation observed by the operator.
+                        format: int64
+                        minimum: 0
+                      lastTransitionTime:
+                        type: string
+                        description: Time when the condition last changed.
+                        format: date-time
+                      reason:
+                        type: string
+                        description: Short reason for the condition state.
+                        minLength: 1
+                      message:
+                        type: string
+                        description: Human-readable condition details.

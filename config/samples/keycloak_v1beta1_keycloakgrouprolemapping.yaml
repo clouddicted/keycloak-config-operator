@@ -1,0 +1,14 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakGroupRoleMapping
+metadata:
+  name: example-users-admin
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  groupRef:
+    name: example-users
+  role:
+    type: RealmRole
+    roleRef:
+      name: example-admin

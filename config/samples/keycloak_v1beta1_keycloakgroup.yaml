@@ -1,0 +1,12 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakGroup
+metadata:
+  name: example-users
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: example-users
+  attributes:
+    team:
+      - platform

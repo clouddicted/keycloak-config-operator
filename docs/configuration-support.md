@@ -11,6 +11,29 @@ Status meanings:
 - Partial: supported with documented limits.
 - Unsupported: not exposed or not reconciled by this operator.
 
+## Scope And Known Gaps
+
+The operator is not a full replacement for Keycloak realm import/export. It
+manages a focused set of resources that are useful for GitOps workflows. A
+complete realm export can contain many settings that are intentionally not part
+of the current CRDs.
+
+Use this page to decide whether a Keycloak setting is covered before moving it
+from the Admin Console or a realm export into Kubernetes manifests.
+
+| Area | Current coverage | Notes |
+| --- | --- | --- |
+| Application clients | Partial | Core client settings are covered. Some Keycloak client attributes, such as PKCE, post-logout redirect URIs, backchannel logout options, and advanced token flags, are not modeled yet. |
+| Identity providers | Partial | Basic provider creation and config are covered. Identity provider mappers and several top-level provider flags are not modeled yet. |
+| Protocol mappers on clients and client scopes | Supported | Generic mapper type and config support covers common OIDC and SAML mappers. |
+| Realm and client roles | Partial | Simple roles are covered. Composite roles are not modeled yet. |
+| Groups and group role assignments | Partial | Top-level groups and one declared group-to-role assignment are covered. Nested groups and user membership are not modeled yet. |
+| Client scopes | Partial | Scope name, protocol, description, and mappers are covered. Client scope attributes such as consent text and token-scope display flags are not modeled yet. |
+| Realm-wide settings | Limited | Realm creation and display name updates are covered. Lifespans, browser security headers, OTP/WebAuthn policy, brute-force settings, themes, events, SMTP, and default scope settings are not modeled yet. |
+| Authentication flows and required actions | Unsupported | Custom flows, flow bindings, authenticator config, and required actions are not modeled yet. |
+| Components | Unsupported | User profile provider config, client registration policies, and key provider components are not modeled. |
+| Users, credentials, and sessions | Unsupported | These are operational or identity data, not configuration the operator should own by default. |
+
 ## Entity Overview
 
 | Entity | CRD | Create | Update | Delete | E2E tested | Notes |
@@ -19,6 +42,9 @@ Status meanings:
 | Realm | `KeycloakRealm` | Yes | Partial | No | Yes | Reconciles `spec.displayName` when set. |
 | Identity provider | `KeycloakIdentityProvider` | Yes | Yes | Optional | Yes | Basic provider support. Delete requires `spec.deletionPolicy: Delete`. |
 | Client | `KeycloakClient` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
+| Client role | `KeycloakClientRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client. |
+| Group | `KeycloakGroup` | Yes | Yes | Optional | Yes | Top-level groups only. Delete requires `spec.deletionPolicy: Delete`. |
+| Group role mapping | `KeycloakGroupRoleMapping` | Yes | Observe only | Optional | Yes | Assigns one realm role or client role to one group. Delete removes only the declared assignment. |
 | Realm role | `KeycloakRole` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Client scope | `KeycloakClientScope` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. |
 | Protocol mapper | `KeycloakProtocolMapper` | Yes | Yes | Optional | Yes | Delete requires `spec.deletionPolicy: Delete`. Parent must be a managed client or client scope. |
@@ -38,6 +64,9 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
 | `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
 | `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakClientRole` | `description` when set. Client reference and role name are lookup keys. |
+| `KeycloakGroup` | `attributes` when set. Group name is the lookup key. |
+| `KeycloakGroupRoleMapping` | Presence of one declared group-to-role assignment. It does not prune other role assignments on the group. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
 | `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
 | `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
@@ -100,6 +129,19 @@ secret in Kubernetes.
 | `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
 | `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
 
+## KeycloakClientRole
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the parent client. |
+| `spec.clientRef` | Supported | References a managed `KeycloakClient` in the same namespace. |
+| `spec.clientRef.name` | Supported | KeycloakClient name and Keycloak client ID used as the parent lookup key. |
+| `spec.name` | Supported | Client role name and remote lookup key under the parent client. |
+| `spec.description` | Supported | Reconciled when set. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
 ## KeycloakIdentityProvider
 
 | Field | Status | Notes |
@@ -112,6 +154,31 @@ secret in Kubernetes.
 | `spec.displayName` | Supported | Reconciled when set. |
 | `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
 | `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
+## KeycloakGroup
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the group. |
+| `spec.name` | Supported | Top-level group name and remote lookup key. |
+| `spec.attributes` | Supported | Reconciled when set. Values are lists of strings. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
+## KeycloakGroupRoleMapping
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the group and role. |
+| `spec.groupRef` | Supported | References a managed `KeycloakGroup` in the same namespace. |
+| `spec.role` | Supported | Declares one role assignment. |
+| `spec.role.type` | Supported | `RealmRole` or `ClientRole`. |
+| `spec.role.roleRef.name` | Supported | Name of the `KeycloakRole` or `KeycloakClientRole`. |
+| `spec.role.clientRef.name` | Supported | Required when `spec.role.type` is `ClientRole`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 

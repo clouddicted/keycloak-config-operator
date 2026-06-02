@@ -11,6 +11,7 @@ htmlcov/
 .venv/
 .env
 
+tmp/
 build/
 dist/
 site/

@@ -10,7 +10,10 @@ import kopf
 from clouddicted_keycloak_config_operator.constants import API_GROUP, OPERATOR_NAME
 from clouddicted_keycloak_config_operator.handlers import (
     keycloak_client,
+    keycloak_client_role,
     keycloak_client_scope,
+    keycloak_group,
+    keycloak_group_role_mapping,
     keycloak_identity_provider,
     keycloak_protocol_mapper,
     keycloak_realm,
@@ -27,6 +30,9 @@ REGISTERED_HANDLER_MODULES = (
     keycloak_target,
     keycloak_realm,
     keycloak_client,
+    keycloak_client_role,
+    keycloak_group,
+    keycloak_group_role_mapping,
     keycloak_role,
     keycloak_client_scope,
     keycloak_protocol_mapper,
