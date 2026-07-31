@@ -3,6 +3,11 @@
 `KeycloakTarget` tells the operator how to reach a Keycloak Admin API. Create it
 before any resource that manages a realm, client, role, scope, or mapper.
 
+Create the target in the same watched namespace as every CR that references it.
+Targets are namespace-scoped, and `spec.targetRef` is always resolved in the
+referencing CR's namespace. The target does not need to be in the operator's
+installation namespace. The examples below use `keycloak-config`.
+
 Prefer the in-cluster Kubernetes Service URL when Keycloak runs in the same
 cluster. The operator runs inside Kubernetes, so an internal URL avoids public
 Ingress routing, external DNS, public TLS termination, and firewall assumptions.
@@ -46,6 +51,7 @@ apiVersion: keycloak.clouddicted.com/v1beta1
 kind: KeycloakTarget
 metadata:
   name: example-keycloak
+  namespace: keycloak-config
 spec:
   url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
@@ -75,6 +81,7 @@ apiVersion: keycloak.clouddicted.com/v1beta1
 kind: KeycloakTarget
 metadata:
   name: example-keycloak
+  namespace: keycloak-config
 spec:
   url: http://keycloak.keycloak.svc.cluster.local:8080
   auth:
@@ -100,6 +107,7 @@ apiVersion: keycloak.clouddicted.com/v1beta1
 kind: KeycloakTarget
 metadata:
   name: example-keycloak
+  namespace: keycloak-config
 spec:
   url: http://keycloak.keycloak.svc.cluster.local:8080
   adminCredentials:

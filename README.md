@@ -106,6 +106,15 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 When `watchNamespaces` is set, the chart creates namespace-scoped RBAC in each
 listed namespace. Those namespaces must already exist or be managed separately.
 
+The Helm release namespace contains the operator Deployment and ServiceAccount;
+it does not determine where Keycloak custom resources belong. Create
+`KeycloakTarget` and all CRs that reference it together in any namespace the
+operator watches. References between operator CRs are same-namespace, so a CR
+cannot use a `KeycloakTarget`, client, group, role, or client scope from another
+namespace. Referenced Secrets default to the CR's namespace; using an explicit
+Secret namespace also requires the operator's ServiceAccount to have access
+there.
+
 For a local kind image, load the image into kind and install with the same tag:
 
 ```bash
@@ -134,7 +143,10 @@ repeated `--namespace <namespace>` arguments.
 Create Keycloak admin credentials before applying a `KeycloakTarget`:
 
 ```bash
+kubectl create namespace keycloak-config
+
 kubectl create secret generic keycloak-admin-credentials \
+  --namespace keycloak-config \
   --from-literal=username=<admin-user> \
   --from-literal=password=<admin-password>
 ```
@@ -148,7 +160,7 @@ kubectl apply -k config/crd
 Apply the sample resources:
 
 ```bash
-kubectl apply -k config/samples
+kubectl apply --namespace keycloak-config -k config/samples
 ```
 
 ## License

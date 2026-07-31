@@ -15,6 +15,11 @@ helm upgrade --install keycloak-config-operator \
 
 ## Create A Configuration Namespace
 
+The `keycloak-config-operator-system` namespace above is only for the operator.
+Create `KeycloakTarget` and every CR that references it in a separate
+configuration namespace watched by the operator. This guide uses
+`keycloak-config` for all Keycloak CRs and their Secrets.
+
 ```bash
 kubectl create namespace keycloak-config
 ```

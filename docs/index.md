@@ -16,8 +16,9 @@ client scopes, and protocol mappers close to the applications that use them.
 ## How It Works
 
 You describe the Keycloak state you want in Kubernetes. The operator watches
-those declarations, talks to the Keycloak Admin API, and continuously brings the
-remote configuration toward the desired state.
+those declarations and talks to the Keycloak Admin API whenever a resource is
+created, updated, or resumed at operator startup. Successful resources are not
+periodically resynced in the current release.
 
 Each resource reports its own status, so teams can use familiar Kubernetes tools
 to understand whether configuration was applied, authentication failed, or a

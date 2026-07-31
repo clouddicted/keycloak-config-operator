@@ -32,6 +32,31 @@ helm upgrade --install keycloak-config-operator \
   --set 'watchNamespaces[0]=keycloak-config'
 ```
 
+## Choose Namespaces
+
+The Helm release namespace, `keycloak-config-operator-system` in these examples,
+contains the operator Deployment and ServiceAccount. It is not the required
+namespace for Keycloak custom resources.
+
+All Keycloak CRDs are namespace-scoped. Create a `KeycloakTarget` and every CR
+that references it together in one namespace watched by the operator. A
+`spec.targetRef` contains only a name, and the operator always resolves that
+target in the referencing CR's namespace. References to operator-managed
+clients, groups, roles, and client scopes are same-namespace for the same reason.
+
+The usual layout is one configuration namespace per team or environment. The
+examples use `keycloak-config`:
+
+```text
+keycloak-config-operator-system   operator Deployment and ServiceAccount
+keycloak-config                  KeycloakTarget, related CRs, and Secrets
+```
+
+Referenced Secrets also default to the CR's namespace. A `secretRef.namespace`
+can select another namespace where the CRD supports it, but the operator's
+ServiceAccount must have Secret access there. Keeping Secrets with their CRs is
+the recommended layout, especially when `watchNamespaces` restricts RBAC.
+
 ## Configure A Keycloak Target
 
 Create a namespace for Keycloak configuration resources and store the admin
@@ -169,6 +194,23 @@ kubectl get -n keycloak-config \
 Ready resources have a `Ready=True` condition. If a resource depends on a target,
 realm, client, or client scope that is not ready yet, the operator reports that in
 the resource status and retries reconciliation.
+
+## Reconciliation Frequency
+
+Reconciliation is currently event-driven. The operator checks a resource when
+it is created or updated and when an existing resource is resumed after the
+operator starts. It does not run a periodic successful-state resync.
+
+Consequently, after a successful reconciliation, an unchanged CR is not checked
+again on a schedule. Out-of-band changes made directly in Keycloak are detected
+only on the next CR update or after the operator restarts and resumes existing
+resources. Changes to referenced Secrets or other CRs do not themselves enqueue
+dependent resources.
+
+Retryable reconciliation failures, such as an unavailable target or Secret, are
+retried after 60 seconds. Failed remote deletion attempts use a 30-second retry.
+These are failure retries, not periodic drift checks. To request an immediate
+check without changing the spec, update a harmless custom annotation on the CR.
 
 ## Adopt Existing Objects
 
