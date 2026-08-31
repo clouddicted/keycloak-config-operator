@@ -324,8 +324,18 @@ def enqueue_dependents(
     custom_objects_api: Any | None = None,
     **indices: Any,
 ) -> None:
-    """Fan out add/delete events without persisting a handler result in status."""
-    if event is not None and event.get("type") == "MODIFIED":
+    """Fan out dependency events without persisting a handler result in status."""
+    # Custom resources also emit status and Kopf bookkeeping updates.  Those are
+    # handled by ``enqueue_dependents_on_update`` after filtering the diff; doing
+    # the raw fan-out for them would create duplicate reconciliations.  Secrets
+    # have no operator-managed status, so their raw MODIFIED events are the
+    # reliable trigger for dependents (the Secret is intentionally not handled
+    # by the update callback below).
+    if (
+        param != SECRET_RESOURCE
+        and event is not None
+        and event.get("type") == "MODIFIED"
+    ):
         return
 
     fanout_dependents(
@@ -355,6 +365,9 @@ def enqueue_dependents_on_update(
     **indices: Any,
 ) -> None:
     """Fan out only meaningful source updates, keeping status-only updates local."""
+    if param == SECRET_RESOURCE:
+        return
+
     if not dependency_diff_is_relevant(diff):
         return
 

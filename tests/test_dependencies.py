@@ -285,11 +285,38 @@ def test_dependency_event_handler_does_not_return_status_result() -> None:
 
 
 def test_raw_modified_dependency_events_are_handled_by_update_filter() -> None:
-    source = dependencies.SECRET_RESOURCE
+    source = dependencies.SourceResource(API_GROUP, API_VERSION, "keycloakrealms")
     api = FakeCustomObjectsApi()
 
     dependencies.enqueue_dependents(
         body={"metadata": {"resourceVersion": "12"}},
+        namespace="apps",
+        name="realm",
+        param=source,
+        event={"type": "MODIFIED"},
+        custom_objects_api=api,
+        **{
+            f"{KEYCLOAK_TARGET_PLURAL}_dependencies": {
+                _key(API_GROUP, "keycloakrealms", "apps", "realm"): [
+                    dependencies.DependentResource(
+                        namespace="apps",
+                        plural=KEYCLOAK_TARGET_PLURAL,
+                        name="keycloak",
+                    )
+                ]
+            }
+        },
+    )
+
+    assert api.patches == []
+
+
+def test_raw_modified_secret_dependency_events_fan_out() -> None:
+    source = dependencies.SECRET_RESOURCE
+    api = FakeCustomObjectsApi()
+
+    dependencies.enqueue_dependents(
+        body={"metadata": {"resourceVersion": "13"}},
         namespace="apps",
         name="credentials",
         param=source,
@@ -308,7 +335,10 @@ def test_raw_modified_dependency_events_are_handled_by_update_filter() -> None:
         },
     )
 
-    assert api.patches == []
+    assert len(api.patches) == 1
+    assert api.patches[0]["body"]["metadata"]["annotations"][
+        dependencies.DEPENDENCY_TRIGGER_ANNOTATION
+    ] == "core/secrets/apps/credentials@13"
 
 
 @pytest.mark.parametrize(
