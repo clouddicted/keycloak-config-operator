@@ -16,8 +16,10 @@ client scopes, and protocol mappers close to the applications that use them.
 ## How It Works
 
 You describe the Keycloak state you want in Kubernetes. The operator watches
-those declarations, talks to the Keycloak Admin API, and continuously brings the
-remote configuration toward the desired state.
+those declarations and talks to the Keycloak Admin API whenever a resource is
+created, updated, or resumed at operator startup. Changes to referenced Secrets
+and supported operator CRs enqueue their dependents. A staggered periodic check,
+every 10 minutes by default, detects changes made directly in Keycloak.
 
 Each resource reports its own status, so teams can use familiar Kubernetes tools
 to understand whether configuration was applied, authentication failed, or a
@@ -27,6 +29,7 @@ dependency is not ready yet.
 
 - [Getting started](getting-started.md) for a minimal working example.
 - [Usage guide](usage.md) for install options, authentication modes, and deletion behavior.
+- [Reconciliation](reconciliation.md) for triggers, drift-check timing, retries, and tuning.
 - [Resources](resources/index.md) for practical CRD field explanations and examples.
 - [API reference](api-reference.md) for the generated CRD schema.
 
@@ -35,7 +38,7 @@ Install the released Helm chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```

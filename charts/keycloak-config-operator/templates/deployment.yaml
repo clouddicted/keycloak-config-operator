@@ -58,6 +58,8 @@ spec:
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: RECONCILIATION_INTERVAL_SECONDS
+              value: {{ .Values.reconciliationIntervalSeconds | quote }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

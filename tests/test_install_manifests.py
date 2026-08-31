@@ -23,7 +23,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.4.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.5.0"
 OPERATOR_ARGS = [
     "run",
     "-m",
@@ -153,6 +153,10 @@ def test_deployment_uses_kopf_module_entrypoint() -> None:
     }
     assert container["command"] == ["kopf"]
     assert container["args"] == OPERATOR_ARGS
+    assert container["env"] == [
+        {"name": "PYTHONUNBUFFERED", "value": "1"},
+        {"name": "RECONCILIATION_INTERVAL_SECONDS", "value": "600"},
+    ]
 
 
 def test_dockerfile_defaults_to_all_namespaces_with_overridable_args() -> None:
@@ -175,7 +179,7 @@ def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:
         assert "*" not in rule["verbs"]
 
     secret_rule = _rule_for(rules, api_group="", resources={"secrets"})
-    assert set(secret_rule["verbs"]) == {"get", "create", "patch"}
+    assert set(secret_rule["verbs"]) == {"get", "list", "watch", "create", "patch"}
 
     event_rule = _rule_for(rules, api_group="", resources={"events"})
     assert set(event_rule["verbs"]) == {"create", "patch"}

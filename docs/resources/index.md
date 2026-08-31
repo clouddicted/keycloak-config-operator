@@ -70,9 +70,16 @@ must exist before protocol mappers that attach directly to clients.
 
 ## Namespace Model
 
-Resources are namespace-scoped. In practice, keep a target and the objects that
-use it in the same namespace. This keeps RBAC, credentials, and ownership easy to
-understand.
+All operator resources are namespace-scoped. Create a target and every object
+that uses it in the same namespace: `spec.targetRef` has no namespace field, and
+the operator resolves the target in the referencing resource's namespace. The
+same rule applies to references between operator-managed clients, client scopes,
+groups, and roles.
+
+The operator's installation namespace is separate. It contains the Deployment
+and ServiceAccount but does not determine where CRs must be created. CRs can be
+created in any namespace the operator watches. If Helm `watchNamespaces` is set,
+use one of the namespaces in that list.
 
 For shared Keycloak instances, use one namespace per team or environment and
 give each namespace only the Secret access it needs.
@@ -83,6 +90,13 @@ The operator reconciles the fields it owns and leaves unknown Keycloak settings
 alone where possible. This makes it usable with existing Keycloak instances, but
 it also means you should treat the CRDs as the source of truth for the fields you
 declare.
+
+Reconciliation runs on CR creation or update, when resources are resumed at
+operator startup, and when referenced Secrets or supported operator CRs change.
+Successful resources are also checked for out-of-band Keycloak drift every 600
+seconds by default. Retryable failures are retried after 60 seconds; remote
+deletion failures use a 30-second retry. See [Reconciliation](../reconciliation.md)
+for trigger coverage and interval configuration.
 
 Use `managementPolicy: ObserveOnly` during adoption. It lets you check whether
 the remote Keycloak object exists and whether the modeled fields match the

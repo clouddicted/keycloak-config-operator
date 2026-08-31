@@ -15,7 +15,7 @@ in the namespaces the operator watches.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -26,11 +26,36 @@ the watch scope, install with `watchNamespaces`.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace \
   --set 'watchNamespaces[0]=keycloak-config'
 ```
+
+## Choose Namespaces
+
+The Helm release namespace, `keycloak-config-operator-system` in these examples,
+contains the operator Deployment and ServiceAccount. It is not the required
+namespace for Keycloak custom resources.
+
+All Keycloak CRDs are namespace-scoped. Create a `KeycloakTarget` and every CR
+that references it together in one namespace watched by the operator. A
+`spec.targetRef` contains only a name, and the operator always resolves that
+target in the referencing CR's namespace. References to operator-managed
+clients, groups, roles, and client scopes are same-namespace for the same reason.
+
+The usual layout is one configuration namespace per team or environment. The
+examples use `keycloak-config`:
+
+```text
+keycloak-config-operator-system   operator Deployment and ServiceAccount
+keycloak-config                  KeycloakTarget, related CRs, and Secrets
+```
+
+Referenced Secrets also default to the CR's namespace. A `secretRef.namespace`
+can select another namespace where the CRD supports it, but the operator's
+ServiceAccount must have Secret access there. Keeping Secrets with their CRs is
+the recommended layout, especially when `watchNamespaces` restricts RBAC.
 
 ## Configure A Keycloak Target
 
@@ -169,6 +194,42 @@ kubectl get -n keycloak-config \
 Ready resources have a `Ready=True` condition. If a resource depends on a target,
 realm, client, or client scope that is not ready yet, the operator reports that in
 the resource status and retries reconciliation.
+
+## Reconciliation Frequency
+
+The operator checks a resource when it is created or updated and when an
+existing resource is resumed after the operator starts. Changes to referenced
+Secrets and supported operator CRs also enqueue dependent resources, provided
+the source change is in a namespace watched by the operator.
+
+Successful resources are checked periodically for out-of-band Keycloak drift.
+The default interval is 600 seconds (10 minutes). Initial checks are
+deterministically staggered across the first interval so an operator restart
+does not send all periodic requests to Keycloak at once. Later checks run at the
+configured interval. A successful check that finds no change does not rewrite
+status or emit duplicate Kubernetes events.
+
+Set the Helm value to change the interval:
+
+```bash
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --set reconciliationIntervalSeconds=300
+```
+
+Set `reconciliationIntervalSeconds=0` to disable periodic checks without
+disabling event-driven reconciliation. For the plain Deployment, set
+`RECONCILIATION_INTERVAL_SECONDS` to the desired non-negative number of seconds.
+
+Retryable reconciliation failures, such as an unavailable target or Secret, are
+retried after 60 seconds. Failed remote deletion attempts use a 30-second retry.
+These failure retries are independent of periodic drift checks. To request an
+immediate check manually without changing the spec, update a harmless custom
+annotation on the CR.
+
+See [Reconciliation](reconciliation.md) for the dependency trigger matrix and
+namespace behavior.
 
 ## Adopt Existing Objects
 

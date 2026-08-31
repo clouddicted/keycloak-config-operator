@@ -23,7 +23,9 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    discard_unchanged_status_patch,
     emit_event_for_condition_reasons,
+    periodic_reconciliation,
     raise_for_retry,
 )
 from clouddicted_keycloak_config_operator.handlers.spec_validation import (
@@ -143,6 +145,7 @@ class MappingDependencyError(Exception):
 @kopf.on.create(**KEYCLOAK_GROUP_ROLE_MAPPING_RESOURCE)
 @kopf.on.update(**KEYCLOAK_GROUP_ROLE_MAPPING_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_GROUP_ROLE_MAPPING_RESOURCE)
+@periodic_reconciliation(KEYCLOAK_GROUP_ROLE_MAPPING_RESOURCE)
 def reconcile_keycloak_group_role_mapping(
     body: kopf.Body,
     spec: Mapping[str, Any] | None,
@@ -158,6 +161,7 @@ def reconcile_keycloak_group_role_mapping(
         patch=patch,
         namespace=namespace,
     )
+    discard_unchanged_status_patch(patch, status)
     if retry is None:
         _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)

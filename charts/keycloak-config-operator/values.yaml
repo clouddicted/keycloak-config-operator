@@ -21,6 +21,9 @@ rbac:
 
 watchNamespaces: []
 
+# Periodic drift-check interval. Set to 0 to disable periodic reconciliation.
+reconciliationIntervalSeconds: 600
+
 podAnnotations: {}
 podLabels: {}
 

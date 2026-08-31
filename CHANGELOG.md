@@ -2,6 +2,51 @@
 
 ## Unreleased
 
+## v0.5.0 - 2026-08-31
+
+### Highlights
+
+- Added periodic drift reconciliation for every supported custom resource,
+  running every 600 seconds by default.
+- Added dependency-triggered reconciliation when referenced Secrets, targets,
+  clients, client roles, groups, realm roles, or client scopes change.
+- Staggered the first periodic check for each resource to avoid a burst of
+  Keycloak Admin API requests after operator startup.
+- Avoided duplicate status writes and Kubernetes Events when a periodic check
+  finds no changes.
+
+### Configuration
+
+- Added the Helm value `reconciliationIntervalSeconds` and the equivalent plain
+  Deployment variable `RECONCILIATION_INTERVAL_SECONDS`.
+- Set either configuration to `0` to disable periodic checks while retaining
+  event-driven and failure-retry reconciliation.
+
+### Documentation
+
+- Added a reconciliation guide covering triggers, dependency fan-out, timing,
+  namespace behavior, retries, and interval configuration.
+- Updated the usage and resource guides to describe continuous reconciliation.
+
+### Testing
+
+- Added unit coverage for interval validation, deterministic staggering,
+  no-change status suppression, timer registration, and disabled timers.
+- Added unit coverage for dependency indexing, fan-out, duplicate suppression,
+  natural-key references, and concurrent deletion handling.
+- Extended the kind e2e scenario to verify periodic repair of out-of-band realm
+  drift and reconciliation after Secret and client dependency changes.
+
+### Upgrade Notes
+
+- CRDs remain served as `keycloak.clouddicted.com/v1beta1`; this release does not
+  change their schemas.
+- Apply the updated RBAC before starting v0.5.0. The operator now requires
+  `list` and `watch` access to Secrets in watched namespaces to detect Secret
+  changes promptly.
+- Existing installations begin periodic reconciliation at the 10-minute
+  default. Set the interval to `0` to retain event-only successful-state checks.
+
 ## v0.4.0 - 2026-06-02
 
 ### Highlights
