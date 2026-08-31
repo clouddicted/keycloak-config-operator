@@ -320,10 +320,63 @@ def enqueue_dependents(
     namespace: str | None,
     name: str,
     param: SourceResource,
+    event: Mapping[str, Any] | None = None,
+    custom_objects_api: Any | None = None,
+    **indices: Any,
+) -> None:
+    """Fan out add/delete events without persisting a handler result in status."""
+    if event is not None and event.get("type") == "MODIFIED":
+        return
+
+    fanout_dependents(
+        body=body,
+        namespace=namespace,
+        name=name,
+        param=param,
+        custom_objects_api=custom_objects_api,
+        **indices,
+    )
+
+
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[0]), param=DEPENDENCY_SOURCES[0])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[1]), param=DEPENDENCY_SOURCES[1])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[2]), param=DEPENDENCY_SOURCES[2])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[3]), param=DEPENDENCY_SOURCES[3])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[4]), param=DEPENDENCY_SOURCES[4])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[5]), param=DEPENDENCY_SOURCES[5])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[6]), param=DEPENDENCY_SOURCES[6])
+def enqueue_dependents_on_update(
+    body: Mapping[str, Any],
+    diff: kopf.Diff,
+    namespace: str | None,
+    name: str,
+    param: SourceResource,
+    custom_objects_api: Any | None = None,
+    **indices: Any,
+) -> None:
+    """Fan out only meaningful source updates, keeping status-only updates local."""
+    if not dependency_diff_is_relevant(diff):
+        return
+
+    fanout_dependents(
+        body=body,
+        namespace=namespace,
+        name=name,
+        param=param,
+        custom_objects_api=custom_objects_api,
+        **indices,
+    )
+
+
+def fanout_dependents(
+    body: Mapping[str, Any],
+    namespace: str | None,
+    name: str,
+    param: SourceResource,
     custom_objects_api: Any | None = None,
     **indices: Any,
 ) -> int:
-    """Patch dependent CR annotations so their normal update handlers reconcile them."""
+    """Patch dependent CR annotations and return the number of successful patches."""
     if not namespace or not name:
         return 0
 
@@ -360,6 +413,30 @@ def enqueue_dependents(
         patched += 1
 
     return patched
+
+
+def dependency_diff_is_relevant(diff: kopf.Diff | None) -> bool:
+    """Whether an update can change a source dependency's effective configuration."""
+    if diff is None:
+        return True
+
+    for change in diff:
+        if len(change) < 2:
+            continue
+        field = change[1]
+        if not isinstance(field, tuple) or not field:
+            continue
+        if field[0] == "status":
+            continue
+        if field[:2] == ("metadata", "finalizers"):
+            continue
+        if field[:2] == ("metadata", "annotations") and len(field) > 2:
+            annotation = field[2]
+            if isinstance(annotation, str) and annotation.startswith(f"{API_GROUP}/"):
+                continue
+        return True
+
+    return False
 
 
 def source_dependency_keys(

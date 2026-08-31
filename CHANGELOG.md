@@ -22,6 +22,13 @@
 - Set either configuration to `0` to disable periodic checks while retaining
   event-driven and failure-retry reconciliation.
 
+### Fixes
+
+- Prevented status-only dependency-source updates from enqueueing dependents or
+  writing `status.enqueue_dependents`, avoiding duplicate Admin API operations.
+- Stopped periodic reconciliation when a resource is marked for deletion so
+  terminating CRs cannot recreate their remote objects.
+
 ### Documentation
 
 - Added a reconciliation guide covering triggers, dependency fan-out, timing,

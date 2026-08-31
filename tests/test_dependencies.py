@@ -1,5 +1,7 @@
 from typing import Any
 
+import kopf
+import pytest
 from kubernetes.client.exceptions import ApiException
 
 from clouddicted_keycloak_config_operator.constants import (
@@ -178,7 +180,7 @@ def test_enqueue_dependents_patches_each_resource_once_and_supports_natural_keys
         source_by_client_id: [dependent],
     }
 
-    patched = dependencies.enqueue_dependents(
+    patched = dependencies.fanout_dependents(
         body={
             "metadata": {"resourceVersion": "42"},
             "spec": {"clientId": "console"},
@@ -229,7 +231,7 @@ def test_enqueue_dependents_skips_current_trigger_and_deleted_resources() -> Non
 
     current_api = FakeCustomObjectsApi()
     assert (
-        dependencies.enqueue_dependents(
+        dependencies.fanout_dependents(
             body={"metadata": {"resourceVersion": "12"}},
             namespace="apps",
             name="credentials",
@@ -243,7 +245,7 @@ def test_enqueue_dependents_skips_current_trigger_and_deleted_resources() -> Non
 
     missing_api = FakeCustomObjectsApi(ApiException(status=404))
     assert (
-        dependencies.enqueue_dependents(
+        dependencies.fanout_dependents(
             body={"metadata": {"resourceVersion": "12"}},
             namespace="apps",
             name="credentials",
@@ -253,6 +255,93 @@ def test_enqueue_dependents_skips_current_trigger_and_deleted_resources() -> Non
         )
         == 0
     )
+
+
+def test_dependency_event_handler_does_not_return_status_result() -> None:
+    source = dependencies.SECRET_RESOURCE
+    api = FakeCustomObjectsApi()
+
+    result = dependencies.enqueue_dependents(
+        body={"metadata": {"resourceVersion": "12"}},
+        namespace="apps",
+        name="credentials",
+        param=source,
+        custom_objects_api=api,
+        **{
+            f"{KEYCLOAK_TARGET_PLURAL}_dependencies": {
+                _key("", "secrets", "apps", "credentials"): [
+                    dependencies.DependentResource(
+                        namespace="apps",
+                        plural=KEYCLOAK_TARGET_PLURAL,
+                        name="keycloak",
+                    )
+                ]
+            }
+        },
+    )
+
+    assert result is None
+    assert len(api.patches) == 1
+
+
+def test_raw_modified_dependency_events_are_handled_by_update_filter() -> None:
+    source = dependencies.SECRET_RESOURCE
+    api = FakeCustomObjectsApi()
+
+    dependencies.enqueue_dependents(
+        body={"metadata": {"resourceVersion": "12"}},
+        namespace="apps",
+        name="credentials",
+        param=source,
+        event={"type": "MODIFIED"},
+        custom_objects_api=api,
+        **{
+            f"{KEYCLOAK_TARGET_PLURAL}_dependencies": {
+                _key("", "secrets", "apps", "credentials"): [
+                    dependencies.DependentResource(
+                        namespace="apps",
+                        plural=KEYCLOAK_TARGET_PLURAL,
+                        name="keycloak",
+                    )
+                ]
+            }
+        },
+    )
+
+    assert api.patches == []
+
+
+@pytest.mark.parametrize(
+    ("diff", "expected"),
+    [
+        (kopf.Diff([("change", ("status", "conditions"), None, None)]), False),
+        (
+            kopf.Diff(
+                [
+                    (
+                        "change",
+                        ("metadata", "annotations", dependencies.DEPENDENCY_TRIGGER_ANNOTATION),
+                        None,
+                        "source-trigger",
+                    )
+                ]
+            ),
+            False,
+        ),
+        (
+            kopf.Diff(
+                [("change", ("metadata", "annotations", "example.test/trigger"), None, "1")]
+            ),
+            True,
+        ),
+        (kopf.Diff([("change", ("spec", "description"), None, "new")]), True),
+    ],
+)
+def test_dependency_diff_filters_status_and_operator_metadata(
+    diff: kopf.Diff,
+    expected: bool,
+) -> None:
+    assert dependencies.dependency_diff_is_relevant(diff) is expected
 
 
 def test_realm_role_mapping_tracks_realm_role_dependency() -> None:

@@ -33,6 +33,13 @@ def test_dependency_support_handlers_are_registered() -> None:
     assert len(main.REGISTERED_SUPPORT_MODULES) == 1
     assert len(registry._indexing.get_all_handlers()) == 10
     assert len(registry._watching.get_all_handlers()) == 7
+    dependency_update_handlers = [
+        handler
+        for handler in registry._changing.get_all_handlers()
+        if handler.fn.__module__ == main.REGISTERED_SUPPORT_MODULES[0].__name__
+    ]
+    assert len(dependency_update_handlers) == 7
+    assert all(handler.reason == "update" for handler in dependency_update_handlers)
 
 
 def test_zero_interval_disables_periodic_reconciliation() -> None:

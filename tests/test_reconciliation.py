@@ -127,6 +127,38 @@ def test_reconciliation_initial_delay_is_stable_and_within_interval() -> None:
     assert reconciliation.reconciliation_initial_delay(interval_seconds=0) == 0
 
 
+def test_periodic_timer_skips_resources_marked_for_deletion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registered: list[Any] = []
+
+    def fake_timer(**_: Any) -> Any:
+        def register(handler: Any) -> Any:
+            registered.append(handler)
+            return handler
+
+        return register
+
+    monkeypatch.setattr(reconciliation.kopf, "timer", fake_timer)
+    calls: list[dict[str, Any]] = []
+
+    def handler(body: dict[str, Any]) -> str:
+        calls.append(body)
+        return "reconciled"
+
+    wrapped = reconciliation.periodic_reconciliation(
+        {"group": "example.test", "version": "v1", "plural": "examples"}
+    )(handler)
+
+    assert len(registered) == 1
+    assert wrapped(
+        {"metadata": {"deletionTimestamp": "2026-08-31T13:00:25Z"}}
+    ) is None
+    assert calls == []
+    assert wrapped({"metadata": {}}) == "reconciled"
+    assert calls == [{"metadata": {}}]
+
+
 def test_discard_unchanged_status_patch_removes_noop_fields() -> None:
     conditions = [ready_condition("True", "Observed", "Object is ready.")]
     patch: dict[str, Any] = {

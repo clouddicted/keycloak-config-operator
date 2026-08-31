@@ -6,7 +6,7 @@ import hashlib
 import os
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
-from functools import partial
+from functools import partial, wraps
 from typing import Any, TypeVar
 
 import kopf
@@ -70,6 +70,15 @@ def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler],
         if RECONCILIATION_INTERVAL_SECONDS == 0:
             return fn
 
+        @wraps(fn)
+        def timer_handler(*args: Any, **kwargs: Any) -> Any:
+            body = kwargs.get("body")
+            if body is None and args and isinstance(args[0], Mapping):
+                body = args[0]
+            if is_deletion_requested(body):
+                return None
+            return fn(*args, **kwargs)
+
         timer = kopf.timer(
             **resource,
             interval=float(RECONCILIATION_INTERVAL_SECONDS),
@@ -78,9 +87,17 @@ def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler],
                 interval_seconds=RECONCILIATION_INTERVAL_SECONDS,
             ),
         )
-        return timer(fn)
+        return timer(timer_handler)
 
     return decorator
+
+
+def is_deletion_requested(body: Mapping[str, Any] | None) -> bool:
+    """Return whether Kubernetes has marked the resource for deletion."""
+    if not isinstance(body, Mapping):
+        return False
+    metadata = body.get("metadata")
+    return isinstance(metadata, Mapping) and bool(metadata.get("deletionTimestamp"))
 
 
 def discard_unchanged_status_patch(
