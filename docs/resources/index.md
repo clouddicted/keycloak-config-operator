@@ -91,12 +91,12 @@ alone where possible. This makes it usable with existing Keycloak instances, but
 it also means you should treat the CRDs as the source of truth for the fields you
 declare.
 
-Reconciliation runs on CR creation or update and when resources are resumed at
-operator startup. There is currently no periodic resync after a successful
-reconciliation, so an unchanged CR is not checked against Keycloak on a fixed
-interval. Retryable failures are retried after 60 seconds; remote deletion
-failures use a 30-second retry. Changes to referenced Secrets and CRs do not
-automatically enqueue dependent resources.
+Reconciliation runs on CR creation or update, when resources are resumed at
+operator startup, and when referenced Secrets or supported operator CRs change.
+Successful resources are also checked for out-of-band Keycloak drift every 600
+seconds by default. Retryable failures are retried after 60 seconds; remote
+deletion failures use a 30-second retry. See [Reconciliation](../reconciliation.md)
+for trigger coverage and interval configuration.
 
 Use `managementPolicy: ObserveOnly` during adoption. It lets you check whether
 the remote Keycloak object exists and whether the modeled fields match the

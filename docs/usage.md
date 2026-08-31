@@ -197,20 +197,39 @@ the resource status and retries reconciliation.
 
 ## Reconciliation Frequency
 
-Reconciliation is currently event-driven. The operator checks a resource when
-it is created or updated and when an existing resource is resumed after the
-operator starts. It does not run a periodic successful-state resync.
+The operator checks a resource when it is created or updated and when an
+existing resource is resumed after the operator starts. Changes to referenced
+Secrets and supported operator CRs also enqueue dependent resources, provided
+the source change is in a namespace watched by the operator.
 
-Consequently, after a successful reconciliation, an unchanged CR is not checked
-again on a schedule. Out-of-band changes made directly in Keycloak are detected
-only on the next CR update or after the operator restarts and resumes existing
-resources. Changes to referenced Secrets or other CRs do not themselves enqueue
-dependent resources.
+Successful resources are checked periodically for out-of-band Keycloak drift.
+The default interval is 600 seconds (10 minutes). Initial checks are
+deterministically staggered across the first interval so an operator restart
+does not send all periodic requests to Keycloak at once. Later checks run at the
+configured interval. A successful check that finds no change does not rewrite
+status or emit duplicate Kubernetes events.
+
+Set the Helm value to change the interval:
+
+```bash
+helm upgrade --install keycloak-config-operator \
+  oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --set reconciliationIntervalSeconds=300
+```
+
+Set `reconciliationIntervalSeconds=0` to disable periodic checks without
+disabling event-driven reconciliation. For the plain Deployment, set
+`RECONCILIATION_INTERVAL_SECONDS` to the desired non-negative number of seconds.
 
 Retryable reconciliation failures, such as an unavailable target or Secret, are
 retried after 60 seconds. Failed remote deletion attempts use a 30-second retry.
-These are failure retries, not periodic drift checks. To request an immediate
-check without changing the spec, update a harmless custom annotation on the CR.
+These failure retries are independent of periodic drift checks. To request an
+immediate check manually without changing the spec, update a harmless custom
+annotation on the CR.
+
+See [Reconciliation](reconciliation.md) for the dependency trigger matrix and
+namespace behavior.
 
 ## Adopt Existing Objects
 

@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CRD_DIR = REPO_ROOT / "config" / "crd"
 COMPATIBILITY_DOC = REPO_ROOT / "docs" / "compatibility.md"
 CONFIGURATION_SUPPORT_DOC = REPO_ROOT / "docs" / "configuration-support.md"
+RECONCILIATION_DOC = REPO_ROOT / "docs" / "reconciliation.md"
 README = REPO_ROOT / "README.md"
 CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
 SECURITY = REPO_ROOT / "SECURITY.md"
@@ -33,6 +34,19 @@ def test_install_docs_reference_published_helm_chart() -> None:
 
     assert chart_ref in README.read_text()
     assert chart_ref in (REPO_ROOT / "docs" / "index.md").read_text()
+
+
+def test_reconciliation_doc_covers_triggers_timing_and_configuration() -> None:
+    text = RECONCILIATION_DOC.read_text()
+
+    assert "600 seconds" in text
+    assert "10 minutes" in text
+    assert "reconciliationIntervalSeconds" in text
+    assert "RECONCILIATION_INTERVAL_SECONDS" in text
+    assert "dependency-trigger" in text
+    assert "60 seconds" in text
+    assert "30 seconds" in text
+    assert "no status patch" in text
 
 
 def test_readme_shows_ci_and_version_badges() -> None:

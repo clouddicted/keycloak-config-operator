@@ -18,7 +18,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release
 See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions and
 [docs/configuration-support.md](docs/configuration-support.md) for supported
 configuration entities and fields. See [docs/api-reference.md](docs/api-reference.md)
-for the CRD schema reference.
+for the CRD schema reference and [docs/reconciliation.md](docs/reconciliation.md)
+for reconciliation triggers and timing.
 
 ## Development
 
@@ -105,6 +106,24 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 
 When `watchNamespaces` is set, the chart creates namespace-scoped RBAC in each
 listed namespace. Those namespaces must already exist or be managed separately.
+
+Every managed CR is checked immediately when it changes, when a referenced
+Secret or supported operator CR changes, and periodically for out-of-band
+Keycloak drift. The default periodic interval is 600 seconds. Configure it with
+`reconciliationIntervalSeconds`; set the value to `0` to disable periodic checks
+while keeping event-driven reconciliation enabled.
+
+```bash
+helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --create-namespace \
+  --set reconciliationIntervalSeconds=300
+```
+
+For the plain Deployment, configure the equivalent
+`RECONCILIATION_INTERVAL_SECONDS` environment variable. See the
+[reconciliation guide](docs/reconciliation.md) for trigger coverage, retry
+timing, and namespace considerations.
 
 The Helm release namespace contains the operator Deployment and ServiceAccount;
 it does not determine where Keycloak custom resources belong. Create
