@@ -41,3 +41,5 @@ spec:
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: RECONCILIATION_INTERVAL_SECONDS
+              value: "600"

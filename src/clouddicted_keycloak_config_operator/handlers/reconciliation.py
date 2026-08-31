@@ -2,13 +2,107 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import hashlib
+import os
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
-from typing import Any
+from functools import partial
+from typing import Any, TypeVar
 
 import kopf
 
 DEFAULT_RETRY_DELAY_SECONDS = 60
+DEFAULT_RECONCILIATION_INTERVAL_SECONDS = 600
+RECONCILIATION_INTERVAL_ENV = "RECONCILIATION_INTERVAL_SECONDS"
+_MISSING = object()
+_Handler = TypeVar("_Handler", bound=Callable[..., Any])
+
+
+def configured_reconciliation_interval_seconds(
+    environ: Mapping[str, str] | None = None,
+) -> int:
+    """Read and validate the periodic reconciliation interval."""
+    values = os.environ if environ is None else environ
+    raw_value = values.get(
+        RECONCILIATION_INTERVAL_ENV,
+        str(DEFAULT_RECONCILIATION_INTERVAL_SECONDS),
+    )
+    try:
+        interval_seconds = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{RECONCILIATION_INTERVAL_ENV} must be a non-negative integer"
+        ) from exc
+
+    if interval_seconds < 0:
+        raise ValueError(
+            f"{RECONCILIATION_INTERVAL_ENV} must be a non-negative integer"
+        )
+
+    return interval_seconds
+
+
+RECONCILIATION_INTERVAL_SECONDS = configured_reconciliation_interval_seconds()
+
+
+def reconciliation_initial_delay(
+    *,
+    uid: str = "",
+    namespace: str | None = None,
+    name: str | None = None,
+    interval_seconds: int = RECONCILIATION_INTERVAL_SECONDS,
+    **_: Any,
+) -> float:
+    """Return a stable per-resource delay that spreads timer startup over one interval."""
+    if interval_seconds <= 0:
+        return 0.0
+
+    seed = f"{namespace or ''}/{name or ''}/{uid}".encode()
+    digest = hashlib.sha256(seed).digest()
+    fraction = int.from_bytes(digest[:8], byteorder="big") / 2**64
+    return fraction * interval_seconds
+
+
+def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler], _Handler]:
+    """Register a per-resource Kopf timer unless periodic reconciliation is disabled."""
+
+    def decorator(fn: _Handler) -> _Handler:
+        if RECONCILIATION_INTERVAL_SECONDS == 0:
+            return fn
+
+        timer = kopf.timer(
+            **resource,
+            interval=float(RECONCILIATION_INTERVAL_SECONDS),
+            initial_delay=partial(
+                reconciliation_initial_delay,
+                interval_seconds=RECONCILIATION_INTERVAL_SECONDS,
+            ),
+        )
+        return timer(fn)
+
+    return decorator
+
+
+def discard_unchanged_status_patch(
+    patch: MutableMapping[str, Any],
+    status: Mapping[str, Any] | None,
+) -> None:
+    """Remove status fields whose desired values already match the resource status."""
+    patched_status = patch.get("status")
+    if not isinstance(patched_status, MutableMapping):
+        return
+
+    existing_status = status if isinstance(status, Mapping) else {}
+    for field in list(patched_status):
+        existing_value = existing_status.get(field, _MISSING)
+        patched_value = patched_status[field]
+        if patched_value == existing_value or (
+            existing_value is _MISSING and patched_value is None
+        ):
+            del patched_status[field]
+
+    if not patched_status:
+        del patch["status"]
 
 
 @dataclass(frozen=True)

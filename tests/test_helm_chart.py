@@ -37,6 +37,7 @@ def test_helm_values_default_to_operator_installation() -> None:
     assert values["serviceAccount"]["automount"] is True
     assert values["rbac"]["create"] is True
     assert values["watchNamespaces"] == []
+    assert values["reconciliationIntervalSeconds"] == 600
     assert values["podSecurityContext"] == {
         "runAsNonRoot": True,
         "seccompProfile": {"type": "RuntimeDefault"},
@@ -47,14 +48,24 @@ def test_helm_values_default_to_operator_installation() -> None:
     }
 
 
-def test_helm_values_schema_validates_watch_namespaces() -> None:
+def test_helm_values_schema_validates_operator_settings() -> None:
     schema = json.loads((CHART_DIR / "values.schema.json").read_text())
     watch_namespaces = schema["properties"]["watchNamespaces"]
+    reconciliation_interval = schema["properties"]["reconciliationIntervalSeconds"]
 
     assert watch_namespaces["type"] == "array"
     assert watch_namespaces["default"] == []
     assert watch_namespaces["uniqueItems"] is True
     assert watch_namespaces["items"] == {"type": "string", "minLength": 1}
+    assert reconciliation_interval == {
+        "type": "integer",
+        "description": (
+            "Periodic reconciliation interval in seconds. Zero disables periodic "
+            "reconciliation."
+        ),
+        "minimum": 0,
+        "default": 600,
+    }
 
 
 def test_helm_chart_packages_current_crds() -> None:
@@ -94,6 +105,8 @@ def test_helm_deployment_template_runs_kopf_operator() -> None:
     assert "range .Values.watchNamespaces" in deployment_template
     assert "- --namespace" in deployment_template
     assert "name: PYTHONUNBUFFERED" in deployment_template
+    assert "name: RECONCILIATION_INTERVAL_SECONDS" in deployment_template
+    assert ".Values.reconciliationIntervalSeconds" in deployment_template
     assert "containerPort" not in deployment_template
     assert "livenessProbe" not in deployment_template
     assert "readinessProbe" not in deployment_template

@@ -153,6 +153,10 @@ def test_deployment_uses_kopf_module_entrypoint() -> None:
     }
     assert container["command"] == ["kopf"]
     assert container["args"] == OPERATOR_ARGS
+    assert container["env"] == [
+        {"name": "PYTHONUNBUFFERED", "value": "1"},
+        {"name": "RECONCILIATION_INTERVAL_SECONDS", "value": "600"},
+    ]
 
 
 def test_dockerfile_defaults_to_all_namespaces_with_overridable_args() -> None:
