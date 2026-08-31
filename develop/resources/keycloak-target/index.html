@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -960,6 +960,10 @@
 <h1 id="keycloaktarget">KeycloakTarget<a class="headerlink" href="#keycloaktarget" title="Permanent link">&para;</a></h1>
 <p><code>KeycloakTarget</code> tells the operator how to reach a Keycloak Admin API. Create it
 before any resource that manages a realm, client, role, scope, or mapper.</p>
+<p>Create the target in the same watched namespace as every CR that references it.
+Targets are namespace-scoped, and <code>spec.targetRef</code> is always resolved in the
+referencing CR's namespace. The target does not need to be in the operator's
+installation namespace. The examples below use <code>keycloak-config</code>.</p>
 <p>Prefer the in-cluster Kubernetes Service URL when Keycloak runs in the same
 cluster. The operator runs inside Kubernetes, so an internal URL avoids public
 Ingress routing, external DNS, public TLS termination, and firewall assumptions.
@@ -994,6 +998,7 @@ password authentication by the operator.</p>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
 <span class="nt">metadata</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
 <span class="nt">spec</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
 <span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
@@ -1018,6 +1023,7 @@ in Keycloak.</p>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
 <span class="nt">metadata</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
 <span class="nt">spec</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
 <span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
@@ -1038,6 +1044,7 @@ simple bootstrap scenarios.</p>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakTarget</span>
 <span class="nt">metadata</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak-config</span>
 <span class="nt">spec</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://keycloak.keycloak.svc.cluster.local:8080</span>
 <span class="w">  </span><span class="nt">adminCredentials</span><span class="p">:</span>
@@ -1119,7 +1126,7 @@ available.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
       

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -366,6 +366,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#choose-namespaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choose Namespaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configure-a-keycloak-target" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -381,6 +392,17 @@
     <span class="md-ellipsis">
       
         Manage Keycloak Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation-frequency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation Frequency
       
     </span>
   </a>
@@ -914,6 +936,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#choose-namespaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choose Namespaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configure-a-keycloak-target" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -929,6 +962,17 @@
     <span class="md-ellipsis">
       
         Manage Keycloak Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation-frequency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation Frequency
       
     </span>
   </a>
@@ -1001,8 +1045,26 @@ the watch scope, install with <code>watchNamespaces</code>.</p>
 <span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.4.0<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--namespace<span class="w"> </span>keycloak-config-operator-system<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--set<span class="w"> </span><span class="s1">&#39;watchNamespaces[0]=keycloak-config&#39;</span>
+<span class="w">  </span>--set<span class="w"> </span><span class="s1">'watchNamespaces[0]=keycloak-config'</span>
 </code></pre></div>
+<h2 id="choose-namespaces">Choose Namespaces<a class="headerlink" href="#choose-namespaces" title="Permanent link">&para;</a></h2>
+<p>The Helm release namespace, <code>keycloak-config-operator-system</code> in these examples,
+contains the operator Deployment and ServiceAccount. It is not the required
+namespace for Keycloak custom resources.</p>
+<p>All Keycloak CRDs are namespace-scoped. Create a <code>KeycloakTarget</code> and every CR
+that references it together in one namespace watched by the operator. A
+<code>spec.targetRef</code> contains only a name, and the operator always resolves that
+target in the referencing CR's namespace. References to operator-managed
+clients, groups, roles, and client scopes are same-namespace for the same reason.</p>
+<p>The usual layout is one configuration namespace per team or environment. The
+examples use <code>keycloak-config</code>:</p>
+<div class="highlight"><pre><span></span><code>keycloak-config-operator-system   operator Deployment and ServiceAccount
+keycloak-config                  KeycloakTarget, related CRs, and Secrets
+</code></pre></div>
+<p>Referenced Secrets also default to the CR's namespace. A <code>secretRef.namespace</code>
+can select another namespace where the CRD supports it, but the operator's
+ServiceAccount must have Secret access there. Keeping Secrets with their CRs is
+the recommended layout, especially when <code>watchNamespaces</code> restricts RBAC.</p>
 <h2 id="configure-a-keycloak-target">Configure A Keycloak Target<a class="headerlink" href="#configure-a-keycloak-target" title="Permanent link">&para;</a></h2>
 <p>Create a namespace for Keycloak configuration resources and store the admin
 credentials in a Kubernetes Secret.</p>
@@ -1010,8 +1072,8 @@ credentials in a Kubernetes Secret.</p>
 
 kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>keycloak-admin-credentials<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--namespace<span class="w"> </span>keycloak-config<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">&#39;&lt;admin-user&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">&#39;&lt;admin-password&gt;&#39;</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">'&lt;admin-user&gt;'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">'&lt;admin-password&gt;'</span>
 </code></pre></div>
 <p>Create a <code>KeycloakTarget</code>. The URL must be reachable from the operator pod. If
 Keycloak runs in the same cluster, use the Service DNS name, for example
@@ -1114,6 +1176,19 @@ kubectl<span class="w"> </span>get<span class="w"> </span>-n<span class="w"> </s
 <p>Ready resources have a <code>Ready=True</code> condition. If a resource depends on a target,
 realm, client, or client scope that is not ready yet, the operator reports that in
 the resource status and retries reconciliation.</p>
+<h2 id="reconciliation-frequency">Reconciliation Frequency<a class="headerlink" href="#reconciliation-frequency" title="Permanent link">&para;</a></h2>
+<p>Reconciliation is currently event-driven. The operator checks a resource when
+it is created or updated and when an existing resource is resumed after the
+operator starts. It does not run a periodic successful-state resync.</p>
+<p>Consequently, after a successful reconciliation, an unchanged CR is not checked
+again on a schedule. Out-of-band changes made directly in Keycloak are detected
+only on the next CR update or after the operator restarts and resumes existing
+resources. Changes to referenced Secrets or other CRs do not themselves enqueue
+dependent resources.</p>
+<p>Retryable reconciliation failures, such as an unavailable target or Secret, are
+retried after 60 seconds. Failed remote deletion attempts use a 30-second retry.
+These are failure retries, not periodic drift checks. To request an immediate
+check without changing the spec, update a harmless custom annotation on the CR.</p>
 <h2 id="adopt-existing-objects">Adopt Existing Objects<a class="headerlink" href="#adopt-existing-objects" title="Permanent link">&para;</a></h2>
 <p>For existing Keycloak configuration, start with <code>managementPolicy: ObserveOnly</code>.
 The operator reads the remote object and reports whether the fields declared in
@@ -1197,7 +1272,7 @@ create, update, and delete behavior of each resource type.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
       

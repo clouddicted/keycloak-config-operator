@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -988,6 +988,10 @@ Keycloak, create a realm, and create one public client.</p>
 <span class="w">  </span>--create-namespace
 </code></pre></div>
 <h2 id="create-a-configuration-namespace">Create A Configuration Namespace<a class="headerlink" href="#create-a-configuration-namespace" title="Permanent link">&para;</a></h2>
+<p>The <code>keycloak-config-operator-system</code> namespace above is only for the operator.
+Create <code>KeycloakTarget</code> and every CR that references it in a separate
+configuration namespace watched by the operator. This guide uses
+<code>keycloak-config</code> for all Keycloak CRs and their Secrets.</p>
 <div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>keycloak-config
 </code></pre></div>
 <h2 id="add-keycloak-credentials">Add Keycloak Credentials<a class="headerlink" href="#add-keycloak-credentials" title="Permanent link">&para;</a></h2>
@@ -995,8 +999,8 @@ Keycloak, create a realm, and create one public client.</p>
 Secret.</p>
 <div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>keycloak-admin-credentials<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--namespace<span class="w"> </span>keycloak-config<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">&#39;&lt;admin-user&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">&#39;&lt;admin-password&gt;&#39;</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">'&lt;admin-user&gt;'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">'&lt;admin-password&gt;'</span>
 </code></pre></div>
 <h2 id="create-a-target">Create A Target<a class="headerlink" href="#create-a-target" title="Permanent link">&para;</a></h2>
 <p>The target tells the operator how to reach Keycloak. When Keycloak runs in the
@@ -1117,7 +1121,7 @@ kubectl<span class="w"> </span>get<span class="w"> </span>-n<span class="w"> </s
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
       
