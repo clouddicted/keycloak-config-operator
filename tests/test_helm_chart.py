@@ -4,6 +4,8 @@ from typing import Any
 
 import yaml
 
+from clouddicted_keycloak_config_operator import __version__
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CHART_DIR = REPO_ROOT / "charts" / "keycloak-config-operator"
 CHART_CRD_DIR = CHART_DIR / "crds"
@@ -19,9 +21,10 @@ def test_helm_chart_metadata_matches_operator_release() -> None:
         "name": "keycloak-config-operator",
         "description": "Helm chart for the Clouddicted Keycloak Config Operator",
         "type": "application",
-        "version": "0.4.0",
-        "appVersion": "v0.4.0",
+        "version": "0.5.0",
+        "appVersion": "v0.5.0",
     }
+    assert chart["version"] == __version__
 
 
 def test_helm_values_default_to_operator_installation() -> None:

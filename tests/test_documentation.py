@@ -5,6 +5,8 @@ from typing import Any
 
 import yaml
 
+from clouddicted_keycloak_config_operator import __version__
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CRD_DIR = REPO_ROOT / "config" / "crd"
 COMPATIBILITY_DOC = REPO_ROOT / "docs" / "compatibility.md"
@@ -97,7 +99,7 @@ def test_security_policy_documents_reporting_and_supported_versions() -> None:
 
     assert "Do not open a public issue" in text
     assert "security/advisories/new" in text
-    assert "`0.4.x`" in text
+    assert "`0.5.x`" in text
     assert "Kubernetes Secrets" in text
     assert "namespace watch scope" in text
 
@@ -116,6 +118,7 @@ def test_license_notice_and_package_metadata_are_aligned() -> None:
     assert "[LICENSE](LICENSE)" in readme
     assert "[NOTICE](NOTICE)" in readme
     assert pyproject["project"]["license"] == {"file": "LICENSE"}
+    assert pyproject["project"]["version"] == __version__
     assert (
         "License :: OSI Approved :: Apache Software License"
         in pyproject["project"]["classifiers"]

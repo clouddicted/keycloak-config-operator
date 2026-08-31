@@ -7,8 +7,8 @@ minor line only.
 
 | Version | Supported |
 | --- | --- |
-| `0.4.x` | Yes |
-| `< 0.4.0` | No |
+| `0.5.x` | Yes |
+| `< 0.5.0` | No |
 
 ## Reporting a Vulnerability
 
