@@ -27,6 +27,14 @@ def test_every_handler_module_registers_periodic_reconciliation() -> None:
     assert all(callable(handler.initial_delay) for handler in timer_handlers)
 
 
+def test_dependency_support_handlers_are_registered() -> None:
+    registry = kopf.get_default_registry()
+
+    assert len(main.REGISTERED_SUPPORT_MODULES) == 1
+    assert len(registry._indexing.get_all_handlers()) == 10
+    assert len(registry._watching.get_all_handlers()) == 7
+
+
 def test_zero_interval_disables_periodic_reconciliation() -> None:
     env = dict(os.environ)
     env["RECONCILIATION_INTERVAL_SECONDS"] = "0"

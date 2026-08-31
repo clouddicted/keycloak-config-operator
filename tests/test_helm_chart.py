@@ -114,11 +114,14 @@ def test_helm_deployment_template_runs_kopf_operator() -> None:
 
 def test_helm_rbac_template_limits_selected_namespace_permissions() -> None:
     rbac_template = (CHART_DIR / "templates" / "rbac.yaml").read_text()
+    helpers_template = (CHART_DIR / "templates" / "_helpers.tpl").read_text()
 
     assert "if not .Values.watchNamespaces" in rbac_template
     assert "range $namespace := .Values.watchNamespaces" in rbac_template
     assert "kind: ClusterRole" in rbac_template
     assert "customresourcedefinitions" in rbac_template
+    assert "- secrets" in helpers_template
+    assert "- watch" in helpers_template
     assert "kind: Role" in rbac_template
     assert "kind: RoleBinding" in rbac_template
 
