@@ -2,6 +2,68 @@
 
 ## Unreleased
 
+## v0.5.0 - 2026-08-31
+
+### Highlights
+
+- Added periodic drift reconciliation for every supported custom resource,
+  running every 600 seconds by default.
+- Added dependency-triggered reconciliation when referenced Secrets, targets,
+  clients, client roles, groups, realm roles, or client scopes change.
+- Staggered the first periodic check for each resource to avoid a burst of
+  Keycloak Admin API requests after operator startup.
+- Avoided duplicate status writes and Kubernetes Events when a periodic check
+  finds no changes.
+
+### Configuration
+
+- Added the Helm value `reconciliationIntervalSeconds` and the equivalent plain
+  Deployment variable `RECONCILIATION_INTERVAL_SECONDS`.
+- Set either configuration to `0` to disable periodic checks while retaining
+  event-driven and failure-retry reconciliation.
+
+### Fixes
+
+- Moved dependency triggers outside Kopf's bookkeeping annotation prefix so
+  dependency updates invoke normal reconciliation even with periodic checks disabled.
+- Removed Secret changing handlers to avoid bookkeeping writes and extra watch events
+  on referenced Secrets; raw Secret watch events continue to enqueue dependents.
+- Corrected kind dependency assertions to verify a new trigger was handled instead
+  of comparing it with the source's potentially newer resource version.
+- Prevented status-only dependency-source updates from enqueueing dependents or
+  writing `status.enqueue_dependents`, avoiding duplicate Admin API operations.
+- Stopped periodic reconciliation when a resource is marked for deletion so
+  terminating CRs cannot recreate their remote objects.
+- Serialized timer, event, and deletion API calls per CR, preventing overlapping
+  creates and deletion races while retaining concurrency across different CRs.
+
+### Documentation
+
+- Added a reconciliation guide covering triggers, dependency fan-out, timing,
+  namespace behavior, retries, and interval configuration.
+- Updated the usage and resource guides to describe continuous reconciliation.
+
+### Testing
+
+- Added unit coverage for interval validation, deterministic staggering,
+  no-change status suppression, timer registration, and disabled timers.
+- Added unit coverage for dependency indexing, fan-out, duplicate suppression,
+  natural-key references, and concurrent deletion handling.
+- Added regressions using Kopf's real change detection and registered handlers,
+  including dependency propagation and timer/event/deletion concurrency.
+- Extended the kind e2e scenario to verify periodic repair of out-of-band realm
+  drift and reconciliation after Secret and client dependency changes.
+
+### Upgrade Notes
+
+- CRDs remain served as `keycloak.clouddicted.com/v1beta1`; this release does not
+  change their schemas.
+- Apply the updated RBAC before starting v0.5.0. The operator now requires
+  `list` and `watch` access to Secrets in watched namespaces to detect Secret
+  changes promptly.
+- Existing installations begin periodic reconciliation at the 10-minute
+  default. Set the interval to `0` to retain event-only successful-state checks.
+
 ## v0.4.0 - 2026-06-02
 
 ### Highlights

@@ -18,7 +18,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit, test, and release
 See [docs/compatibility.md](docs/compatibility.md) for tested Keycloak versions and
 [docs/configuration-support.md](docs/configuration-support.md) for supported
 configuration entities and fields. See [docs/api-reference.md](docs/api-reference.md)
-for the CRD schema reference.
+for the CRD schema reference and [docs/reconciliation.md](docs/reconciliation.md)
+for reconciliation triggers and timing.
 
 ## Development
 
@@ -65,7 +66,7 @@ Run the operator locally:
 
 ## Local Kubernetes Install
 
-The `v0.4.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
+The `v0.5.0` release serves Keycloak resources as `keycloak.clouddicted.com/v1beta1`.
 
 Install the CRDs, RBAC, ServiceAccount, and Deployment:
 
@@ -78,7 +79,7 @@ Install a released chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -106,6 +107,33 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 When `watchNamespaces` is set, the chart creates namespace-scoped RBAC in each
 listed namespace. Those namespaces must already exist or be managed separately.
 
+Every managed CR is checked immediately when it changes, when a referenced
+Secret or supported operator CR changes, and periodically for out-of-band
+Keycloak drift. The default periodic interval is 600 seconds. Configure it with
+`reconciliationIntervalSeconds`; set the value to `0` to disable periodic checks
+while keeping event-driven reconciliation enabled.
+
+```bash
+helm upgrade --install keycloak-config-operator charts/keycloak-config-operator \
+  --namespace keycloak-config-operator-system \
+  --create-namespace \
+  --set reconciliationIntervalSeconds=300
+```
+
+For the plain Deployment, configure the equivalent
+`RECONCILIATION_INTERVAL_SECONDS` environment variable. See the
+[reconciliation guide](docs/reconciliation.md) for trigger coverage, retry
+timing, and namespace considerations.
+
+The Helm release namespace contains the operator Deployment and ServiceAccount;
+it does not determine where Keycloak custom resources belong. Create
+`KeycloakTarget` and all CRs that reference it together in any namespace the
+operator watches. References between operator CRs are same-namespace, so a CR
+cannot use a `KeycloakTarget`, client, group, role, or client scope from another
+namespace. Referenced Secrets default to the CR's namespace; using an explicit
+Secret namespace also requires the operator's ServiceAccount to have access
+there.
+
 For a local kind image, load the image into kind and install with the same tag:
 
 ```bash
@@ -118,7 +146,7 @@ helm upgrade --install keycloak-config-operator charts/keycloak-config-operator 
 ```
 
 The default Deployment image points to the current release:
-`ghcr.io/clouddicted/keycloak-config-operator:v0.4.0`. For local testing, replace it
+`ghcr.io/clouddicted/keycloak-config-operator:v0.5.0`. For local testing, replace it
 with an image you built and loaded into the cluster:
 
 ```bash
@@ -134,7 +162,10 @@ repeated `--namespace <namespace>` arguments.
 Create Keycloak admin credentials before applying a `KeycloakTarget`:
 
 ```bash
+kubectl create namespace keycloak-config
+
 kubectl create secret generic keycloak-admin-credentials \
+  --namespace keycloak-config \
   --from-literal=username=<admin-user> \
   --from-literal=password=<admin-password>
 ```
@@ -148,7 +179,7 @@ kubectl apply -k config/crd
 Apply the sample resources:
 
 ```bash
-kubectl apply -k config/samples
+kubectl apply --namespace keycloak-config -k config/samples
 ```
 
 ## License

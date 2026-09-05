@@ -5,10 +5,13 @@ from typing import Any
 
 import yaml
 
+from clouddicted_keycloak_config_operator import __version__
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CRD_DIR = REPO_ROOT / "config" / "crd"
 COMPATIBILITY_DOC = REPO_ROOT / "docs" / "compatibility.md"
 CONFIGURATION_SUPPORT_DOC = REPO_ROOT / "docs" / "configuration-support.md"
+RECONCILIATION_DOC = REPO_ROOT / "docs" / "reconciliation.md"
 README = REPO_ROOT / "README.md"
 CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
 SECURITY = REPO_ROOT / "SECURITY.md"
@@ -33,6 +36,19 @@ def test_install_docs_reference_published_helm_chart() -> None:
 
     assert chart_ref in README.read_text()
     assert chart_ref in (REPO_ROOT / "docs" / "index.md").read_text()
+
+
+def test_reconciliation_doc_covers_triggers_timing_and_configuration() -> None:
+    text = RECONCILIATION_DOC.read_text()
+
+    assert "600 seconds" in text
+    assert "10 minutes" in text
+    assert "reconciliationIntervalSeconds" in text
+    assert "RECONCILIATION_INTERVAL_SECONDS" in text
+    assert "dependency-trigger" in text
+    assert "60 seconds" in text
+    assert "30 seconds" in text
+    assert "no status patch" in text
 
 
 def test_readme_shows_ci_and_version_badges() -> None:
@@ -83,7 +99,7 @@ def test_security_policy_documents_reporting_and_supported_versions() -> None:
 
     assert "Do not open a public issue" in text
     assert "security/advisories/new" in text
-    assert "`0.3.x`" in text
+    assert "`0.5.x`" in text
     assert "Kubernetes Secrets" in text
     assert "namespace watch scope" in text
 
@@ -102,6 +118,7 @@ def test_license_notice_and_package_metadata_are_aligned() -> None:
     assert "[LICENSE](LICENSE)" in readme
     assert "[NOTICE](NOTICE)" in readme
     assert pyproject["project"]["license"] == {"file": "LICENSE"}
+    assert pyproject["project"]["version"] == __version__
     assert (
         "License :: OSI Approved :: Apache Software License"
         in pyproject["project"]["classifiers"]

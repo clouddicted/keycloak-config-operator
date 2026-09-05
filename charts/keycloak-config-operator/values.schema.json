@@ -11,6 +11,12 @@
       },
       "uniqueItems": true,
       "default": []
+    },
+    "reconciliationIntervalSeconds": {
+      "type": "integer",
+      "description": "Periodic reconciliation interval in seconds. Zero disables periodic reconciliation.",
+      "minimum": 0,
+      "default": 600
     }
   }
 }

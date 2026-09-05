@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -70,3 +71,50 @@ def test_run_tests_defaults_to_visible_pytest_output(
     assert command[-3:] == ["tests/integration/test_kind_fixtures.py", "-vv", "-s"]
     assert env["RUN_KIND_INTEGRATION"] == "1"
     assert "[kind-e2e] running kind e2e tests" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("previous_version", "handled_version", "passes"),
+    [("old", "783", True), ("783", "783", False), ("old", "old", False)],
+)
+def test_dependency_check_requires_new_consumed_trigger(
+    monkeypatch: pytest.MonkeyPatch,
+    previous_version: str,
+    handled_version: str,
+    passes: bool,
+) -> None:
+    e2e = kind_e2e.e2e
+    source = f"core/secrets/{e2e.NAMESPACE}/example-oidc-secret"
+    resource = {
+        "metadata": {
+            "resourceVersion": "785",
+            "annotations": {
+                e2e.DEPENDENCY_TRIGGER_ANNOTATION: f"{source}@783",
+                e2e.LAST_HANDLED_ANNOTATION: json.dumps({
+                    "metadata": {"annotations": {
+                        e2e.DEPENDENCY_TRIGGER_ANNOTATION: f"{source}@{handled_version}",
+                    }},
+                }),
+            },
+        },
+    }
+
+    def fake_run(args: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        # No lookup of the source's current version: it can advance after fan-out.
+        assert args[1:4] == ["get", "keycloakidentityproviders", "example-oidc"]
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(resource))
+
+    monkeypatch.setattr(e2e, "_run", fake_run)
+
+    def check() -> None:
+        e2e._assert_dependency_trigger(
+            {}, "keycloakidentityproviders", "example-oidc",
+            source_group="core", source_plural="secrets", source_name="example-oidc-secret",
+            previous_trigger=f"{source}@{previous_version}",
+        )
+
+    if passes:
+        check()
+    else:
+        with pytest.raises(AssertionError):
+            check()

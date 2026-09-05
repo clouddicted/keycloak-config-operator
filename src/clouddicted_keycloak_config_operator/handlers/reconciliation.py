@@ -2,13 +2,152 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import hashlib
+import os
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
-from typing import Any
+from functools import partial, wraps
+from threading import Lock
+from typing import Any, TypeVar
 
 import kopf
 
 DEFAULT_RETRY_DELAY_SECONDS = 60
+DEFAULT_RECONCILIATION_INTERVAL_SECONDS = 600
+RECONCILIATION_INTERVAL_ENV = "RECONCILIATION_INTERVAL_SECONDS"
+_MISSING = object()
+_Handler = TypeVar("_Handler", bound=Callable[..., Any])
+_RECONCILIATION_LOCK_KEY = "_keycloak_reconciliation_lock"
+
+
+def configured_reconciliation_interval_seconds(
+    environ: Mapping[str, str] | None = None,
+) -> int:
+    """Read and validate the periodic reconciliation interval."""
+    values = os.environ if environ is None else environ
+    raw_value = values.get(
+        RECONCILIATION_INTERVAL_ENV,
+        str(DEFAULT_RECONCILIATION_INTERVAL_SECONDS),
+    )
+    try:
+        interval_seconds = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{RECONCILIATION_INTERVAL_ENV} must be a non-negative integer"
+        ) from exc
+
+    if interval_seconds < 0:
+        raise ValueError(
+            f"{RECONCILIATION_INTERVAL_ENV} must be a non-negative integer"
+        )
+
+    return interval_seconds
+
+
+RECONCILIATION_INTERVAL_SECONDS = configured_reconciliation_interval_seconds()
+
+
+def reconciliation_initial_delay(
+    *,
+    uid: str = "",
+    namespace: str | None = None,
+    name: str | None = None,
+    interval_seconds: int = RECONCILIATION_INTERVAL_SECONDS,
+    **_: Any,
+) -> float:
+    """Return a stable per-resource delay that spreads timer startup over one interval."""
+    if interval_seconds <= 0:
+        return 0.0
+
+    seed = f"{namespace or ''}/{name or ''}/{uid}".encode()
+    digest = hashlib.sha256(seed).digest()
+    fraction = int.from_bytes(digest[:8], byteorder="big") / 2**64
+    return fraction * interval_seconds
+
+
+def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler], _Handler]:
+    """Register coordinated event/timer handlers for a single Kubernetes resource."""
+
+    def decorator(fn: _Handler) -> _Handler:
+        event_handler = _serialized_handler(fn)
+        if RECONCILIATION_INTERVAL_SECONDS == 0:
+            return event_handler
+
+        timer = kopf.timer(
+            **resource,
+            interval=float(RECONCILIATION_INTERVAL_SECONDS),
+            initial_delay=partial(
+                reconciliation_initial_delay,
+                interval_seconds=RECONCILIATION_INTERVAL_SECONDS,
+            ),
+        )
+        timer(_serialized_handler(fn, periodic=True))
+        return event_handler
+
+    return decorator
+
+
+def serialized_deletion[Handler: Callable[..., Any]](fn: Handler) -> Handler:
+    """Wait for any active reconciliation before deleting a remote resource."""
+    return _serialized_handler(fn, deleting=True)
+
+
+def _serialized_handler[Handler: Callable[..., Any]](
+    fn: Handler, *, periodic: bool = False, deleting: bool = False,
+) -> Handler:
+    @wraps(fn)
+    def handler(*args: Any, **kwargs: Any) -> Any:
+        # Kopf shares one dict-backed memo between event handlers and timers for
+        # each CR. It is discarded with that CR, so locks do not accumulate.
+        memo = kwargs.get("memo")
+        lock = Lock() if memo is None else memo.setdefault(_RECONCILIATION_LOCK_KEY, Lock())
+        # A busy CR is already being checked. Skip redundant timer ticks, but
+        # preserve user updates and deletions by waiting for their turn.
+        if not lock.acquire(blocking=not periodic):
+            return None
+        try:
+            body = kwargs.get("body")
+            if body is None and args and isinstance(args[0], Mapping):
+                body = args[0]
+            # Recheck the live body after taking the lock: deletion may have
+            # arrived while this event handler was waiting for a running timer.
+            if not deleting and is_deletion_requested(body):
+                return None
+            return fn(*args, **kwargs)
+        finally:
+            lock.release()
+
+    return handler
+
+
+def is_deletion_requested(body: Mapping[str, Any] | None) -> bool:
+    """Return whether Kubernetes has marked the resource for deletion."""
+    if not isinstance(body, Mapping):
+        return False
+    metadata = body.get("metadata")
+    return isinstance(metadata, Mapping) and bool(metadata.get("deletionTimestamp"))
+
+
+def discard_unchanged_status_patch(
+    patch: MutableMapping[str, Any],
+    status: Mapping[str, Any] | None,
+) -> None:
+    """Remove status fields whose desired values already match the resource status."""
+    patched_status = patch.get("status")
+    if not isinstance(patched_status, MutableMapping):
+        return
+
+    existing_status = status if isinstance(status, Mapping) else {}
+    for field in list(patched_status):
+        existing_value = existing_status.get(field, _MISSING)
+        patched_value = patched_status[field]
+        if patched_value == existing_value or (
+            existing_value is _MISSING and patched_value is None
+        ):
+            del patched_status[field]
+
+    if not patched_status:
+        del patch["status"]
 
 
 @dataclass(frozen=True)

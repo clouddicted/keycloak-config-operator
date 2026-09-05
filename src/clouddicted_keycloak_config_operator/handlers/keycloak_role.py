@@ -23,8 +23,11 @@ from clouddicted_keycloak_config_operator.handlers.keycloak_realm import (
 )
 from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     RetryRequest,
+    discard_unchanged_status_patch,
     emit_event_for_condition_reasons,
+    periodic_reconciliation,
     raise_for_retry,
+    serialized_deletion,
 )
 from clouddicted_keycloak_config_operator.handlers.spec_validation import (
     enum_field_error,
@@ -119,6 +122,7 @@ class RoleReconcileResult:
 @kopf.on.create(**KEYCLOAK_ROLE_RESOURCE)
 @kopf.on.update(**KEYCLOAK_ROLE_RESOURCE)
 @kopf.on.resume(**KEYCLOAK_ROLE_RESOURCE)
+@periodic_reconciliation(KEYCLOAK_ROLE_RESOURCE)
 def reconcile_keycloak_role(
     body: kopf.Body,
     spec: Mapping[str, Any] | None,
@@ -134,12 +138,14 @@ def reconcile_keycloak_role(
         patch=patch,
         namespace=namespace,
     )
+    discard_unchanged_status_patch(patch, status)
     if retry is None:
         _emit_reconcile_event(body, status=status, patch=patch)
     raise_for_retry(retry, body=body)
 
 
 @kopf.on.delete(**KEYCLOAK_ROLE_RESOURCE)
+@serialized_deletion
 def delete_keycloak_role(
     body: kopf.Body,
     spec: Mapping[str, Any] | None,

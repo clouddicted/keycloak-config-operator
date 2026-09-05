@@ -8,12 +8,17 @@ Keycloak, create a realm, and create one public client.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
 
 ## Create A Configuration Namespace
+
+The `keycloak-config-operator-system` namespace above is only for the operator.
+Create `KeycloakTarget` and every CR that references it in a separate
+configuration namespace watched by the operator. This guide uses
+`keycloak-config` for all Keycloak CRs and their Secrets.
 
 ```bash
 kubectl create namespace keycloak-config

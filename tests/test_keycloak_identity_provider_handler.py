@@ -446,6 +446,28 @@ def test_patch_keycloak_identity_provider_status_loads_secret_config() -> None:
     assert _condition_messages(patch).isdisjoint({"secret-from-kubernetes"})
 
 
+def test_secret_rotation_updates_existing_provider_without_spec_change() -> None:
+    client = FakeKeycloakClient()
+    secret = FakeSecret(data={"clientSecret": _b64("old-secret")})
+    api = FakeCoreV1Api({("apps", "example-oidc-secret"): secret})
+    spec = _identity_provider_spec(
+        config_secret_refs={"clientSecret": {"name": "example-oidc-secret"}},
+    )
+
+    for value in ("old-secret", "rotated-secret"):
+        secret.data["clientSecret"] = _b64(value)
+        retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+            spec=spec, status={}, patch={}, namespace="apps",
+            target_resolver=_target_resolver(), core_v1_api=api,
+            keycloak_client_factory=FakeKeycloakClientFactory(client), now=NOW,
+        )
+        assert retry is None
+        assert client.providers_result[0]["config"]["clientSecret"] == value
+
+    assert api.calls == [("apps", "example-oidc-secret")] * 2
+    assert not any(method == "POST" for method, _, _ in client.requests)
+
+
 def test_patch_keycloak_identity_provider_status_observe_only_reports_missing() -> None:
     keycloak_client = FakeKeycloakClient(providers_result=[])
     patch: dict[str, Any] = {}

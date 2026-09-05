@@ -18,6 +18,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Usage Guide: usage.md
+  - Reconciliation: reconciliation.md
   - Resources:
       - Overview: resources/index.md
       - KeycloakTarget: resources/keycloak-target.md
