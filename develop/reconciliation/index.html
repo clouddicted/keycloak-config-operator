@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/">
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/reconciliation/">
       
       
-        <link rel="prev" href="../reconciliation/">
+        <link rel="prev" href="../usage/">
       
       
-        <link rel="next" href="keycloak-target/">
+        <link rel="next" href="../resources/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Overview - Keycloak Config Operator</title>
+        <title>Reconciliation - Keycloak Config Operator</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#resources" class="md-skip">
+        <a href="#reconciliation" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Reconciliation
             
           </span>
         </div>
@@ -308,87 +308,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../reconciliation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Reconciliation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Resources
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Resources
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
     
   
   
@@ -408,7 +327,7 @@
   <span class="md-ellipsis">
     
   
-    Overview
+    Reconciliation
   
 
     
@@ -426,7 +345,7 @@
   <span class="md-ellipsis">
     
   
-    Overview
+    Reconciliation
   
 
     
@@ -452,10 +371,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-to-think-about-the-resources" class="md-nav__link">
+  <a href="#reconciliation-triggers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How To Think About The Resources
+        Reconciliation Triggers
       
     </span>
   </a>
@@ -463,10 +382,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#namespace-model" class="md-nav__link">
+  <a href="#periodic-drift-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Namespace Model
+        Periodic Drift Checks
       
     </span>
   </a>
@@ -474,10 +393,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reconciliation-model" class="md-nav__link">
+  <a href="#configure-the-interval" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reconciliation Model
+        Configure The Interval
       
     </span>
   </a>
@@ -485,21 +404,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#deletion-model" class="md-nav__link">
+  <a href="#failure-retries" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Deletion Model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability
+        Failure Retries
       
     </span>
   </a>
@@ -513,6 +421,85 @@
     </li>
   
 
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -522,7 +509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-target/" class="md-nav__link">
+      <a href="../resources/keycloak-target/" class="md-nav__link">
         
   
   
@@ -550,7 +537,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-realm/" class="md-nav__link">
+      <a href="../resources/keycloak-realm/" class="md-nav__link">
         
   
   
@@ -578,7 +565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-identity-provider/" class="md-nav__link">
+      <a href="../resources/keycloak-identity-provider/" class="md-nav__link">
         
   
   
@@ -606,7 +593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-client/" class="md-nav__link">
+      <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
   
@@ -634,7 +621,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-client-role/" class="md-nav__link">
+      <a href="../resources/keycloak-client-role/" class="md-nav__link">
         
   
   
@@ -662,7 +649,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-group/" class="md-nav__link">
+      <a href="../resources/keycloak-group/" class="md-nav__link">
         
   
   
@@ -690,7 +677,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-group-role-mapping/" class="md-nav__link">
+      <a href="../resources/keycloak-group-role-mapping/" class="md-nav__link">
         
   
   
@@ -718,7 +705,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-role/" class="md-nav__link">
+      <a href="../resources/keycloak-role/" class="md-nav__link">
         
   
   
@@ -746,7 +733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-client-scope/" class="md-nav__link">
+      <a href="../resources/keycloak-client-scope/" class="md-nav__link">
         
   
   
@@ -774,7 +761,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keycloak-protocol-mapper/" class="md-nav__link">
+      <a href="../resources/keycloak-protocol-mapper/" class="md-nav__link">
         
   
   
@@ -910,10 +897,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-to-think-about-the-resources" class="md-nav__link">
+  <a href="#reconciliation-triggers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How To Think About The Resources
+        Reconciliation Triggers
       
     </span>
   </a>
@@ -921,10 +908,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#namespace-model" class="md-nav__link">
+  <a href="#periodic-drift-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Namespace Model
+        Periodic Drift Checks
       
     </span>
   </a>
@@ -932,10 +919,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reconciliation-model" class="md-nav__link">
+  <a href="#configure-the-interval" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reconciliation Model
+        Configure The Interval
       
     </span>
   </a>
@@ -943,21 +930,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#deletion-model" class="md-nav__link">
+  <a href="#failure-retries" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Deletion Model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability
+        Failure Retries
       
     </span>
   </a>
@@ -984,122 +960,115 @@
   
 
 
-<h1 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h1>
-<p>The operator models a small, practical part of Keycloak as Kubernetes custom
-resources. The goal is not to mirror every Keycloak screen. The goal is to make
-the configuration that platform teams commonly need repeatable, reviewable, and
-safe to apply from Git.</p>
-<p>Use the resource pages in this section for operational guidance and examples.
-Use the <a href="../api-reference/">API reference</a> when you need the complete schema.</p>
-<h2 id="how-to-think-about-the-resources">How To Think About The Resources<a class="headerlink" href="#how-to-think-about-the-resources" title="Permanent link">&para;</a></h2>
-<p><code>KeycloakTarget</code> is the connection profile. Every other resource uses it to talk
-to one Keycloak instance.</p>
-<p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
-configuration.</p>
-<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakClientRole</code>,
-<code>KeycloakGroup</code>, <code>KeycloakGroupRoleMapping</code>, <code>KeycloakRole</code>,
-<code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage selected objects
-inside a realm.</p>
-<p>Arrows point from prerequisites to resources that depend on them:</p>
-<div class="highlight"><pre><span></span><code>flowchart TD
-  target[KeycloakTarget] --&gt; realm[KeycloakRealm]
-  target --&gt; idp[KeycloakIdentityProvider]
-  target --&gt; client[KeycloakClient]
-  target --&gt; clientRole[KeycloakClientRole]
-  target --&gt; group[KeycloakGroup]
-  target --&gt; groupRoleMapping[KeycloakGroupRoleMapping]
-  target --&gt; role[KeycloakRole]
-  target --&gt; scope[KeycloakClientScope]
-  target --&gt; mapper[KeycloakProtocolMapper]
-
-  realm --&gt; idp
-  realm --&gt; client
-  realm --&gt; clientRole
-  realm --&gt; group
-  realm --&gt; groupRoleMapping
-  realm --&gt; role
-  realm --&gt; scope
-  client --&gt; clientRole
-  client --&gt; mapper
-  clientRole --&gt; groupRoleMapping
-  group --&gt; groupRoleMapping
-  role --&gt; groupRoleMapping
-  scope --&gt; mapper
-</code></pre></div>
-<p>The normal apply order is:</p>
-<div class="highlight"><pre><span></span><code>KeycloakTarget
-KeycloakRealm
-KeycloakIdentityProvider
-KeycloakGroup
-KeycloakRole
-KeycloakClient
-KeycloakClientRole
-KeycloakGroupRoleMapping
-KeycloakClientScope
-KeycloakProtocolMapper
-</code></pre></div>
-<p>Client scopes must exist before protocol mappers that attach to them. Clients
-must exist before protocol mappers that attach directly to clients.</p>
-<h2 id="namespace-model">Namespace Model<a class="headerlink" href="#namespace-model" title="Permanent link">&para;</a></h2>
-<p>All operator resources are namespace-scoped. Create a target and every object
-that uses it in the same namespace: <code>spec.targetRef</code> has no namespace field, and
-the operator resolves the target in the referencing resource's namespace. The
-same rule applies to references between operator-managed clients, client scopes,
-groups, and roles.</p>
-<p>The operator's installation namespace is separate. It contains the Deployment
-and ServiceAccount but does not determine where CRs must be created. CRs can be
-created in any namespace the operator watches. If Helm <code>watchNamespaces</code> is set,
-use one of the namespaces in that list.</p>
-<p>For shared Keycloak instances, use one namespace per team or environment and
-give each namespace only the Secret access it needs.</p>
-<h2 id="reconciliation-model">Reconciliation Model<a class="headerlink" href="#reconciliation-model" title="Permanent link">&para;</a></h2>
-<p>The operator reconciles the fields it owns and leaves unknown Keycloak settings
-alone where possible. This makes it usable with existing Keycloak instances, but
-it also means you should treat the CRDs as the source of truth for the fields you
-declare.</p>
-<p>Reconciliation runs on CR creation or update, when resources are resumed at
-operator startup, and when referenced Secrets or supported operator CRs change.
-Successful resources are also checked for out-of-band Keycloak drift every 600
-seconds by default. Retryable failures are retried after 60 seconds; remote
-deletion failures use a 30-second retry. See <a href="../reconciliation/">Reconciliation</a>
-for trigger coverage and interval configuration.</p>
-<p>Use <code>managementPolicy: ObserveOnly</code> during adoption. It lets you check whether
-the remote Keycloak object exists and whether the modeled fields match the
-manifest before allowing the operator to create or update anything.</p>
-<p>When observe-only drift is found, the resource reports:</p>
+<h1 id="reconciliation">Reconciliation<a class="headerlink" href="#reconciliation" title="Permanent link">&para;</a></h1>
+<p>The operator combines event-driven reconciliation with periodic drift checks.
+Event-driven checks apply expected changes promptly, while periodic checks repair
+or report changes made directly through the Keycloak API or admin console.</p>
+<h2 id="reconciliation-triggers">Reconciliation Triggers<a class="headerlink" href="#reconciliation-triggers" title="Permanent link">&para;</a></h2>
+<p>A Keycloak custom resource is reconciled when:</p>
 <ul>
-<li><code>Ready=True</code> when the remote object exists but differs.</li>
-<li><code>Ready=False</code> when the remote object is missing.</li>
-<li><code>DriftDetected=True</code> in both cases.</li>
+<li>the resource is created or its spec, metadata, or generation changes;</li>
+<li>the operator starts and resumes the existing resource;</li>
+<li>a referenced Secret or supported operator CR changes; or</li>
+<li>its periodic drift-check timer fires.</li>
 </ul>
-<p>Switch back to the default <code>managementPolicy: Reconcile</code> when the manifest is
-ready to own those fields.</p>
-<h2 id="deletion-model">Deletion Model<a class="headerlink" href="#deletion-model" title="Permanent link">&para;</a></h2>
-<p>Remote deletion is intentionally conservative. Most resources default to
-<code>deletionPolicy: Orphan</code>, which removes only the Kubernetes object and leaves the
-Keycloak object in place.</p>
-<p>Use <code>deletionPolicy: Delete</code> only when the Kubernetes resource should own the
-remote object lifecycle. Do this for test environments and simple app-owned
-objects first. Be more careful with shared roles, shared scopes, and production
-clients.</p>
-<p>Realms are not deleted by the operator. A realm can contain users, clients,
-sessions, and other data that is too broad to remove as a side effect of deleting
-a Kubernetes object.</p>
-<h2 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h2>
-<p>Every resource reports Kubernetes-style conditions in <code>.status.conditions</code>. Use:</p>
-<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>keycloakclients
-kubectl<span class="w"> </span>describe<span class="w"> </span>keycloakclient<span class="w"> </span>example-web
+<p>Dependency-triggered reconciliation covers these references:</p>
+<table>
+<thead>
+<tr>
+<th>Dependent resource</th>
+<th>Sources that trigger it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every resource except <code>KeycloakTarget</code></td>
+<td>Its <code>spec.targetRef</code></td>
+</tr>
+<tr>
+<td><code>KeycloakTarget</code></td>
+<td>Admin password, bootstrap admin, client credentials, and legacy admin credential Secrets</td>
+</tr>
+<tr>
+<td><code>KeycloakIdentityProvider</code></td>
+<td>Secrets in <code>spec.configSecretRefs</code></td>
+</tr>
+<tr>
+<td><code>KeycloakClient</code></td>
+<td>Its client Secret and declared default or optional <code>KeycloakClientScope</code> resources</td>
+</tr>
+<tr>
+<td><code>KeycloakClientRole</code></td>
+<td>Its <code>KeycloakClient</code></td>
+</tr>
+<tr>
+<td><code>KeycloakGroupRoleMapping</code></td>
+<td>Its group, realm role, client role, and owning client</td>
+</tr>
+<tr>
+<td><code>KeycloakProtocolMapper</code></td>
+<td>Its parent client or client scope</td>
+</tr>
+</tbody>
+</table>
+<p>The operator patches a private
+<code>reconcile.keycloak.clouddicted.com/dependency-trigger</code> annotation on each affected
+dependent. Its normal update handler then performs the reconciliation, including
+when periodic checks are disabled. The annotation uses a separate prefix from
+Kopf's bookkeeping so it participates in change detection. Changes propagate
+through supported dependency chains, such as Secret → target → client.</p>
+<p>The trigger records the source identity and resource version observed when the
+dependent was enqueued. The source's current version may subsequently advance
+because of status or bookkeeping writes; it need not equal the recorded version.
+Duplicate events with the same current trigger are ignored. Status-only CR updates
+do not fan out, and terminating dependents are removed from the dependency index.
+Secrets use raw watch events without storing Kopf handler state on the Secret.</p>
+<p>Dependency events are immediate only when the operator watches the source
+namespace. Cross-namespace Secret references still require read permission. If
+such a Secret is outside the operator's watch scope, a dependent CR can read it
+during its next ordinary or periodic check, but the Secret change does not
+trigger that check by itself.</p>
+<h2 id="periodic-drift-checks">Periodic Drift Checks<a class="headerlink" href="#periodic-drift-checks" title="Permanent link">&para;</a></h2>
+<p>The default periodic interval is 600 seconds (10 minutes). Every managed CR has
+its own timer. The first check is deterministically staggered across the first
+interval using the resource identity, avoiding a burst of Keycloak requests
+after operator startup. Subsequent checks wait the configured interval after the
+previous check finishes, so API latency adds to the time between checks.</p>
+<p>The timer calls the same idempotent handler used for create and update events:</p>
+<ul>
+<li><code>managementPolicy: Reconcile</code> repairs fields owned by the operator.</li>
+<li><code>managementPolicy: ObserveOnly</code> reports drift without modifying Keycloak.</li>
+<li>A check with unchanged desired and observed state produces no status patch and
+  no duplicate Kubernetes event.</li>
+</ul>
+<p>Within one operator process, reconciliation and deletion calls for the same CR
+are serialized. A timer tick is skipped if that CR is already being processed;
+updates and deletions wait for the active call to finish. Different CRs can still
+reconcile concurrently. Once deletion is observed, further create/update and timer
+calls for that CR are skipped, preventing recreation during finalizer cleanup.</p>
+<h2 id="configure-the-interval">Configure The Interval<a class="headerlink" href="#configure-the-interval" title="Permanent link">&para;</a></h2>
+<p>For Helm, set <code>reconciliationIntervalSeconds</code> to a non-negative integer:</p>
+<div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>oci://ghcr.io/clouddicted/charts/keycloak-config-operator<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--namespace<span class="w"> </span>keycloak-config-operator-system<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--set<span class="w"> </span><span class="nv">reconciliationIntervalSeconds</span><span class="o">=</span><span class="m">300</span>
 </code></pre></div>
-<p>All resources use <code>Ready</code> as the aggregate condition. Managed Keycloak objects
-also use <code>DriftDetected</code>; it is <code>Unknown</code> when the operator cannot check drift
-because the spec, target, credentials, or Keycloak API request is blocked.
-<code>KeycloakTarget</code> adds target-specific conditions for Secret loading,
-authentication, and bootstrap.</p>
-<p><code>kubectl describe</code> shows Events for important lifecycle actions such as create,
-update, drift detection, bootstrap completion, and remote deletion.</p>
-<p>Managed objects that have a Keycloak internal ID expose it as
-<code>.status.remoteId</code>. This is useful when comparing a Kubernetes resource with a
-Keycloak Admin API response.</p>
+<p>For the plain Deployment, set the equivalent environment variable:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">env</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RECONCILIATION_INTERVAL_SECONDS</span>
+<span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"300"</span>
+</code></pre></div>
+<p>A value of <code>0</code> disables periodic checks. Create, update, resume, dependency, and
+failure-retry reconciliation remain enabled. Invalid values stop operator
+startup with a configuration error instead of silently selecting an interval.</p>
+<h2 id="failure-retries">Failure Retries<a class="headerlink" href="#failure-retries" title="Permanent link">&para;</a></h2>
+<p>Retry timers are separate from periodic drift checks:</p>
+<ul>
+<li>retryable reconciliation failures are retried after 60 seconds; and</li>
+<li>failed remote deletion attempts are retried after 30 seconds.</li>
+</ul>
+<p>Changing the periodic interval does not change either retry delay. A dependency
+event or CR update can trigger another attempt before a pending retry fires.</p>
 
 
 

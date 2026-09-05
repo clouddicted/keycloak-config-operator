@@ -399,6 +399,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="reconciliation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reconciliation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
     
@@ -413,10 +440,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -434,8 +461,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -947,8 +974,9 @@ client scopes, and protocol mappers close to the applications that use them.</p>
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>You describe the Keycloak state you want in Kubernetes. The operator watches
 those declarations and talks to the Keycloak Admin API whenever a resource is
-created, updated, or resumed at operator startup. Successful resources are not
-periodically resynced in the current release.</p>
+created, updated, or resumed at operator startup. Changes to referenced Secrets
+and supported operator CRs enqueue their dependents. A staggered periodic check,
+every 10 minutes by default, detects changes made directly in Keycloak.</p>
 <p>Each resource reports its own status, so teams can use familiar Kubernetes tools
 to understand whether configuration was applied, authentication failed, or a
 dependency is not ready yet.</p>
@@ -956,13 +984,14 @@ dependency is not ready yet.</p>
 <ul>
 <li><a href="getting-started/">Getting started</a> for a minimal working example.</li>
 <li><a href="usage/">Usage guide</a> for install options, authentication modes, and deletion behavior.</li>
+<li><a href="reconciliation/">Reconciliation</a> for triggers, drift-check timing, retries, and tuning.</li>
 <li><a href="resources/">Resources</a> for practical CRD field explanations and examples.</li>
 <li><a href="api-reference/">API reference</a> for the generated CRD schema.</li>
 </ul>
 <p>Install the released Helm chart from GitHub Container Registry:</p>
 <div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>keycloak-config-operator<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>oci://ghcr.io/clouddicted/charts/keycloak-config-operator<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.4.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.5.0<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--namespace<span class="w"> </span>keycloak-config-operator-system<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--create-namespace
 </code></pre></div>
