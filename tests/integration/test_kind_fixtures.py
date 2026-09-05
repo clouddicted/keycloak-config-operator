@@ -103,6 +103,8 @@ READY_TIMEOUT = "180s"
 KEYCLOAK_TIMEOUT_SECONDS = 240
 RECONCILE_TIMEOUT_SECONDS = 180
 E2E_RECONCILIATION_INTERVAL_SECONDS = 5
+DEPENDENCY_TRIGGER_ANNOTATION = "reconcile.keycloak.clouddicted.com/dependency-trigger"
+LAST_HANDLED_ANNOTATION = "keycloak.clouddicted.com/last-handled-configuration"
 
 
 def test_install_manifests_server_side_dry_run(kind_cluster_env: dict[str, str]) -> None:
@@ -481,9 +483,14 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
 
         _log("rotating an identity-provider Secret to trigger its dependent CR")
+        previous_trigger = _dependency_trigger(
+            kind_cluster_env, "keycloakidentityproviders", IDENTITY_PROVIDER_ALIAS,
+        )
         _apply_document(
             kind_cluster_env,
-            _identity_provider_secret("rotated-identity-provider-secret"),
+            _identity_provider_secret(
+                "rotated-identity-provider-secret", default_scope="openid email",
+            ),
         )
         _eventually(
             lambda: _assert_dependency_trigger(
@@ -493,7 +500,11 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
                 source_group="core",
                 source_plural="secrets",
                 source_name="example-oidc-secret",
+                previous_trigger=previous_trigger,
             )
+        )
+        _eventually(
+            lambda: _assert_identity_provider(keycloak_url, realm, default_scope="openid email")
         )
 
         _log("applying observe-only KeycloakRole")
@@ -605,6 +616,9 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         )
 
         _log("updating a client annotation to trigger its dependent client role")
+        previous_trigger = _dependency_trigger(
+            kind_cluster_env, "keycloakclientroles", "example-web-reader",
+        )
         _annotate_resource(
             kind_cluster_env,
             "keycloakclients",
@@ -620,6 +634,7 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
                 source_group="keycloak.clouddicted.com",
                 source_plural="keycloakclients",
                 source_name=PUBLIC_CLIENT_ID,
+                previous_trigger=previous_trigger,
             )
         )
 
@@ -1071,7 +1086,7 @@ def _assert_resource_conditions(
         assert conditions[condition_type]["reason"] == reason
 
 
-def _resource_version(env: dict[str, str], plural: str, name: str) -> str:
+def _dependency_trigger(env: dict[str, str], plural: str, name: str) -> str | None:
     result = _run(
         [
             "kubectl",
@@ -1085,9 +1100,7 @@ def _resource_version(env: dict[str, str], plural: str, name: str) -> str:
         env=env,
     )
     resource = json.loads(result.stdout)
-    version = resource["metadata"]["resourceVersion"]
-    assert isinstance(version, str) and version
-    return version
+    return resource["metadata"].get("annotations", {}).get(DEPENDENCY_TRIGGER_ANNOTATION)
 
 
 def _annotate_resource(
@@ -1120,8 +1133,8 @@ def _assert_dependency_trigger(
     source_group: str,
     source_plural: str,
     source_name: str,
+    previous_trigger: str | None,
 ) -> None:
-    source_version = _resource_version(env, source_plural, source_name)
     result = _run(
         [
             "kubectl",
@@ -1136,9 +1149,16 @@ def _assert_dependency_trigger(
     )
     resource = json.loads(result.stdout)
     annotations = resource["metadata"].get("annotations", {})
-    assert annotations["keycloak.clouddicted.com/dependency-trigger"] == (
-        f"{source_group}/{source_plural}/{NAMESPACE}/{source_name}@{source_version}"
-    )
+    trigger = annotations[DEPENDENCY_TRIGGER_ANNOTATION]
+    assert trigger != previous_trigger
+    source, version = trigger.rsplit("@", 1)
+    assert source == f"{source_group}/{source_plural}/{NAMESPACE}/{source_name}"
+    assert version and version != "unknown"
+    # Resource versions can advance after fan-out due to status/bookkeeping.
+    # Verify the changed trigger was consumed by the regular handler instead.
+    # Periodic timers do not write this annotation, so they cannot mask failure.
+    handled = json.loads(annotations[LAST_HANDLED_ANNOTATION])
+    assert handled["metadata"]["annotations"][DEPENDENCY_TRIGGER_ANNOTATION] == trigger
 
 
 def _apply_document(env: dict[str, str], document: dict[str, Any]) -> None:
@@ -1254,12 +1274,15 @@ def _keycloak_identity_provider(realm: str) -> dict[str, Any]:
                 "authorizationUrl": "https://idp.example.com/oauth2/authorize",
                 "tokenUrl": "https://idp.example.com/oauth2/token",
                 "userInfoUrl": "https://idp.example.com/oauth2/userinfo",
-                "defaultScope": "openid profile email",
             },
             "configSecretRefs": {
                 "clientSecret": {
                     "name": "example-oidc-secret",
                     "secretKey": "clientSecret",
+                },
+                "defaultScope": {
+                    "name": "example-oidc-secret",
+                    "secretKey": "defaultScope",
                 },
             },
         },
@@ -1268,13 +1291,15 @@ def _keycloak_identity_provider(realm: str) -> dict[str, Any]:
 
 def _identity_provider_secret(
     secret: str = IDENTITY_PROVIDER_SECRET,
+    *,
+    default_scope: str = "openid profile email",
 ) -> dict[str, Any]:
     return {
         "apiVersion": "v1",
         "kind": "Secret",
         "metadata": {"name": "example-oidc-secret", "namespace": NAMESPACE},
         "type": "Opaque",
-        "stringData": {"clientSecret": secret},
+        "stringData": {"clientSecret": secret, "defaultScope": default_scope},
     }
 
 
@@ -1488,7 +1513,9 @@ def _assert_protocol_mapper(base_url: str, realm: str) -> None:
     assert mapper["config"]["userinfo.token.claim"] == "true"
 
 
-def _assert_identity_provider(base_url: str, realm: str) -> None:
+def _assert_identity_provider(
+    base_url: str, realm: str, *, default_scope: str = "openid profile email",
+) -> None:
     provider = _identity_provider(base_url, realm)
 
     assert provider["alias"] == IDENTITY_PROVIDER_ALIAS
@@ -1501,7 +1528,7 @@ def _assert_identity_provider(base_url: str, realm: str) -> None:
     )
     assert provider["config"]["tokenUrl"] == "https://idp.example.com/oauth2/token"
     assert provider["config"]["userInfoUrl"] == "https://idp.example.com/oauth2/userinfo"
-    assert provider["config"]["defaultScope"] == "openid profile email"
+    assert provider["config"]["defaultScope"] == default_scope
 
 
 def _assert_identity_provider_missing(base_url: str, realm: str) -> None:

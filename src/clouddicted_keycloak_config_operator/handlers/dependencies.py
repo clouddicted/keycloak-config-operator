@@ -27,7 +27,9 @@ from clouddicted_keycloak_config_operator.constants import (
 
 CORE_API_GROUP = ""
 SECRET_PLURAL = "secrets"
-DEPENDENCY_TRIGGER_ANNOTATION = f"{API_GROUP}/dependency-trigger"
+# Kopf excludes its persistence prefix from both diff-base and progress storage.
+# This annotation must live outside that prefix to invoke ordinary update handlers.
+DEPENDENCY_TRIGGER_ANNOTATION = f"reconcile.{API_GROUP}/dependency-trigger"
 
 DependencyKey = tuple[str, str, str, str]
 
@@ -127,6 +129,8 @@ def index_resource_dependencies(
         return {}
 
     metadata = _mapping(body.get("metadata"))
+    if metadata.get("deletionTimestamp"):
+        return {}
     annotations = _mapping(metadata.get("annotations"))
     dependent = DependentResource(
         namespace=namespace,
@@ -328,9 +332,8 @@ def enqueue_dependents(
     # Custom resources also emit status and Kopf bookkeeping updates.  Those are
     # handled by ``enqueue_dependents_on_update`` after filtering the diff; doing
     # the raw fan-out for them would create duplicate reconciliations.  Secrets
-    # have no operator-managed status, so their raw MODIFIED events are the
-    # reliable trigger for dependents (the Secret is intentionally not handled
-    # by the update callback below).
+    # are watched only through raw events: a changing handler would make Kopf
+    # store Secret data in annotations and emit its own MODIFIED events.
     if (
         param != SECRET_RESOURCE
         and event is not None
@@ -348,7 +351,6 @@ def enqueue_dependents(
     )
 
 
-@kopf.on.update(**_resource(DEPENDENCY_SOURCES[0]), param=DEPENDENCY_SOURCES[0])
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[1]), param=DEPENDENCY_SOURCES[1])
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[2]), param=DEPENDENCY_SOURCES[2])
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[3]), param=DEPENDENCY_SOURCES[3])
@@ -365,9 +367,6 @@ def enqueue_dependents_on_update(
     **indices: Any,
 ) -> None:
     """Fan out only meaningful source updates, keeping status-only updates local."""
-    if param == SECRET_RESOURCE:
-        return
-
     if not dependency_diff_is_relevant(diff):
         return
 
@@ -400,6 +399,8 @@ def fanout_dependents(
         name=name,
     )
     dependents = _dependents_for_keys(source_keys, indices)
+    if not dependents:
+        return 0
     trigger = _dependency_trigger_value(param, body, namespace, name)
     api = custom_objects_api or kubernetes_client.CustomObjectsApi()
     patched = 0

@@ -24,6 +24,12 @@
 
 ### Fixes
 
+- Moved dependency triggers outside Kopf's bookkeeping annotation prefix so
+  dependency updates invoke normal reconciliation even with periodic checks disabled.
+- Removed Secret changing handlers to avoid bookkeeping writes and extra watch events
+  on referenced Secrets; raw Secret watch events continue to enqueue dependents.
+- Corrected kind dependency assertions to verify a new trigger was handled instead
+  of comparing it with the source's potentially newer resource version.
 - Prevented status-only dependency-source updates from enqueueing dependents or
   writing `status.enqueue_dependents`, avoiding duplicate Admin API operations.
 - Stopped periodic reconciliation when a resource is marked for deletion so

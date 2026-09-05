@@ -26,9 +26,18 @@ Dependency-triggered reconciliation covers these references:
 | `KeycloakProtocolMapper` | Its parent client or client scope |
 
 The operator patches a private
-`keycloak.clouddicted.com/dependency-trigger` annotation on each affected
-dependent. Its normal update handler then performs the reconciliation. Duplicate
-events for the same source resource version are ignored.
+`reconcile.keycloak.clouddicted.com/dependency-trigger` annotation on each affected
+dependent. Its normal update handler then performs the reconciliation, including
+when periodic checks are disabled. The annotation uses a separate prefix from
+Kopf's bookkeeping so it participates in change detection. Changes propagate
+through supported dependency chains, such as Secret → target → client.
+
+The trigger records the source identity and resource version observed when the
+dependent was enqueued. The source's current version may subsequently advance
+because of status or bookkeeping writes; it need not equal the recorded version.
+Duplicate events with the same current trigger are ignored. Status-only CR updates
+do not fan out, and terminating dependents are removed from the dependency index.
+Secrets use raw watch events without storing Kopf handler state on the Secret.
 
 Dependency events are immediate only when the operator watches the source
 namespace. Cross-namespace Secret references still require read permission. If

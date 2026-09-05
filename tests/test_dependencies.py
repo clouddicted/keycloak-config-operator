@@ -356,6 +356,12 @@ def test_raw_modified_secret_dependency_events_fan_out() -> None:
                     )
                 ]
             ),
+            True,
+        ),
+        (
+            kopf.Diff([
+                ("change", ("metadata", "annotations", f"{API_GROUP}/kopf-managed"), None, "yes")
+            ]),
             False,
         ),
         (
@@ -384,3 +390,13 @@ def test_realm_role_mapping_tracks_realm_role_dependency() -> None:
     )
 
     assert _key(API_GROUP, KEYCLOAK_ROLE_PLURAL, "apps", "viewer") in keys
+
+
+def test_terminating_resources_are_removed_from_dependency_index() -> None:
+    assert dependencies.index_resource_dependencies(
+        body={"metadata": {"deletionTimestamp": "2026-08-31T13:00:25Z"}},
+        spec={"clientRef": {"name": "example-web"}},
+        namespace="apps",
+        name="reader",
+        param=dependencies.SourceResource(API_GROUP, API_VERSION, KEYCLOAK_CLIENT_ROLE_PLURAL),
+    ) == {}

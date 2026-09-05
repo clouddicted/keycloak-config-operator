@@ -38,7 +38,7 @@ def test_dependency_support_handlers_are_registered() -> None:
         for handler in registry._changing.get_all_handlers()
         if handler.fn.__module__ == main.REGISTERED_SUPPORT_MODULES[0].__name__
     ]
-    assert len(dependency_update_handlers) == 7
+    assert len(dependency_update_handlers) == 6
     assert all(handler.reason == "update" for handler in dependency_update_handlers)
 
 
