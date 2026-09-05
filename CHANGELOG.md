@@ -34,6 +34,8 @@
   writing `status.enqueue_dependents`, avoiding duplicate Admin API operations.
 - Stopped periodic reconciliation when a resource is marked for deletion so
   terminating CRs cannot recreate their remote objects.
+- Serialized timer, event, and deletion API calls per CR, preventing overlapping
+  creates and deletion races while retaining concurrency across different CRs.
 
 ### Documentation
 
@@ -47,6 +49,8 @@
   no-change status suppression, timer registration, and disabled timers.
 - Added unit coverage for dependency indexing, fan-out, duplicate suppression,
   natural-key references, and concurrent deletion handling.
+- Added regressions using Kopf's real change detection and registered handlers,
+  including dependency propagation and timer/event/deletion concurrency.
 - Extended the kind e2e scenario to verify periodic repair of out-of-band realm
   drift and reconciliation after Secret and client dependency changes.
 

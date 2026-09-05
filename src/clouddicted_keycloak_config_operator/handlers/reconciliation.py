@@ -7,6 +7,7 @@ import os
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from functools import partial, wraps
+from threading import Lock
 from typing import Any, TypeVar
 
 import kopf
@@ -16,6 +17,7 @@ DEFAULT_RECONCILIATION_INTERVAL_SECONDS = 600
 RECONCILIATION_INTERVAL_ENV = "RECONCILIATION_INTERVAL_SECONDS"
 _MISSING = object()
 _Handler = TypeVar("_Handler", bound=Callable[..., Any])
+_RECONCILIATION_LOCK_KEY = "_keycloak_reconciliation_lock"
 
 
 def configured_reconciliation_interval_seconds(
@@ -64,20 +66,12 @@ def reconciliation_initial_delay(
 
 
 def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler], _Handler]:
-    """Register a per-resource Kopf timer unless periodic reconciliation is disabled."""
+    """Register coordinated event/timer handlers for a single Kubernetes resource."""
 
     def decorator(fn: _Handler) -> _Handler:
+        event_handler = _serialized_handler(fn)
         if RECONCILIATION_INTERVAL_SECONDS == 0:
-            return fn
-
-        @wraps(fn)
-        def timer_handler(*args: Any, **kwargs: Any) -> Any:
-            body = kwargs.get("body")
-            if body is None and args and isinstance(args[0], Mapping):
-                body = args[0]
-            if is_deletion_requested(body):
-                return None
-            return fn(*args, **kwargs)
+            return event_handler
 
         timer = kopf.timer(
             **resource,
@@ -87,9 +81,43 @@ def periodic_reconciliation(resource: Mapping[str, str]) -> Callable[[_Handler],
                 interval_seconds=RECONCILIATION_INTERVAL_SECONDS,
             ),
         )
-        return timer(timer_handler)
+        timer(_serialized_handler(fn, periodic=True))
+        return event_handler
 
     return decorator
+
+
+def serialized_deletion[Handler: Callable[..., Any]](fn: Handler) -> Handler:
+    """Wait for any active reconciliation before deleting a remote resource."""
+    return _serialized_handler(fn, deleting=True)
+
+
+def _serialized_handler[Handler: Callable[..., Any]](
+    fn: Handler, *, periodic: bool = False, deleting: bool = False,
+) -> Handler:
+    @wraps(fn)
+    def handler(*args: Any, **kwargs: Any) -> Any:
+        # Kopf shares one dict-backed memo between event handlers and timers for
+        # each CR. It is discarded with that CR, so locks do not accumulate.
+        memo = kwargs.get("memo")
+        lock = Lock() if memo is None else memo.setdefault(_RECONCILIATION_LOCK_KEY, Lock())
+        # A busy CR is already being checked. Skip redundant timer ticks, but
+        # preserve user updates and deletions by waiting for their turn.
+        if not lock.acquire(blocking=not periodic):
+            return None
+        try:
+            body = kwargs.get("body")
+            if body is None and args and isinstance(args[0], Mapping):
+                body = args[0]
+            # Recheck the live body after taking the lock: deletion may have
+            # arrived while this event handler was waiting for a running timer.
+            if not deleting and is_deletion_requested(body):
+                return None
+            return fn(*args, **kwargs)
+        finally:
+            lock.release()
+
+    return handler
 
 
 def is_deletion_requested(body: Mapping[str, Any] | None) -> bool:

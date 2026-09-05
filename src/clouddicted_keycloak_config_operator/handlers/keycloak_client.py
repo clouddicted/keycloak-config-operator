@@ -29,6 +29,7 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     periodic_reconciliation,
     raise_for_retry,
+    serialized_deletion,
 )
 from clouddicted_keycloak_config_operator.handlers.spec_validation import (
     bool_field_error,
@@ -174,6 +175,7 @@ def reconcile_keycloak_client(
 
 
 @kopf.on.delete(**KEYCLOAK_CLIENT_RESOURCE)
+@serialized_deletion
 def delete_keycloak_client(
     body: kopf.Body,
     spec: Mapping[str, Any] | None,

@@ -27,6 +27,7 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     emit_event_for_condition_reasons,
     periodic_reconciliation,
     raise_for_retry,
+    serialized_deletion,
 )
 from clouddicted_keycloak_config_operator.handlers.spec_validation import (
     enum_field_error,
@@ -168,6 +169,7 @@ def reconcile_keycloak_group_role_mapping(
 
 
 @kopf.on.delete(**KEYCLOAK_GROUP_ROLE_MAPPING_RESOURCE)
+@serialized_deletion
 def delete_keycloak_group_role_mapping(
     body: kopf.Body,
     spec: Mapping[str, Any] | None,

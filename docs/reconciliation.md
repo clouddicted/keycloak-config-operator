@@ -50,7 +50,8 @@ trigger that check by itself.
 The default periodic interval is 600 seconds (10 minutes). Every managed CR has
 its own timer. The first check is deterministically staggered across the first
 interval using the resource identity, avoiding a burst of Keycloak requests
-after operator startup. Subsequent checks run at the configured interval.
+after operator startup. Subsequent checks wait the configured interval after the
+previous check finishes, so API latency adds to the time between checks.
 
 The timer calls the same idempotent handler used for create and update events:
 
@@ -58,6 +59,12 @@ The timer calls the same idempotent handler used for create and update events:
 - `managementPolicy: ObserveOnly` reports drift without modifying Keycloak.
 - A check with unchanged desired and observed state produces no status patch and
   no duplicate Kubernetes event.
+
+Within one operator process, reconciliation and deletion calls for the same CR
+are serialized. A timer tick is skipped if that CR is already being processed;
+updates and deletions wait for the active call to finish. Different CRs can still
+reconcile concurrently. Once deletion is observed, further create/update and timer
+calls for that CR are skipped, preventing recreation during finalizer cleanup.
 
 ## Configure The Interval
 
