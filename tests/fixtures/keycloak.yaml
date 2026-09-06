@@ -22,6 +22,8 @@ spec:
           image: quay.io/keycloak/keycloak:26.6.2
           args:
             - start-dev
+            - --cache=local
+            - --features-disabled=admin-fine-grained-authz,authorization,docker,kerberos,passkeys,step-up-authentication
           env:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               valueFrom:
