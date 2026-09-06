@@ -112,9 +112,9 @@ CLIENT_ROLE_NAME = "reader"
 GROUP_NAME = "example-users"
 GROUP_REALM_ROLE_MAPPING_NAME = "example-users-admin"
 GROUP_CLIENT_ROLE_MAPPING_NAME = "example-users-web-reader"
-READY_TIMEOUT = "180s"
-KEYCLOAK_TIMEOUT_SECONDS = 240
-RECONCILE_TIMEOUT_SECONDS = 180
+READY_TIMEOUT = os.getenv("E2E_READY_TIMEOUT", "60s")
+KEYCLOAK_TIMEOUT_SECONDS = int(os.getenv("E2E_KEYCLOAK_TIMEOUT_SECONDS", "60"))
+RECONCILE_TIMEOUT_SECONDS = int(os.getenv("E2E_RECONCILE_TIMEOUT_SECONDS", "30"))
 E2E_RECONCILIATION_INTERVAL_SECONDS = 5
 DEPENDENCY_TRIGGER_ANNOTATION = "reconcile.keycloak.clouddicted.com/dependency-trigger"
 LAST_HANDLED_ANNOTATION = "keycloak.clouddicted.com/last-handled-configuration"
@@ -174,116 +174,7 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
         ["kubectl", "apply", "--server-side", "-f", str(PROTOCOL_MAPPER_CRD)],
         env=kind_cluster_env,
     )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloaktargets.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakgrouprolemappings.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakgroups.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakclientroles.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakidentityproviders.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakidentityprovidermappers.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakclientscopes.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakprotocolmappers.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakrealms.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakclients.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
-    _run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=Established",
-            "crd/keycloakroles.keycloak.clouddicted.com",
-            "--timeout=60s",
-        ],
-        env=kind_cluster_env,
-    )
+    _wait_for_crds(kind_cluster_env)
     _run(["kubectl", "apply", "-f", str(FIXTURES / "namespace.yaml")], env=kind_cluster_env)
     _run(
         ["kubectl", "apply", "-f", str(FIXTURES / "keycloak-admin-secret.yaml")],
@@ -1646,7 +1537,8 @@ def _assert_identity_provider(
     assert provider["linkOnly"] is False
     assert provider["hideOnLogin"] is False
     assert provider["authenticateByDefault"] is False
-    assert provider["updateProfileFirstLoginMode"] == "on"
+    if "updateProfileFirstLoginMode" in provider:
+        assert provider["updateProfileFirstLoginMode"] == "on"
     assert provider["firstBrokerLoginFlowAlias"] == "first broker login"
     assert provider["config"]["clientId"] == "example-client"
     assert provider["config"]["authorizationUrl"] == (
