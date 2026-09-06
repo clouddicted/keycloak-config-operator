@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.6.0 - 2026-09-06
+
+### Highlights
+
+- Added full support for the `KeycloakIdentityProviderMapper` custom resource.
+- Expanded `KeycloakIdentityProvider` with additional settings (`trustEmail`, `storeToken`, `linkOnly`, `hideOnLogin`, `authenticateByDefault`, `updateProfileFirstLoginMode`, `firstBrokerLoginFlowAlias`).
+
 ## v0.5.0 - 2026-08-31
 
 ### Highlights
