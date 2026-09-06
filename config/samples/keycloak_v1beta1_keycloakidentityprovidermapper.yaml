@@ -1,0 +1,16 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakIdentityProviderMapper
+metadata:
+  name: example-oidc-email-claim
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  name: email-claim
+  identityProviderRef:
+    name: example-oidc
+  identityProviderMapper: oidc-user-attribute-idp-mapper
+  config:
+    claim: email
+    user.attribute: email
+

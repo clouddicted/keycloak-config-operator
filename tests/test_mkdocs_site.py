@@ -41,6 +41,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
         "resources/keycloak-group-role-mapping.md",
         "resources/keycloak-group.md",
         "resources/keycloak-identity-provider.md",
+        "resources/keycloak-identity-provider-mapper.md",
         "resources/keycloak-protocol-mapper.md",
         "resources/keycloak-realm.md",
         "resources/keycloak-role.md",

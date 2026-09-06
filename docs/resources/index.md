@@ -16,10 +16,10 @@ to one Keycloak instance.
 `KeycloakRealm` creates or observes the realm that contains the rest of the
 configuration.
 
-`KeycloakIdentityProvider`, `KeycloakClient`, `KeycloakClientRole`,
-`KeycloakGroup`, `KeycloakGroupRoleMapping`, `KeycloakRole`,
-`KeycloakClientScope`, and `KeycloakProtocolMapper` manage selected objects
-inside a realm.
+`KeycloakIdentityProvider`, `KeycloakIdentityProviderMapper`, `KeycloakClient`,
+`KeycloakClientRole`, `KeycloakGroup`, `KeycloakGroupRoleMapping`,
+`KeycloakRole`, `KeycloakClientScope`, and `KeycloakProtocolMapper` manage
+selected objects inside a realm.
 
 Arrows point from prerequisites to resources that depend on them:
 
@@ -27,6 +27,7 @@ Arrows point from prerequisites to resources that depend on them:
 flowchart TD
   target[KeycloakTarget] --> realm[KeycloakRealm]
   target --> idp[KeycloakIdentityProvider]
+  target --> idpMapper[KeycloakIdentityProviderMapper]
   target --> client[KeycloakClient]
   target --> clientRole[KeycloakClientRole]
   target --> group[KeycloakGroup]
@@ -36,12 +37,14 @@ flowchart TD
   target --> mapper[KeycloakProtocolMapper]
 
   realm --> idp
+  realm --> idpMapper
   realm --> client
   realm --> clientRole
   realm --> group
   realm --> groupRoleMapping
   realm --> role
   realm --> scope
+  idp --> idpMapper
   client --> clientRole
   client --> mapper
   clientRole --> groupRoleMapping
@@ -56,6 +59,7 @@ The normal apply order is:
 KeycloakTarget
 KeycloakRealm
 KeycloakIdentityProvider
+KeycloakIdentityProviderMapper
 KeycloakGroup
 KeycloakRole
 KeycloakClient
@@ -65,6 +69,7 @@ KeycloakClientScope
 KeycloakProtocolMapper
 ```
 
+Identity provider mappers must have their parent identity provider created first.
 Client scopes must exist before protocol mappers that attach to them. Clients
 must exist before protocol mappers that attach directly to clients.
 

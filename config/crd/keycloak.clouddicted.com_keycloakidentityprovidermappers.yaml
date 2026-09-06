@@ -1,0 +1,167 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keycloakidentityprovidermappers.keycloak.clouddicted.com
+spec:
+  group: keycloak.clouddicted.com
+  scope: Namespaced
+  names:
+    kind: KeycloakIdentityProviderMapper
+    plural: keycloakidentityprovidermappers
+    singular: keycloakidentityprovidermapper
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Mapper
+          type: string
+          jsonPath: .spec.name
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Provider
+          type: string
+          jsonPath: .spec.identityProviderRef.name
+        - name: Remote ID
+          type: string
+          jsonPath: .status.remoteId
+          priority: 1
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              description: Desired Keycloak identity provider mapper.
+              required:
+                - targetRef
+                - realm
+                - name
+                - identityProviderRef
+                - identityProviderMapper
+              properties:
+                targetRef:
+                  type: object
+                  description: KeycloakTarget used to reach Keycloak.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakTarget in this namespace.
+                      minLength: 1
+                realm:
+                  type: string
+                  description: Realm containing the identity provider mapper.
+                  minLength: 1
+                name:
+                  type: string
+                  description: Keycloak identity provider mapper name.
+                  minLength: 1
+                identityProviderRef:
+                  type: object
+                  description: KeycloakIdentityProvider that owns the mapper.
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the KeycloakIdentityProvider in this namespace or provider alias.
+                      minLength: 1
+                    alias:
+                      type: string
+                      description: Identity provider alias in Keycloak if different from the resource name.
+                      minLength: 1
+                identityProviderMapper:
+                  type: string
+                  description: Keycloak identity provider mapper type, such as oidc-user-attribute-idp-mapper or oidc-role-idp-mapper.
+                  minLength: 1
+                config:
+                  type: object
+                  description: Mapper configuration key-value pairs.
+                  additionalProperties:
+                    type: string
+                    description: Mapper configuration value.
+                managementPolicy:
+                  type: string
+                  description:
+                    Reconciliation behavior for the remote Keycloak identity provider
+                    mapper. Reconcile creates or updates the modeled fields;
+                    ObserveOnly reports missing resources or drift without
+                    changing Keycloak.
+                  default: Reconcile
+                  enum:
+                    - Reconcile
+                    - ObserveOnly
+                deletionPolicy:
+                  type: string
+                  description:
+                    Deletion behavior for the remote Keycloak identity provider mapper
+                    when this resource is deleted. Orphan leaves the mapper in
+                    Keycloak; Delete removes it.
+                  default: Orphan
+                  enum:
+                    - Orphan
+                    - Delete
+            status:
+              type: object
+              description: Observed KeycloakIdentityProviderMapper status.
+              properties:
+                remoteId:
+                  type: string
+                  description: Keycloak internal ID of the observed identity provider mapper.
+                conditions:
+                  type: array
+                  description: Current Kubernetes-style status conditions.
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                        description: Condition type.
+                        minLength: 1
+                      status:
+                        type: string
+                        description: Condition status.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                        description: Resource generation observed by the operator.
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                        description: Time when the condition last changed.
+                      reason:
+                        type: string
+                        minLength: 1
+                        description: Short reason for the condition state.
+                      message:
+                        type: string
+                        description: Human-readable condition details.
+

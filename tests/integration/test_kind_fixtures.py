@@ -40,6 +40,12 @@ GROUP_ROLE_MAPPING_CRD = (
 IDENTITY_PROVIDER_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakidentityproviders.yaml"
 )
+IDENTITY_PROVIDER_MAPPER_CRD = (
+    REPO_ROOT
+    / "config"
+    / "crd"
+    / "keycloak.clouddicted.com_keycloakidentityprovidermappers.yaml"
+)
 CLIENT_SCOPE_CRD = (
     REPO_ROOT / "config" / "crd" / "keycloak.clouddicted.com_keycloakclientscopes.yaml"
 )
@@ -58,6 +64,12 @@ GROUP_ROLE_MAPPING_SAMPLE = (
 )
 IDENTITY_PROVIDER_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakidentityprovider.yaml"
+)
+IDENTITY_PROVIDER_MAPPER_SAMPLE = (
+    REPO_ROOT
+    / "config"
+    / "samples"
+    / "keycloak_v1beta1_keycloakidentityprovidermapper.yaml"
 )
 CLIENT_SCOPE_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclientscope.yaml"
@@ -91,6 +103,7 @@ CONFIDENTIAL_CLIENT_ID = "example-service"
 CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
 IDENTITY_PROVIDER_ALIAS = "example-oidc"
 IDENTITY_PROVIDER_SECRET = "not-a-production-identity-provider-secret"
+IDENTITY_PROVIDER_MAPPER_NAME = "email-claim"
 CLIENT_SCOPE_NAME = "example-profile"
 PROTOCOL_MAPPER_NAME = "email"
 ROLE_NAME = "example-admin"
@@ -140,6 +153,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
     )
     _run(
         ["kubectl", "apply", "--server-side", "-f", str(IDENTITY_PROVIDER_CRD)],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "-f",
+            str(IDENTITY_PROVIDER_MAPPER_CRD),
+        ],
         env=kind_cluster_env,
     )
     _run(["kubectl", "apply", "--server-side", "-f", str(ROLE_CRD)], env=kind_cluster_env)
@@ -197,6 +220,16 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "wait",
             "--for=condition=Established",
             "crd/keycloakidentityproviders.keycloak.clouddicted.com",
+            "--timeout=60s",
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "wait",
+            "--for=condition=Established",
+            "crd/keycloakidentityprovidermappers.keycloak.clouddicted.com",
             "--timeout=60s",
         ],
         env=kind_cluster_env,
@@ -373,6 +406,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--server-side",
             "--dry-run=server",
             "-f",
+            str(IDENTITY_PROVIDER_MAPPER_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
             str(ROLE_SAMPLE),
         ],
         env=kind_cluster_env,
@@ -505,6 +549,48 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         )
         _eventually(
             lambda: _assert_identity_provider(keycloak_url, realm, default_scope="openid email")
+        )
+
+        _log("applying KeycloakIdentityProviderMapper")
+        _apply_document(kind_cluster_env, _keycloak_identity_provider_mapper(realm))
+        _wait_for_ready(
+            kind_cluster_env,
+            "keycloakidentityprovidermappers",
+            "example-oidc-email-claim",
+        )
+        _eventually(lambda: _assert_identity_provider_mapper(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakidentityprovidermappers",
+                "example-oidc-email-claim",
+                _identity_provider_mapper(keycloak_url, realm)["id"],
+            )
+        )
+
+        _log("updating an identity provider annotation to trigger its dependent mapper")
+        previous_trigger = _dependency_trigger(
+            kind_cluster_env,
+            "keycloakidentityprovidermappers",
+            "example-oidc-email-claim",
+        )
+        _annotate_resource(
+            kind_cluster_env,
+            "keycloakidentityproviders",
+            IDENTITY_PROVIDER_ALIAS,
+            "e2e.keycloak.clouddicted.com/dependency-test",
+            realm,
+        )
+        _eventually(
+            lambda: _assert_dependency_trigger(
+                kind_cluster_env,
+                "keycloakidentityprovidermappers",
+                "example-oidc-email-claim",
+                source_group="keycloak.clouddicted.com",
+                source_plural="keycloakidentityproviders",
+                source_name=IDENTITY_PROVIDER_ALIAS,
+                previous_trigger=previous_trigger,
+            )
         )
 
         _log("applying observe-only KeycloakRole")
@@ -694,6 +780,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _delete_document(kind_cluster_env, _keycloak_client_scope(realm))
         _eventually(lambda: _assert_client_scope_missing(keycloak_url, realm))
 
+        _log("deleting KeycloakIdentityProviderMapper with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_identity_provider_mapper(realm))
+        _eventually(lambda: _assert_identity_provider_mapper_missing(keycloak_url, realm))
+
         _log("deleting KeycloakIdentityProvider with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_identity_provider(realm))
         _eventually(lambda: _assert_identity_provider_missing(keycloak_url, realm))
@@ -741,6 +831,7 @@ def _apply_crds(env: dict[str, str]) -> None:
         GROUP_CRD,
         GROUP_ROLE_MAPPING_CRD,
         IDENTITY_PROVIDER_CRD,
+        IDENTITY_PROVIDER_MAPPER_CRD,
         ROLE_CRD,
         CLIENT_SCOPE_CRD,
         PROTOCOL_MAPPER_CRD,
@@ -759,6 +850,7 @@ def _wait_for_crds(env: dict[str, str]) -> None:
         "keycloakgroups",
         "keycloakgrouprolemappings",
         "keycloakidentityproviders",
+        "keycloakidentityprovidermappers",
         "keycloakroles",
         "keycloakclientscopes",
         "keycloakprotocolmappers",
@@ -1296,6 +1388,26 @@ def _keycloak_identity_provider(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_identity_provider_mapper(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakIdentityProviderMapper",
+        "metadata": {"name": "example-oidc-email-claim", "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "name": IDENTITY_PROVIDER_MAPPER_NAME,
+            "identityProviderRef": {"name": IDENTITY_PROVIDER_ALIAS},
+            "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+            "deletionPolicy": "Delete",
+            "config": {
+                "claim": "email",
+                "user.attribute": "email",
+            },
+        },
+    }
+
+
 def _identity_provider_secret(
     secret: str = IDENTITY_PROVIDER_SECRET,
     *,
@@ -1555,6 +1667,35 @@ def _assert_identity_provider_missing(base_url: str, realm: str) -> None:
     raise AssertionError(f"Keycloak identity provider {IDENTITY_PROVIDER_ALIAS!r} exists")
 
 
+def _assert_identity_provider_mapper(base_url: str, realm: str) -> dict[str, Any]:
+    mapper = _identity_provider_mapper(base_url, realm)
+
+    assert mapper["name"] == IDENTITY_PROVIDER_MAPPER_NAME
+    assert mapper["identityProviderAlias"] == IDENTITY_PROVIDER_ALIAS
+    assert mapper["identityProviderMapper"] == "oidc-user-attribute-idp-mapper"
+    assert mapper["config"]["claim"] == "email"
+    assert mapper["config"]["user.attribute"] == "email"
+    return mapper
+
+
+def _assert_identity_provider_mapper_missing(base_url: str, realm: str) -> None:
+    try:
+        mappers = _admin_get(
+            base_url,
+            f"realms/{realm}/identity-provider/instances/{IDENTITY_PROVIDER_ALIAS}/mappers",
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return
+        raise
+
+    for mapper in mappers:
+        if isinstance(mapper, dict) and mapper.get("name") == IDENTITY_PROVIDER_MAPPER_NAME:
+            raise AssertionError(
+                f"Keycloak identity provider mapper {IDENTITY_PROVIDER_MAPPER_NAME!r} exists"
+            )
+
+
 def _assert_group(base_url: str, realm: str) -> None:
     group = _group(base_url, realm)
     assert group["name"] == GROUP_NAME
@@ -1761,6 +1902,14 @@ def _identity_provider(base_url: str, realm: str) -> dict[str, Any]:
         base_url,
         f"realms/{realm}/identity-provider/instances/{IDENTITY_PROVIDER_ALIAS}",
     )
+
+
+def _identity_provider_mapper(base_url: str, realm: str) -> dict[str, Any]:
+    mappers = _admin_get(
+        base_url,
+        f"realms/{realm}/identity-provider/instances/{IDENTITY_PROVIDER_ALIAS}/mappers",
+    )
+    return _one_by_field(mappers, "name", IDENTITY_PROVIDER_MAPPER_NAME)
 
 
 def _admin_get(base_url: str, path: str, params: dict[str, str] | None = None) -> Any:

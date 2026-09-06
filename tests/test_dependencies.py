@@ -12,6 +12,7 @@ from clouddicted_keycloak_config_operator.constants import (
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
     KEYCLOAK_GROUP_PLURAL,
     KEYCLOAK_GROUP_ROLE_MAPPING_PLURAL,
+    KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL,
     KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,
     KEYCLOAK_ROLE_PLURAL,
@@ -135,6 +136,25 @@ def test_identity_provider_and_protocol_mapper_dependencies() -> None:
     assert mapper_keys == {
         _key(API_GROUP, KEYCLOAK_TARGET_PLURAL, "apps", "keycloak"),
         _key(API_GROUP, KEYCLOAK_CLIENT_SCOPE_PLURAL, "apps", "profile"),
+    }
+
+
+def test_identity_provider_mapper_dependencies() -> None:
+    keys = dependencies.dependency_keys_for_resource(
+        plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL,
+        namespace="apps",
+        spec={
+            "targetRef": {"name": "keycloak"},
+            "realm": "example",
+            "name": "claim-mapper",
+            "identityProviderRef": {"name": "github-idp"},
+            "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+        },
+    )
+
+    assert keys == {
+        _key(API_GROUP, KEYCLOAK_TARGET_PLURAL, "apps", "keycloak"),
+        _key(API_GROUP, KEYCLOAK_IDENTITY_PROVIDER_PLURAL, "apps", "github-idp"),
     }
 
 

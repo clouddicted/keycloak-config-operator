@@ -18,6 +18,7 @@ from clouddicted_keycloak_config_operator.constants import (
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
     KEYCLOAK_GROUP_PLURAL,
     KEYCLOAK_GROUP_ROLE_MAPPING_PLURAL,
+    KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL,
     KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,
     KEYCLOAK_RESOURCE_PLURALS,
@@ -116,6 +117,11 @@ def _resource(resource: SourceResource) -> dict[str, str]:
     id=DEPENDENCY_INDEX_IDS[9],
     param=CUSTOM_RESOURCES[9],
 )
+@kopf.index(
+    **_resource(CUSTOM_RESOURCES[10]),
+    id=DEPENDENCY_INDEX_IDS[10],
+    param=CUSTOM_RESOURCES[10],
+)
 def index_resource_dependencies(
     body: Mapping[str, Any],
     spec: Mapping[str, Any] | None,
@@ -194,6 +200,13 @@ def dependency_keys_for_resource(
             _add_secret_ref(dependencies, secret_ref, namespace)
     elif plural == KEYCLOAK_PROTOCOL_MAPPER_PLURAL:
         _add_protocol_mapper_dependency(dependencies, spec, namespace)
+    elif plural == KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL:
+        _add_custom_resource_ref(
+            dependencies,
+            KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
+            namespace,
+            spec.get("identityProviderRef"),
+        )
 
     return dependencies
 
@@ -309,6 +322,7 @@ DEPENDENCY_SOURCES = (
     SourceResource(API_GROUP, API_VERSION, KEYCLOAK_GROUP_PLURAL),
     SourceResource(API_GROUP, API_VERSION, KEYCLOAK_ROLE_PLURAL),
     SourceResource(API_GROUP, API_VERSION, KEYCLOAK_CLIENT_SCOPE_PLURAL),
+    SourceResource(API_GROUP, API_VERSION, KEYCLOAK_IDENTITY_PROVIDER_PLURAL),
 )
 
 
@@ -319,6 +333,7 @@ DEPENDENCY_SOURCES = (
 @kopf.on.event(**_resource(DEPENDENCY_SOURCES[4]), param=DEPENDENCY_SOURCES[4])
 @kopf.on.event(**_resource(DEPENDENCY_SOURCES[5]), param=DEPENDENCY_SOURCES[5])
 @kopf.on.event(**_resource(DEPENDENCY_SOURCES[6]), param=DEPENDENCY_SOURCES[6])
+@kopf.on.event(**_resource(DEPENDENCY_SOURCES[7]), param=DEPENDENCY_SOURCES[7])
 def enqueue_dependents(
     body: Mapping[str, Any],
     namespace: str | None,
@@ -357,6 +372,7 @@ def enqueue_dependents(
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[4]), param=DEPENDENCY_SOURCES[4])
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[5]), param=DEPENDENCY_SOURCES[5])
 @kopf.on.update(**_resource(DEPENDENCY_SOURCES[6]), param=DEPENDENCY_SOURCES[6])
+@kopf.on.update(**_resource(DEPENDENCY_SOURCES[7]), param=DEPENDENCY_SOURCES[7])
 def enqueue_dependents_on_update(
     body: Mapping[str, Any],
     diff: kopf.Diff,

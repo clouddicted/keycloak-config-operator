@@ -229,6 +229,21 @@ secret in Kubernetes.
 | `spec.parent.clientRef.name` | Supported | Required when parent type is `Client`. |
 | `spec.parent.clientScopeRef.name` | Supported | Required when parent type is `ClientScope`. |
 
+## KeycloakIdentityProviderMapper
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the identity provider. |
+| `spec.name` | Supported | Mapper name and remote lookup key under the identity provider. |
+| `spec.identityProviderRef` | Supported | References a managed `KeycloakIdentityProvider` in the same namespace. |
+| `spec.identityProviderRef.name` | Supported | KeycloakIdentityProvider resource name used as parent dependency key. |
+| `spec.identityProviderRef.alias` | Supported | Optional identity provider alias in Keycloak when different from resource name. |
+| `spec.identityProviderMapper` | Supported | Keycloak identity provider mapper provider ID (e.g. `oidc-user-attribute-idp-mapper`, `saml-user-attribute-idp-mapper`). |
+| `spec.config` | Partial | Desired mapper config keys are reconciled; undeclared existing keys are preserved. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
 ## Adding New Fields
 
 When adding or changing a CRD field:

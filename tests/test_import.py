@@ -18,7 +18,7 @@ def test_package_imports() -> None:
 def test_every_handler_module_registers_periodic_reconciliation() -> None:
     timer_handlers = kopf.get_default_registry()._spawning.get_all_handlers()
 
-    assert len(main.REGISTERED_HANDLER_MODULES) == 10
+    assert len(main.REGISTERED_HANDLER_MODULES) == 11
     assert len(timer_handlers) == len(main.REGISTERED_HANDLER_MODULES)
     assert {handler.fn.__module__ for handler in timer_handlers} == {
         module.__name__ for module in main.REGISTERED_HANDLER_MODULES
@@ -31,14 +31,14 @@ def test_dependency_support_handlers_are_registered() -> None:
     registry = kopf.get_default_registry()
 
     assert len(main.REGISTERED_SUPPORT_MODULES) == 1
-    assert len(registry._indexing.get_all_handlers()) == 10
-    assert len(registry._watching.get_all_handlers()) == 7
+    assert len(registry._indexing.get_all_handlers()) == 11
+    assert len(registry._watching.get_all_handlers()) == 8
     dependency_update_handlers = [
         handler
         for handler in registry._changing.get_all_handlers()
         if handler.fn.__module__ == main.REGISTERED_SUPPORT_MODULES[0].__name__
     ]
-    assert len(dependency_update_handlers) == 6
+    assert len(dependency_update_handlers) == 7
     assert all(handler.reason == "update" for handler in dependency_update_handlers)
 
 
