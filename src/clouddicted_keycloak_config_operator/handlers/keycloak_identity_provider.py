@@ -115,6 +115,13 @@ class IdentityProviderSpec:
     deletion_policy: str
     enabled: bool = True
     display_name: str | None = None
+    trust_email: bool | None = None
+    store_token: bool | None = None
+    link_only: bool | None = None
+    hide_on_login: bool | None = None
+    authenticate_by_default: bool | None = None
+    update_profile_first_login_mode: str | None = None
+    first_broker_login_flow_alias: str | None = None
     config: Mapping[str, str] | None = None
     config_secret_refs: Mapping[str, Mapping[str, Any]] | None = None
 
@@ -473,6 +480,20 @@ def _modeled_identity_provider_payload(
     }
     if provider_spec.display_name is not None:
         payload["displayName"] = provider_spec.display_name
+    if provider_spec.trust_email is not None:
+        payload["trustEmail"] = provider_spec.trust_email
+    if provider_spec.store_token is not None:
+        payload["storeToken"] = provider_spec.store_token
+    if provider_spec.link_only is not None:
+        payload["linkOnly"] = provider_spec.link_only
+    if provider_spec.hide_on_login is not None:
+        payload["hideOnLogin"] = provider_spec.hide_on_login
+    if provider_spec.authenticate_by_default is not None:
+        payload["authenticateByDefault"] = provider_spec.authenticate_by_default
+    if provider_spec.update_profile_first_login_mode is not None:
+        payload["updateProfileFirstLoginMode"] = provider_spec.update_profile_first_login_mode
+    if provider_spec.first_broker_login_flow_alias is not None:
+        payload["firstBrokerLoginFlowAlias"] = provider_spec.first_broker_login_flow_alias
     if provider_spec.config:
         payload["config"] = dict(provider_spec.config)
 
@@ -577,12 +598,30 @@ def _parse_identity_provider_spec(
     parsed_enabled = _parse_bool(enabled)
     parsed_config = _parse_config(config)
     parsed_config_secret_refs = _parse_config_secret_refs(config_secret_refs)
+    parsed_trust_email = _parse_optional_bool(spec, "trustEmail")
+    parsed_store_token = _parse_optional_bool(spec, "storeToken")
+    parsed_link_only = _parse_optional_bool(spec, "linkOnly")
+    parsed_hide_on_login = _parse_optional_bool(spec, "hideOnLogin")
+    parsed_authenticate_by_default = _parse_optional_bool(spec, "authenticateByDefault")
+    parsed_update_profile_first_login_mode = _parse_update_profile_first_login_mode(
+        spec.get("updateProfileFirstLoginMode")
+    )
+    parsed_first_broker_login_flow_alias = _parse_first_broker_login_flow_alias(
+        spec.get("firstBrokerLoginFlowAlias")
+    )
     if (
         parsed_management_policy is None
         or parsed_deletion_policy is None
         or parsed_enabled is None
         or parsed_config is None
         or parsed_config_secret_refs is None
+        or parsed_trust_email is _INVALID_VALUE
+        or parsed_store_token is _INVALID_VALUE
+        or parsed_link_only is _INVALID_VALUE
+        or parsed_hide_on_login is _INVALID_VALUE
+        or parsed_authenticate_by_default is _INVALID_VALUE
+        or parsed_update_profile_first_login_mode is _INVALID_VALUE
+        or parsed_first_broker_login_flow_alias is _INVALID_VALUE
     ):
         return None
 
@@ -598,9 +637,20 @@ def _parse_identity_provider_spec(
         deletion_policy=parsed_deletion_policy,
         enabled=parsed_enabled,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
+        trust_email=parsed_trust_email,  # type: ignore[arg-type]
+        store_token=parsed_store_token,  # type: ignore[arg-type]
+        link_only=parsed_link_only,  # type: ignore[arg-type]
+        hide_on_login=parsed_hide_on_login,  # type: ignore[arg-type]
+        authenticate_by_default=parsed_authenticate_by_default,  # type: ignore[arg-type]
+        update_profile_first_login_mode=parsed_update_profile_first_login_mode,  # type: ignore[arg-type]
+        first_broker_login_flow_alias=parsed_first_broker_login_flow_alias,  # type: ignore[arg-type]
         config=parsed_config,
         config_secret_refs=parsed_config_secret_refs,
     )
+
+
+_INVALID_VALUE = object()
+_ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES = {"on", "missing", "off"}
 
 
 def _parse_policy(value: Any, allowed_values: set[str]) -> str | None:
@@ -613,6 +663,34 @@ def _parse_policy(value: Any, allowed_values: set[str]) -> str | None:
 
 def _parse_bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
+
+
+def _parse_optional_bool(spec: Mapping[str, Any], field: str) -> bool | object | None:
+    if field not in spec:
+        return None
+
+    value = spec[field]
+    return value if isinstance(value, bool) else _INVALID_VALUE
+
+
+def _parse_update_profile_first_login_mode(value: Any) -> str | object | None:
+    if value is None:
+        return None
+
+    if isinstance(value, str) and value.strip() in _ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES:
+        return value.strip()
+
+    return _INVALID_VALUE
+
+
+def _parse_first_broker_login_flow_alias(value: Any) -> str | object | None:
+    if value is None:
+        return None
+
+    if _is_non_empty_string(value):
+        return value.strip()
+
+    return _INVALID_VALUE
 
 
 def _parse_config(value: Any) -> Mapping[str, str] | None:
@@ -723,6 +801,17 @@ def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
         ),
         bool_field_error(spec, "enabled"),
         non_empty_string_field_error(spec, "displayName"),
+        bool_field_error(spec, "trustEmail"),
+        bool_field_error(spec, "storeToken"),
+        bool_field_error(spec, "linkOnly"),
+        bool_field_error(spec, "hideOnLogin"),
+        bool_field_error(spec, "authenticateByDefault"),
+        enum_field_error(
+            spec,
+            "updateProfileFirstLoginMode",
+            _ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES,
+        ),
+        non_empty_string_field_error(spec, "firstBrokerLoginFlowAlias"),
         _config_field_error(spec.get("config", {})),
         _config_secret_refs_field_error(spec.get("configSecretRefs", {})),
     ]

@@ -822,6 +822,13 @@ def _identity_provider_spec(
     provider_id: str = "oidc",
     enabled: bool | str | None = None,
     display_name: str | None = None,
+    trust_email: Any = None,
+    store_token: Any = None,
+    link_only: Any = None,
+    hide_on_login: Any = None,
+    authenticate_by_default: Any = None,
+    update_profile_first_login_mode: Any = None,
+    first_broker_login_flow_alias: Any = None,
     config: dict[str, str] | None = None,
     config_secret_refs: dict[str, dict[str, str]] | None = None,
     management_policy: str | None = None,
@@ -843,6 +850,20 @@ def _identity_provider_spec(
         spec["enabled"] = enabled
     if display_name is not None:
         spec["displayName"] = display_name
+    if trust_email is not None:
+        spec["trustEmail"] = trust_email
+    if store_token is not None:
+        spec["storeToken"] = store_token
+    if link_only is not None:
+        spec["linkOnly"] = link_only
+    if hide_on_login is not None:
+        spec["hideOnLogin"] = hide_on_login
+    if authenticate_by_default is not None:
+        spec["authenticateByDefault"] = authenticate_by_default
+    if update_profile_first_login_mode is not None:
+        spec["updateProfileFirstLoginMode"] = update_profile_first_login_mode
+    if first_broker_login_flow_alias is not None:
+        spec["firstBrokerLoginFlowAlias"] = first_broker_login_flow_alias
     if config_secret_refs is not None:
         spec["configSecretRefs"] = config_secret_refs
     if management_policy is not None:
@@ -928,3 +949,130 @@ def _failing_keycloak_client_factory(
     password: str,
 ) -> FakeKeycloakClient:
     raise AssertionError(f"unexpected Keycloak client: {base_url}, {username}, {password}")
+
+
+def test_identity_provider_with_additional_fields_created_and_updated() -> None:
+    client = FakeKeycloakClient(providers_result=[])
+    spec = _identity_provider_spec(
+        trust_email=True,
+        store_token=True,
+        link_only=False,
+        hide_on_login=True,
+        authenticate_by_default=False,
+        update_profile_first_login_mode="on",
+        first_broker_login_flow_alias="first broker login",
+    )
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+        spec=spec,
+        status=None,
+        patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+
+    assert retry is None
+    assert patch["status"]["remoteId"] == "created-provider-uuid"
+    assert len(client.requests) == 3
+    assert client.requests[1][0] == "POST"
+    post_payload = client.requests[1][2]["json"]
+    assert post_payload["trustEmail"] is True
+    assert post_payload["storeToken"] is True
+    assert post_payload["linkOnly"] is False
+    assert post_payload["hideOnLogin"] is True
+    assert post_payload["authenticateByDefault"] is False
+    assert post_payload["updateProfileFirstLoginMode"] == "on"
+    assert post_payload["firstBrokerLoginFlowAlias"] == "first broker login"
+
+    # Now test observe without drift
+    patch = {}
+    retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+        spec=spec,
+        status=None,
+        patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == "IdentityProviderObserved"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+
+    # Now test update when fields drift
+    spec_updated = _identity_provider_spec(
+        trust_email=False,
+        store_token=False,
+        link_only=True,
+        hide_on_login=False,
+        authenticate_by_default=True,
+        update_profile_first_login_mode="off",
+        first_broker_login_flow_alias="custom-flow",
+    )
+    patch = {}
+    retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+        spec=spec_updated,
+        status=None,
+        patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == "IdentityProviderUpdated"
+    put_payload = client.requests[-2][2]["json"]
+    assert put_payload["trustEmail"] is False
+    assert put_payload["storeToken"] is False
+    assert put_payload["linkOnly"] is True
+    assert put_payload["hideOnLogin"] is False
+    assert put_payload["authenticateByDefault"] is True
+    assert put_payload["updateProfileFirstLoginMode"] == "off"
+    assert put_payload["firstBrokerLoginFlowAlias"] == "custom-flow"
+
+
+def test_identity_provider_invalid_additional_fields() -> None:
+    client = FakeKeycloakClient()
+
+    for field, invalid_val, expected_err in (
+        ("trustEmail", "true", "trustEmail must be a boolean"),
+        ("storeToken", "false", "storeToken must be a boolean"),
+        ("linkOnly", 123, "linkOnly must be a boolean"),
+        ("hideOnLogin", [], "hideOnLogin must be a boolean"),
+        ("authenticateByDefault", {}, "authenticateByDefault must be a boolean"),
+        (
+            "updateProfileFirstLoginMode",
+            "invalid",
+            "updateProfileFirstLoginMode must be one of: `missing`, `off`, `on`",
+        ),
+        (
+            "firstBrokerLoginFlowAlias",
+            "",
+            "firstBrokerLoginFlowAlias must be a non-empty string",
+        ),
+        (
+            "firstBrokerLoginFlowAlias",
+            "   ",
+            "firstBrokerLoginFlowAlias must be a non-empty string",
+        ),
+    ):
+        spec = _identity_provider_spec()
+        spec[field] = invalid_val
+        patch: dict[str, Any] = {}
+
+        retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+            spec=spec,
+            status=None,
+            patch=patch,
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(client),
+            now=NOW,
+        )
+
+        assert retry is None
+        conditions = _conditions_by_type(patch)
+        assert conditions[CONDITION_READY]["reason"] == "InvalidSpec"
+        assert expected_err in conditions[CONDITION_READY]["message"]
+

@@ -95,6 +95,32 @@ spec:
                   type: string
                   description: Display name shown for the identity provider.
                   minLength: 1
+                trustEmail:
+                  type: boolean
+                  description: Whether email addresses provided by this identity provider are trusted as verified.
+                storeToken:
+                  type: boolean
+                  description: Whether tokens returned by this identity provider are stored in the user session.
+                linkOnly:
+                  type: boolean
+                  description: Whether this identity provider is restricted to linking existing user accounts.
+                hideOnLogin:
+                  type: boolean
+                  description: Whether this identity provider is hidden from the Keycloak login page.
+                authenticateByDefault:
+                  type: boolean
+                  description: Whether users are automatically redirected to this identity provider without showing the login page.
+                updateProfileFirstLoginMode:
+                  type: string
+                  description: When the update profile page is presented to users after their first login with this provider.
+                  enum:
+                    - "on"
+                    - missing
+                    - "off"
+                firstBrokerLoginFlowAlias:
+                  type: string
+                  description: Alias of the authentication flow executed during first login through this identity provider.
+                  minLength: 1
                 config:
                   type: object
                   description: Non-sensitive Keycloak provider configuration key-value pairs.

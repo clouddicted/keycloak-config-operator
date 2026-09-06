@@ -152,6 +152,13 @@ secret in Kubernetes.
 | `spec.providerId` | Supported | Keycloak provider type, such as `oidc`, `saml`, `github`, or `google`. |
 | `spec.enabled` | Supported | Reconciled with default `true`. |
 | `spec.displayName` | Supported | Reconciled when set. |
+| `spec.trustEmail` | Supported | Reconciled boolean indicating whether email from provider is trusted. |
+| `spec.storeToken` | Supported | Reconciled boolean indicating whether tokens are stored locally. |
+| `spec.linkOnly` | Supported | Reconciled boolean indicating whether identity provider is link-only. |
+| `spec.hideOnLogin` | Supported | Reconciled boolean indicating whether identity provider button is hidden on login page. |
+| `spec.authenticateByDefault` | Supported | Reconciled boolean indicating whether authentication redirects to this provider automatically. |
+| `spec.updateProfileFirstLoginMode` | Supported | `on`, `missing`, or `off`; controls profile update behavior on first login. |
+| `spec.firstBrokerLoginFlowAlias` | Supported | Flow alias used for first broker login. |
 | `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
 | `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |

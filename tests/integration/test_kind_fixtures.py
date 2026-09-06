@@ -1268,6 +1268,13 @@ def _keycloak_identity_provider(realm: str) -> dict[str, Any]:
             "providerId": "oidc",
             "enabled": True,
             "displayName": "Example OIDC",
+            "trustEmail": True,
+            "storeToken": False,
+            "linkOnly": False,
+            "hideOnLogin": False,
+            "authenticateByDefault": False,
+            "updateProfileFirstLoginMode": "on",
+            "firstBrokerLoginFlowAlias": "first broker login",
             "deletionPolicy": "Delete",
             "config": {
                 "clientId": "example-client",
@@ -1522,6 +1529,13 @@ def _assert_identity_provider(
     assert provider["providerId"] == "oidc"
     assert provider["enabled"] is True
     assert provider["displayName"] == "Example OIDC"
+    assert provider["trustEmail"] is True
+    assert provider["storeToken"] is False
+    assert provider["linkOnly"] is False
+    assert provider["hideOnLogin"] is False
+    assert provider["authenticateByDefault"] is False
+    assert provider["updateProfileFirstLoginMode"] == "on"
+    assert provider["firstBrokerLoginFlowAlias"] == "first broker login"
     assert provider["config"]["clientId"] == "example-client"
     assert provider["config"]["authorizationUrl"] == (
         "https://idp.example.com/oauth2/authorize"
