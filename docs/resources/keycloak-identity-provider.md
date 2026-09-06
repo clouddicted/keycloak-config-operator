@@ -31,7 +31,7 @@ The resource also supports core identity provider login and brokerage behavior:
 - `linkOnly`: Set to `true` to forbid direct login with this identity provider; accounts can only be linked after the user is already authenticated.
 - `hideOnLogin`: Set to `true` to hide the identity provider button on the login screen.
 - `authenticateByDefault`: Set to `true` to automatically redirect users to this identity provider when they visit the login page.
-- `updateProfileFirstLoginMode`: Set to `on`, `missing`, or `off` to control whether users must review or complete their profile upon their first login through the broker.
+- `updateProfileFirstLoginMode`: Set to `"on"`, `"missing"`, or `"off"` to control whether users must review or complete their profile upon their first login through the broker. Note that in YAML, values such as `"on"` and `"off"` must be quoted to avoid being parsed as booleans.
 - `firstBrokerLoginFlowAlias`: Specify the authentication flow alias to run on first broker login (e.g. `first broker login`).
 
 ## Secrets
@@ -82,7 +82,7 @@ spec:
   hideOnLogin: false
   authenticateByDefault: false
   firstBrokerLoginFlowAlias: first broker login
-  updateProfileFirstLoginMode: on
+  updateProfileFirstLoginMode: "on"
   config:
     clientId: example-client
     authorizationUrl: https://idp.example.com/oauth2/authorize

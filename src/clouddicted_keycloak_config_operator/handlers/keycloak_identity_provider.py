@@ -509,6 +509,10 @@ def _has_modeled_drift(
         if field == "config":
             if not _modeled_config_matches(existing_provider.get("config"), desired_value):
                 return True
+        elif field == "updateProfileFirstLoginMode":
+            existing_value = existing_provider.get(field)
+            if existing_value is not None and existing_value != desired_value:
+                return True
         elif existing_provider.get(field) != desired_value:
             return True
 

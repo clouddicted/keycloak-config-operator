@@ -24,7 +24,7 @@ spec:
   hideOnLogin: false
   authenticateByDefault: false
   firstBrokerLoginFlowAlias: first broker login
-  updateProfileFirstLoginMode: on
+  updateProfileFirstLoginMode: "on"
   config:
     clientId: example-client
     authorizationUrl: https://idp.example.com/oauth2/authorize

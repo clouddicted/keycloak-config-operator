@@ -1033,6 +1033,24 @@ def test_identity_provider_with_additional_fields_created_and_updated() -> None:
     assert put_payload["firstBrokerLoginFlowAlias"] == "custom-flow"
 
 
+def test_identity_provider_omitted_update_profile_first_login_mode_no_drift() -> None:
+    client = FakeKeycloakClient(providers_result=[_existing_identity_provider()])
+    spec = _identity_provider_spec(update_profile_first_login_mode="on")
+    patch: dict[str, Any] = {}
+    retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+        spec=spec,
+        status=None,
+        patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == "IdentityProviderObserved"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+
+
 def test_identity_provider_invalid_additional_fields() -> None:
     client = FakeKeycloakClient()
 
