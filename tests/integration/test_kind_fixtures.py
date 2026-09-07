@@ -465,28 +465,13 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         )
 
         _log("updating an identity provider annotation to trigger its dependent mapper")
-        previous_trigger = _dependency_trigger(
+        _trigger_dependency_and_wait(
             kind_cluster_env,
-            "keycloakidentityprovidermappers",
-            "example-oidc-email-claim",
-        )
-        _annotate_resource(
-            kind_cluster_env,
-            "keycloakidentityproviders",
-            IDENTITY_PROVIDER_NAME,
-            "e2e.keycloak.clouddicted.com/dependency-test",
-            realm,
-        )
-        _eventually(
-            lambda: _assert_dependency_trigger(
-                kind_cluster_env,
-                "keycloakidentityprovidermappers",
-                "example-oidc-email-claim",
-                source_group="keycloak.clouddicted.com",
-                source_plural="keycloakidentityproviders",
-                source_name=IDENTITY_PROVIDER_NAME,
-                previous_trigger=previous_trigger,
-            )
+            source_plural="keycloakidentityproviders",
+            source_name=IDENTITY_PROVIDER_NAME,
+            dependent_plural="keycloakidentityprovidermappers",
+            dependent_name="example-oidc-email-claim",
+            marker=realm,
         )
 
         _log("applying observe-only KeycloakRole")
@@ -622,26 +607,13 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         )
 
         _log("updating a client annotation to trigger its dependent client role")
-        previous_trigger = _dependency_trigger(
-            kind_cluster_env, "keycloakclientroles", "example-web-reader",
-        )
-        _annotate_resource(
+        _trigger_dependency_and_wait(
             kind_cluster_env,
-            "keycloakclients",
-            PUBLIC_CLIENT_ID,
-            "e2e.keycloak.clouddicted.com/dependency-test",
-            realm,
-        )
-        _eventually(
-            lambda: _assert_dependency_trigger(
-                kind_cluster_env,
-                "keycloakclientroles",
-                "example-web-reader",
-                source_group="keycloak.clouddicted.com",
-                source_plural="keycloakclients",
-                source_name=PUBLIC_CLIENT_ID,
-                previous_trigger=previous_trigger,
-            )
+            source_plural="keycloakclients",
+            source_name=PUBLIC_CLIENT_ID,
+            dependent_plural="keycloakclientroles",
+            dependent_name="example-web-reader",
+            marker=realm,
         )
 
         _log("applying client KeycloakGroupRoleMapping")
@@ -1289,6 +1261,81 @@ def _annotate_resource(
         ],
         env=env,
     )
+
+
+def _assert_annotation_handled(
+    env: dict[str, str],
+    plural: str,
+    name: str,
+    annotation: str,
+    value: str,
+) -> None:
+    result = _run(
+        [
+            "kubectl",
+            "get",
+            plural,
+            name,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    resource = json.loads(result.stdout)
+    annotations = resource["metadata"].get("annotations", {})
+    handled = json.loads(annotations[LAST_HANDLED_ANNOTATION])
+    assert handled["metadata"]["annotations"][annotation] == value
+
+
+def _trigger_dependency_and_wait(
+    env: dict[str, str],
+    *,
+    source_plural: str,
+    source_name: str,
+    dependent_plural: str,
+    dependent_name: str,
+    marker: str,
+) -> None:
+    annotation = "e2e.keycloak.clouddicted.com/dependency-test"
+    previous_trigger = _dependency_trigger(env, dependent_plural, dependent_name)
+    last_error: AssertionError | None = None
+
+    # A metadata update can be coalesced with an in-flight reconciliation. Wait
+    # until the source consumed each marker, then retry with a new resource version
+    # if the dependency fan-out was not observed.
+    for attempt in range(3):
+        value = f"{marker}-{attempt}"
+        _annotate_resource(env, source_plural, source_name, annotation, value)
+        try:
+            _eventually(
+                lambda value=value: _assert_annotation_handled(
+                    env, source_plural, source_name, annotation, value,
+                ),
+                timeout_seconds=10,
+                interval_seconds=1,
+            )
+            _eventually(
+                lambda: _assert_dependency_trigger(
+                    env,
+                    dependent_plural,
+                    dependent_name,
+                    source_group="keycloak.clouddicted.com",
+                    source_plural=source_plural,
+                    source_name=source_name,
+                    previous_trigger=previous_trigger,
+                ),
+                timeout_seconds=10,
+                interval_seconds=1,
+            )
+            return
+        except AssertionError as exc:
+            last_error = exc
+
+    raise AssertionError(
+        f"dependency trigger from {source_plural}/{source_name} did not reach "
+        f"{dependent_plural}/{dependent_name} after 3 source updates"
+    ) from last_error
 
 
 def _assert_dependency_trigger(

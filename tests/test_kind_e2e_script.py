@@ -120,6 +120,51 @@ def test_dependency_check_requires_new_consumed_trigger(
             check()
 
 
+def test_dependency_trigger_retries_after_consumed_update_without_fanout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    e2e = kind_e2e.e2e
+    annotations: list[tuple[str, str, str, str]] = []
+    handled: list[str] = []
+    trigger_checks = 0
+
+    monkeypatch.setattr(e2e, "_dependency_trigger", lambda *args: None)
+    monkeypatch.setattr(
+        e2e,
+        "_annotate_resource",
+        lambda env, plural, name, annotation, value: annotations.append(
+            (plural, name, annotation, value)
+        ),
+    )
+    monkeypatch.setattr(
+        e2e,
+        "_assert_annotation_handled",
+        lambda env, plural, name, annotation, value: handled.append(value),
+    )
+
+    def assert_trigger(*args: Any, **kwargs: Any) -> None:
+        nonlocal trigger_checks
+        trigger_checks += 1
+        if trigger_checks == 1:
+            raise AssertionError("first source update was coalesced")
+
+    monkeypatch.setattr(e2e, "_assert_dependency_trigger", assert_trigger)
+    monkeypatch.setattr(e2e, "_eventually", lambda assertion, **kwargs: assertion())
+
+    e2e._trigger_dependency_and_wait(
+        {},
+        source_plural="keycloakclients",
+        source_name="example-web",
+        dependent_plural="keycloakclientroles",
+        dependent_name="example-web-reader",
+        marker="e2e-realm",
+    )
+
+    assert [entry[-1] for entry in annotations] == ["e2e-realm-0", "e2e-realm-1"]
+    assert handled == ["e2e-realm-0", "e2e-realm-1"]
+    assert trigger_checks == 2
+
+
 def test_deployment_wait_uses_separate_startup_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     e2e = kind_e2e.e2e
     calls = []
