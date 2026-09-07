@@ -359,9 +359,7 @@ def patch_keycloak_client_status(
             _client_drift_condition(reconcile_result, now=now),
         ),
     )
-    if reconcile_result.ready_reason in {
-        CLIENT_SCOPE_MISSING_REASON, CLIENT_NOT_CONVERGED_REASON,
-    }:
+    if reconcile_result.ready_reason == CLIENT_NOT_CONVERGED_REASON:
         return RetryRequest(client_ready["reason"], client_ready["message"])
     return None
 

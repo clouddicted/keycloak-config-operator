@@ -54,10 +54,12 @@ and are rejected before the operator reconciles the client.
 
 All declared scopes must exist in the client's realm before the operator creates
 or updates the client. If a scope is missing, reconciliation reports
-`Ready=False` and `DriftDetected=True` with reason `ClientScopeMissing`, and retries
-without writing to the client. Scopes can be managed by `KeycloakClientScope` or
-created independently in Keycloak. Create the missing scope or correct the
-client's scope list to allow reconciliation to continue.
+`Ready=False` and `DriftDetected=True` with reason `ClientScopeMissing`, without
+writing to the client. The blocked reconciliation completes so Kopf can
+continue handling later changes. A managed `KeycloakClientScope` change triggers
+an immediate check; periodic reconciliation covers independently created scopes.
+Create the missing scope or correct the client's scope list to allow
+reconciliation to continue.
 
 ## Adoption And Drift
 

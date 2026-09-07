@@ -569,9 +569,7 @@ def test_missing_client_scope_blocks_repeated_writes_and_recovers(
             keycloak_client_factory=factory, now=NOW,
         )
         conditions = _conditions_by_type(patch)
-        assert retry is not None
-        assert retry.reason == "ClientScopeMissing"
-        assert retry.delay == 60
+        assert retry is None
         assert conditions[CONDITION_READY]["status"] == "False"
         assert conditions[CONDITION_READY]["reason"] == "ClientScopeMissing"
         assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
