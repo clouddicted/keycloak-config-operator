@@ -1695,10 +1695,11 @@ secret in Kubernetes.</p>
 </tbody>
 </table>
 <p>In <code>Reconcile</code> mode, missing scopes produce <code>Ready=False</code> and <code>DriftDetected=True</code>
-with reason <code>ClientScopeMissing</code>. The operator retries without creating or
-updating the client until its declared scopes are available. After a client
-write, the operator reads back the modeled fields; remaining drift produces
-<code>ClientNotConverged</code> with the same condition statuses and a retry.</p>
+with reason <code>ClientScopeMissing</code>, without creating or updating the client. This is a completed
+blocked state: managed scope changes trigger a check, and periodic reconciliation
+detects scopes created directly in Keycloak. After a client write, the operator
+reads back the modeled fields; remaining drift produces <code>ClientNotConverged</code> with
+the same condition statuses and a failure retry.</p>
 <h2 id="keycloakclientrole">KeycloakClientRole<a class="headerlink" href="#keycloakclientrole" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
