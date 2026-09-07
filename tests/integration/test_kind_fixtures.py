@@ -690,11 +690,16 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             env=kind_cluster_env,
         )
         _wait_for_deployment(kind_cluster_env, OPERATOR_NAMESPACE, OPERATOR_DEPLOYMENT)
-        _eventually(
+        operator_pod = _eventually(
             lambda: _assert_reconciliation_resumed(kind_cluster_env, realm, provider_path),
             timeout_seconds=60,
         )
-        _assert_steady_reconciliation(kind_cluster_env, realm, [group_path, provider_path])
+        _assert_steady_reconciliation(
+            kind_cluster_env,
+            realm,
+            [group_path, provider_path],
+            operator_pod=operator_pod,
+        )
 
         _log("deleting client KeycloakGroupRoleMapping with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_group_client_role_mapping(realm))
@@ -882,10 +887,47 @@ def _wait_for_deployment(env: dict[str, str], namespace: str, name: str) -> None
     )
 
 
-def _operator_admin_request_counts(env: dict[str, str], realm: str) -> Counter[tuple[str, str]]:
+def _operator_pod_name(env: dict[str, str]) -> str:
     result = _run(
-        ["kubectl", "logs", f"deployment/{OPERATOR_DEPLOYMENT}",
-         "--namespace", OPERATOR_NAMESPACE],
+        [
+            "kubectl",
+            "get",
+            "pods",
+            "--namespace",
+            OPERATOR_NAMESPACE,
+            "--selector",
+            "app.kubernetes.io/name=keycloak-config-operator",
+            "--output=json",
+        ],
+        env=env,
+    )
+    response = json.loads(result.stdout)
+    items = response.get("items") if isinstance(response, dict) else None
+    assert isinstance(items, list), "operator pod lookup did not return an item list"
+    ready_pods = [
+        item["metadata"]["name"]
+        for item in items
+        if isinstance(item, dict)
+        and not item.get("metadata", {}).get("deletionTimestamp")
+        and item.get("status", {}).get("phase") == "Running"
+        and any(
+            condition.get("type") == "Ready" and condition.get("status") == "True"
+            for condition in item.get("status", {}).get("conditions", [])
+            if isinstance(condition, dict)
+        )
+    ]
+    assert len(ready_pods) == 1, f"expected one active operator pod, found {ready_pods}"
+    return ready_pods[0]
+
+
+def _operator_admin_request_counts(
+    env: dict[str, str],
+    realm: str,
+    *,
+    operator_pod: str,
+) -> Counter[tuple[str, str]]:
+    result = _run(
+        ["kubectl", "logs", f"pod/{operator_pod}", "--namespace", OPERATOR_NAMESPACE],
         env=env,
     )
     return _admin_request_counts(result.stdout, realm)
@@ -919,14 +961,30 @@ def _assert_stable_request_counts(
         assert delta["GET", path] >= 3, f"expected at least three periodic reads of {path}: {delta}"
 
 
-def _assert_reconciliation_resumed(env: dict[str, str], realm: str, provider_path: str) -> None:
-    # New-pod reads prove resume and subsequent timers ran before the stability window.
-    counts = _operator_admin_request_counts(env, realm)
+def _assert_reconciliation_resumed(
+    env: dict[str, str], realm: str, provider_path: str,
+) -> str:
+    operator_pod = _operator_pod_name(env)
+    counts = _operator_admin_request_counts(env, realm, operator_pod=operator_pod)
     assert counts["GET", provider_path] >= 3
+    writes = {
+        key: count
+        for key, count in counts.items()
+        if key[0] in {"PUT", "POST", "PATCH", "DELETE"}
+    }
+    assert writes == {("PUT", provider_path): 1}, (
+        "restart reconciliation should reapply masked identity-provider config exactly once: "
+        f"{writes}"
+    )
+    return operator_pod
 
 
 def _assert_steady_reconciliation(
-    env: dict[str, str], realm: str, read_paths: list[str],
+    env: dict[str, str],
+    realm: str,
+    read_paths: list[str],
+    *,
+    operator_pod: str | None = None,
 ) -> None:
     def assert_conditions() -> None:
         for plural, name, reason in (
@@ -941,9 +999,10 @@ def _assert_steady_reconciliation(
             )
 
     _eventually(assert_conditions)
-    before = _operator_admin_request_counts(env, realm)
+    selected_pod = operator_pod or _operator_pod_name(env)
+    before = _operator_admin_request_counts(env, realm, operator_pod=selected_pod)
     time.sleep(4 * E2E_RECONCILIATION_INTERVAL_SECONDS + 2)
-    after = _operator_admin_request_counts(env, realm)
+    after = _operator_admin_request_counts(env, realm, operator_pod=selected_pod)
     _assert_stable_request_counts(before, after, read_paths)
     assert_conditions()
 

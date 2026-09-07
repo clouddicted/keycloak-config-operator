@@ -130,6 +130,67 @@ def test_deployment_wait_uses_separate_startup_budget(monkeypatch: pytest.Monkey
     assert calls[0][-1] == "--timeout=240s"
 
 
+def test_operator_pod_lookup_ignores_terminating_and_unready_pods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    e2e = kind_e2e.e2e
+    response = {
+        "items": [
+            {
+                "metadata": {"name": "old", "deletionTimestamp": "2026-09-07T10:00:00Z"},
+                "status": {
+                    "phase": "Running",
+                    "conditions": [{"type": "Ready", "status": "True"}],
+                },
+            },
+            {
+                "metadata": {"name": "starting"},
+                "status": {
+                    "phase": "Running",
+                    "conditions": [{"type": "Ready", "status": "False"}],
+                },
+            },
+            {
+                "metadata": {"name": "current"},
+                "status": {
+                    "phase": "Running",
+                    "conditions": [{"type": "Ready", "status": "True"}],
+                },
+            },
+        ]
+    }
+    calls = []
+
+    def fake_run(args: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(response))
+
+    monkeypatch.setattr(e2e, "_run", fake_run)
+    assert e2e._operator_pod_name({}) == "current"
+    assert calls[0][1:4] == ["get", "pods", "--namespace"]
+    assert "app.kubernetes.io/name=keycloak-config-operator" in calls[0]
+
+
+def test_restart_reconciliation_allows_one_masked_provider_reapply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    e2e = kind_e2e.e2e
+    provider_path = "/admin/realms/e2e-example/identity-provider/instances/example-oidc"
+    counts = e2e.Counter({
+        ("GET", provider_path): 3,
+        ("PUT", provider_path): 1,
+    })
+    monkeypatch.setattr(e2e, "_operator_pod_name", lambda env: "operator-current")
+    monkeypatch.setattr(
+        e2e,
+        "_operator_admin_request_counts",
+        lambda env, realm, *, operator_pod: counts,
+    )
+    assert e2e._assert_reconciliation_resumed({}, "e2e-example", provider_path) == (
+        "operator-current"
+    )
+
+
 @pytest.mark.parametrize(
     "unexpected", ["", "PUT", "POST", "PATCH", "DELETE", "no-timer", "log-reset"],
 )
