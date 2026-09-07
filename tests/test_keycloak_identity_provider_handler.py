@@ -1,5 +1,6 @@
 import base64
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -57,6 +58,8 @@ class FakeKeycloakClient:
         post_error: Exception | None = None,
         put_error: Exception | None = None,
         delete_error: Exception | None = None,
+        mask_secrets: bool = False,
+        ignore_writes: bool = False,
     ) -> None:
         self.providers_result = (
             [_existing_identity_provider()]
@@ -68,6 +71,8 @@ class FakeKeycloakClient:
         self.post_error = post_error
         self.put_error = put_error
         self.delete_error = delete_error
+        self.mask_secrets = mask_secrets
+        self.ignore_writes = ignore_writes
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -82,9 +87,14 @@ class FakeKeycloakClient:
         if method == "GET":
             if self.get_error is not None:
                 raise self.get_error
+            providers = deepcopy(self.providers_result)
+            if self.mask_secrets:
+                for provider in providers:
+                    if "clientSecret" in provider.get("config", {}):
+                        provider["config"]["clientSecret"] = "**********"
             if path.endswith("/identity-provider/instances"):
-                return self.providers_result
-            return _matching_provider(self.providers_result, _path_tail(path))
+                return providers
+            return _matching_provider(providers, _path_tail(path))
 
         if method == "POST":
             if self.post_error is not None:
@@ -102,6 +112,8 @@ class FakeKeycloakClient:
         if method == "PUT":
             if self.put_error is not None:
                 raise self.put_error
+            if self.ignore_writes:
+                return None
             payload = kwargs.get("json")
             if isinstance(payload, dict) and isinstance(payload.get("alias"), str):
                 alias = payload["alias"]
@@ -351,7 +363,8 @@ def test_patch_keycloak_identity_provider_status_observes_existing_provider() ->
     ]
     assert keycloak_client.authenticate_calls == 1
     assert keycloak_client.requests == [
-        ("GET", "realms/example%20realm/identity-provider/instances", {})
+        ("GET", "realms/example%20realm/identity-provider/instances", {}),
+        ("GET", "realms/example%20realm/identity-provider/instances/example%20oidc", {}),
     ]
     assert patch["status"]["remoteId"] == "provider-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
@@ -543,6 +556,7 @@ def test_patch_keycloak_identity_provider_status_updates_drift_preserving_config
     }
     assert keycloak_client.requests == [
         ("GET", "realms/example/identity-provider/instances", {}),
+        ("GET", "realms/example/identity-provider/instances/example-oidc", {}),
         (
             "PUT",
             "realms/example/identity-provider/instances/example-oidc",
@@ -612,7 +626,8 @@ def test_patch_keycloak_identity_provider_status_observe_only_reports_drift() ->
         "lastTransitionTime": "2026-05-25T10:30:45Z",
     }
     assert keycloak_client.requests == [
-        ("GET", "realms/example/identity-provider/instances", {})
+        ("GET", "realms/example/identity-provider/instances", {}),
+        ("GET", "realms/example/identity-provider/instances/example-oidc", {}),
     ]
     assert patch["status"]["remoteId"] == "provider-uuid"
 
@@ -1033,9 +1048,13 @@ def test_identity_provider_with_additional_fields_created_and_updated() -> None:
     assert put_payload["firstBrokerLoginFlowAlias"] == "custom-flow"
 
 
-def test_identity_provider_omitted_update_profile_first_login_mode_no_drift() -> None:
-    client = FakeKeycloakClient(providers_result=[_existing_identity_provider()])
-    spec = _identity_provider_spec(update_profile_first_login_mode="on")
+@pytest.mark.parametrize("mode", ["on", "off", "missing"])
+@pytest.mark.parametrize("remote_fields", [{}, {"updateProfileFirstLoginMode": None}])
+def test_identity_provider_unobservable_profile_mode_is_explicit(
+    mode: str, remote_fields: dict[str, Any],
+) -> None:
+    client = FakeKeycloakClient(providers_result=[_existing_identity_provider(**remote_fields)])
+    spec = _identity_provider_spec(update_profile_first_login_mode=mode)
     patch: dict[str, Any] = {}
     retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
         spec=spec,
@@ -1047,8 +1066,164 @@ def test_identity_provider_omitted_update_profile_first_login_mode_no_drift() ->
     )
     assert retry is None
     conditions = _conditions_by_type(patch)
-    assert conditions[CONDITION_READY]["reason"] == "IdentityProviderObserved"
-    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+    assert conditions[CONDITION_READY]["reason"] == "UnverifiableField"
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "Unknown"
+    assert all(method == "GET" for method, _, _ in client.requests)
+
+
+def _reconcile_masked_provider(
+    client: FakeKeycloakClient,
+    state: keycloak_identity_provider.IdentityProviderWriteState,
+    *,
+    secret: str = "desired-secret",
+    management_policy: str = "Reconcile",
+    resolver: FakeTargetResolver | None = None,
+) -> tuple[dict[str, Any], reconciliation.RetryRequest | None]:
+    patch: dict[str, Any] = {}
+    retry = keycloak_identity_provider.patch_keycloak_identity_provider_status(
+        spec=_identity_provider_spec(
+            management_policy=management_policy,
+            config_secret_refs={"clientSecret": {"name": "idp-secret"}},
+        ),
+        status={}, patch=patch, namespace="apps", write_state=state,
+        target_resolver=resolver or _target_resolver(),
+        core_v1_api=FakeCoreV1Api({
+            ("apps", "idp-secret"): FakeSecret({
+                "clientSecret": base64.b64encode(secret.encode()).decode(),
+            }),
+        }),
+        keycloak_client_factory=FakeKeycloakClientFactory(client), now=NOW,
+    )
+    return patch, retry
+
+
+@pytest.mark.parametrize("create", [False, True])
+def test_masked_secret_converges_rotates_and_reapplies_after_restart(create: bool) -> None:
+    provider = _existing_identity_provider()
+    provider["config"]["clientSecret"] = "old-secret"
+    client = FakeKeycloakClient(providers_result=[] if create else [provider], mask_secrets=True)
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    for cycle in range(6):
+        patch, retry = _reconcile_masked_provider(client, state)
+        assert retry is None
+        assert _conditions_by_type(patch)[CONDITION_DRIFT_DETECTED]["status"] == "False"
+        if cycle:
+            assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+                "IdentityProviderObserved"
+            )
+    assert sum(method in {"PUT", "POST"} for method, _, _ in client.requests) == 1
+    for _ in range(3):
+        _reconcile_masked_provider(client, state, secret="rotated-secret")
+    assert client.providers_result[0]["config"]["clientSecret"] == "rotated-secret"
+    assert sum(method in {"PUT", "POST"} for method, _, _ in client.requests) == 2
+    # Resume after restart has no write acknowledgment, so it reapplies once.
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    for _ in range(3):
+        _reconcile_masked_provider(client, state, secret="rotated-secret")
+    assert sum(method in {"PUT", "POST"} for method, _, _ in client.requests) == 3
+    assert "rotated-secret" not in repr(state)
+    assert "desired-secret" not in repr(patch)
+
+
+@pytest.mark.parametrize("change", ["remote_id", "target_url"])
+def test_masked_secret_acknowledgment_is_bound_to_remote_provider(change: str) -> None:
+    client = FakeKeycloakClient(providers_result=[], mask_secrets=True)
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    _reconcile_masked_provider(client, state)
+    resolver = _target_resolver()
+    if change == "remote_id":
+        client.providers_result[0]["internalId"] = "replacement-id"
+    else:
+        resolver.target = replace(resolver.target, url="https://another-keycloak.example.test")
+    for _ in range(3):
+        _reconcile_masked_provider(client, state, resolver=resolver)
+    assert [method for method, _, _ in client.requests].count("PUT") == 1
+
+
+def test_failed_secret_rotation_is_retried_and_not_acknowledged() -> None:
+    client = FakeKeycloakClient(providers_result=[], mask_secrets=True)
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    _reconcile_masked_provider(client, state)
+    acknowledged = dict(state.config_fingerprints)
+    client.put_error = KeycloakRequestError("failed")
+    patch, retry = _reconcile_masked_provider(client, state, secret="rotated-secret")
+    assert retry is not None
+    assert state.config_fingerprints == acknowledged
+    assert _conditions_by_type(patch)[CONDITION_READY]["status"] == "False"
+    client.put_error = None
+    _reconcile_masked_provider(client, state, secret="rotated-secret")
+    _reconcile_masked_provider(client, state, secret="rotated-secret")
+    assert client.providers_result[0]["config"]["clientSecret"] == "rotated-secret"
+    assert [method for method, _, _ in client.requests].count("PUT") == 2
+
+
+@pytest.mark.parametrize("visible_drift", [False, True])
+def test_observe_only_masked_config_is_unknown_unless_visible_drift(visible_drift: bool) -> None:
+    provider = _existing_identity_provider(enabled=not visible_drift)
+    provider["config"]["clientSecret"] = "remote-secret"
+    client = FakeKeycloakClient(providers_result=[provider], mask_secrets=True)
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    patch, retry = _reconcile_masked_provider(client, state, management_policy="ObserveOnly")
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "True"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == (
+        "True" if visible_drift else "Unknown"
+    )
+    assert all(method == "GET" for method, _, _ in client.requests)
+    assert state.config_fingerprints == {}
+
+
+def test_identity_provider_ignored_visible_write_does_not_claim_convergence() -> None:
+    client = FakeKeycloakClient(
+        providers_result=[_existing_identity_provider(enabled=False)],
+        ignore_writes=True, mask_secrets=True,
+    )
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    patch, retry = _reconcile_masked_provider(client, state)
+    assert retry is not None and retry.reason == "IdentityProviderNotConverged"
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
+    assert "ObserveOnly" not in conditions[CONDITION_DRIFT_DETECTED]["message"]
+    assert state.config_fingerprints == {}
+    client.ignore_writes = False
+    _reconcile_masked_provider(client, state)
+    _reconcile_masked_provider(client, state)
+    assert [method for method, _, _ in client.requests].count("PUT") == 2
+
+
+def test_acknowledged_config_still_repairs_visible_drift() -> None:
+    client = FakeKeycloakClient(providers_result=[], mask_secrets=True)
+    state = keycloak_identity_provider.IdentityProviderWriteState()
+    _reconcile_masked_provider(client, state)
+    client.providers_result[0]["config"]["clientId"] = "out-of-band-client"
+    for _ in range(3):
+        patch, retry = _reconcile_masked_provider(client, state)
+        assert retry is None
+        assert _conditions_by_type(patch)[CONDITION_DRIFT_DETECTED]["status"] == "False"
+    assert client.providers_result[0]["config"]["clientId"] == "example-client"
+    assert [method for method, _, _ in client.requests].count("PUT") == 1
+
+
+def test_identity_provider_handler_reuses_memo_write_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    states = []
+
+    def reconcile(**kwargs: Any) -> None:
+        states.append(kwargs["write_state"])
+
+    monkeypatch.setattr(
+        keycloak_identity_provider, "patch_keycloak_identity_provider_status", reconcile,
+    )
+    monkeypatch.setattr(keycloak_identity_provider, "_emit_reconcile_event", lambda *a, **kw: None)
+    memo: dict[str, Any] = {}
+    for _ in range(2):
+        keycloak_identity_provider.reconcile_keycloak_identity_provider(
+            body=kopf.Body({}), spec={}, status={}, patch={}, memo=memo,
+        )
+    assert isinstance(states[0], keycloak_identity_provider.IdentityProviderWriteState)
+    assert states[0] is states[1]
 
 
 def test_identity_provider_invalid_additional_fields() -> None:
@@ -1093,4 +1268,3 @@ def test_identity_provider_invalid_additional_fields() -> None:
         conditions = _conditions_by_type(patch)
         assert conditions[CONDITION_READY]["reason"] == "InvalidSpec"
         assert expected_err in conditions[CONDITION_READY]["message"]
-

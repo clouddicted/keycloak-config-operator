@@ -33,6 +33,17 @@ KEYCLOAK_VERSION=26.6.2 .venv/bin/python tests/kind/e2e.py test
 
 The fixture image is `quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}`.
 
+Deployment startup has a separate four-minute budget, configurable with
+`E2E_DEPLOYMENT_TIMEOUT` (default `240s`). `E2E_READY_TIMEOUT` remains `60s` for
+CRD and resource readiness checks. This allows a cold Keycloak image to start
+without extending ordinary reconciliation waits.
+
+The suite checks that groups, identity providers, and clients settle, then
+observes multiple timer cycles with no configuration writes while the resources
+still exist. It repeats this check after restarting the operator. Authentication
+POSTs and periodic GETs remain expected. Client fixtures are deleted before
+their required scopes.
+
 ## References
 
 - Keycloak downloads: https://www.keycloak.org/downloads

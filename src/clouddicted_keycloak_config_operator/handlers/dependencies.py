@@ -485,6 +485,7 @@ def source_dependency_keys(
         KEYCLOAK_GROUP_PLURAL: "name",
         KEYCLOAK_ROLE_PLURAL: "name",
         KEYCLOAK_CLIENT_SCOPE_PLURAL: "name",
+        KEYCLOAK_IDENTITY_PROVIDER_PLURAL: "alias",
     }.get(source.plural)
     if natural_key_field:
         natural_key = _non_empty_string(spec.get(natural_key_field))

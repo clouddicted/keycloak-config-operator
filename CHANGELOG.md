@@ -1,13 +1,30 @@
 # Release Notes
 
-## Unreleased
-
 ## v0.6.0 - 2026-09-06
 
 ### Highlights
 
 - Added full support for the `KeycloakIdentityProviderMapper` custom resource.
 - Expanded `KeycloakIdentityProvider` with additional settings (`trustEmail`, `storeToken`, `linkOnly`, `hideOnLogin`, `authenticateByDefault`, `updateProfileFirstLoginMode`, `firstBrokerLoginFlowAlias`).
+
+### Fixes
+
+- Wait for declared client scopes to exist before creating or updating clients,
+  reporting `ClientScopeMissing` instead of repeatedly writing unsatisfiable assignments.
+- Verify client state after writes and report `ClientNotConverged` when Keycloak
+  accepts a request without applying all modeled fields.
+- Delete e2e clients before their required scopes, preventing continued client
+  updates after the test finishes. Cover missing-scope recovery in the kind scenario.
+- Compare group attributes against full detail responses, avoiding repeated PUTs
+  caused by abbreviated search results. Verify group and identity-provider writes.
+- Track acknowledged masked identity-provider config in memory, applying Secret
+  rotations and reapplying once after restart without continuous secret writes.
+- Report unknown drift for masked ObserveOnly config and explicitly block
+  unverifiable `updateProfileFirstLoginMode` declarations.
+- Trigger dependent identity-provider mappers when their parent is referenced by
+  alias and its Kubernetes resource name differs.
+- Give deployment startup a separate four-minute E2E budget and assert steady
+  reconciliation performs no configuration writes before and after operator restart.
 
 ## v0.5.0 - 2026-08-31
 

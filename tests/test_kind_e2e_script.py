@@ -118,3 +118,44 @@ def test_dependency_check_requires_new_consumed_trigger(
     else:
         with pytest.raises(AssertionError):
             check()
+
+
+def test_deployment_wait_uses_separate_startup_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    e2e = kind_e2e.e2e
+    calls = []
+    monkeypatch.setattr(e2e, "_run", lambda args, **kwargs: calls.append(args))
+    monkeypatch.setattr(e2e, "READY_TIMEOUT", "1s")
+    monkeypatch.setattr(e2e, "DEPLOYMENT_TIMEOUT", "240s")
+    e2e._wait_for_deployment({}, "test", "keycloak")
+    assert calls[0][-1] == "--timeout=240s"
+
+
+@pytest.mark.parametrize(
+    "unexpected", ["", "PUT", "POST", "PATCH", "DELETE", "no-timer", "log-reset"],
+)
+def test_steady_reconciliation_log_check_detects_writes_and_missing_timers(unexpected: str) -> None:
+    e2e = kind_e2e.e2e
+    realm = "e2e-example"
+    path = f"/admin/realms/{realm}/groups/group-id"
+
+    def line(method: str, request_path: str) -> str:
+        return f'HTTP Request: {method} http://keycloak:8080{request_path} "HTTP/1.1 200 OK"\n'
+
+    baseline = line("PUT", path)
+    logs = baseline
+    if unexpected != "no-timer":
+        logs += 3 * line("GET", path)
+    # Authentication traffic and unrelated realms do not count as configuration writes.
+    logs += line("POST", "/realms/master/protocol/openid-connect/token")
+    logs += line("PUT", f"/admin/realms/{realm}-other")
+    if unexpected in {"PUT", "POST", "PATCH", "DELETE"}:
+        logs += line(unexpected, path)
+    if unexpected == "log-reset":
+        logs = logs.removeprefix(baseline)
+    before = e2e._admin_request_counts(baseline, realm)
+    after = e2e._admin_request_counts(logs, realm)
+    if unexpected:
+        with pytest.raises(AssertionError):
+            e2e._assert_stable_request_counts(before, after, [path])
+    else:
+        e2e._assert_stable_request_counts(before, after, [path])

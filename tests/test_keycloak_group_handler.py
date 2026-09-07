@@ -53,6 +53,8 @@ class FakeKeycloakClient:
         post_error: Exception | None = None,
         put_error: Exception | None = None,
         delete_error: Exception | None = None,
+        brief_results: bool = False,
+        ignore_writes: bool = False,
     ) -> None:
         self.groups_result = [_existing_group()] if groups_result is None else groups_result
         self.auth_error = auth_error
@@ -60,6 +62,8 @@ class FakeKeycloakClient:
         self.post_error = post_error
         self.put_error = put_error
         self.delete_error = delete_error
+        self.brief_results = brief_results
+        self.ignore_writes = ignore_writes
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -74,7 +78,17 @@ class FakeKeycloakClient:
         if method == "GET":
             if self.get_error is not None:
                 raise self.get_error
-            return self.groups_result
+            if path.endswith("/groups"):
+                if self.brief_results:
+                    return [
+                        {key: value for key, value in group.items() if key != "attributes"}
+                        for group in self.groups_result
+                    ]
+                return self.groups_result
+            return next(
+                (group for group in self.groups_result if path.endswith("/" + group["id"])),
+                None,
+            )
 
         if method == "POST":
             if self.post_error is not None:
@@ -88,7 +102,7 @@ class FakeKeycloakClient:
             if self.put_error is not None:
                 raise self.put_error
             payload = kwargs.get("json")
-            if isinstance(payload, dict):
+            if isinstance(payload, dict) and not self.ignore_writes:
                 self.groups_result = [payload]
             return None
 
@@ -245,6 +259,7 @@ def test_patch_keycloak_group_status_observes_existing_matching_group() -> None:
             "realms/example%20realm/groups",
             {"params": {"search": "example users", "exact": "true"}},
         ),
+        ("GET", "realms/example%20realm/groups/group-uuid", {}),
     ]
     assert patch["status"]["remoteId"] == "group-uuid"
     assert _condition_messages(patch).isdisjoint({"kc-admin", "secret-password"})
@@ -283,6 +298,7 @@ def test_patch_keycloak_group_status_creates_missing_group() -> None:
             "realms/example/groups",
             {"params": {"search": "users", "exact": "true"}},
         ),
+        ("GET", "realms/example/groups/created-group-uuid", {}),
     ]
     assert patch["status"]["remoteId"] == "created-group-uuid"
 
@@ -324,7 +340,7 @@ def test_patch_keycloak_group_status_updates_attribute_drift() -> None:
 
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY]["reason"] == keycloak_group.GROUP_UPDATED_REASON
-    assert keycloak_client.requests[-1] == (
+    assert keycloak_client.requests[-2] == (
         "PUT",
         "realms/example/groups/group-uuid",
         {
@@ -359,7 +375,45 @@ def test_patch_keycloak_group_status_observe_only_drift_does_not_update() -> Non
     conditions = _conditions_by_type(patch)
     assert conditions[CONDITION_READY]["reason"] == keycloak_group.GROUP_DRIFT_DETECTED_REASON
     assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
-    assert [request[0] for request in keycloak_client.requests] == ["GET"]
+    assert [request[0] for request in keycloak_client.requests] == ["GET", "GET"]
+
+
+def test_brief_group_results_converge_and_repair_real_attribute_drift() -> None:
+    client = FakeKeycloakClient(
+        groups_result=[_existing_group(attributes={"team": ["platform"]})],
+        brief_results=True,
+    )
+    for cycle in range(6):
+        if cycle == 3:
+            client.groups_result[0]["attributes"] = {"team": ["out-of-band"]}
+        patch: dict[str, Any] = {}
+        retry = keycloak_group.patch_keycloak_group_status(
+            spec=_group_spec(attributes={"team": ["platform"]}), status={}, patch=patch,
+            target_resolver=_target_resolver(),
+            keycloak_client_factory=FakeKeycloakClientFactory(client), now=NOW,
+        )
+        assert retry is None
+        conditions = _conditions_by_type(patch)
+        assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+        assert conditions[CONDITION_READY]["reason"] == (
+            "GroupUpdated" if cycle == 3 else "GroupObserved"
+        )
+    assert [method for method, _, _ in client.requests].count("PUT") == 1
+
+
+def test_group_successful_write_with_remaining_drift_is_not_ready() -> None:
+    client = FakeKeycloakClient(ignore_writes=True)
+    patch: dict[str, Any] = {}
+    retry = keycloak_group.patch_keycloak_group_status(
+        spec=_group_spec(attributes={"team": ["platform"]}), status={}, patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client), now=NOW,
+    )
+    assert retry is not None and retry.reason == "GroupNotConverged"
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
+    assert "ObserveOnly" not in conditions[CONDITION_DRIFT_DETECTED]["message"]
 
 
 def test_patch_keycloak_group_status_auth_failure_is_safe() -> None:

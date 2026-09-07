@@ -112,7 +112,10 @@ spec:
                   description: Whether users are automatically redirected to this identity provider without showing the login page.
                 updateProfileFirstLoginMode:
                   type: string
-                  description: When the update profile page is presented to users after their first login with this provider.
+                  description: >-
+                    Legacy first-login profile mode. Requires an Admin API that
+                    exposes this field; an absent or null response for a declared
+                    value reports UnverifiableField and blocks provider updates.
                   enum:
                     - "on"
                     - missing

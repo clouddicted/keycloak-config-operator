@@ -233,6 +233,33 @@ def test_enqueue_dependents_patches_each_resource_once_and_supports_natural_keys
     ]
 
 
+def test_identity_provider_alias_changes_enqueue_mapper() -> None:
+    api = FakeCustomObjectsApi()
+    keys = dependencies.dependency_keys_for_resource(
+        plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL, namespace="apps",
+        spec={"identityProviderRef": {"name": "github"}},
+    )
+    dependent = dependencies.DependentResource(
+        namespace="apps", plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL, name="email",
+    )
+    patched = dependencies.fanout_dependents(
+        body={"metadata": {"resourceVersion": "42"}, "spec": {"alias": "github"}},
+        namespace="apps", name="github-provider",
+        param=dependencies.SourceResource(
+            API_GROUP, API_VERSION, KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
+        ),
+        custom_objects_api=api,
+        **{f"{KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL}_dependencies": {
+            key: [dependent] for key in keys
+        }},
+    )
+    assert patched == 1
+    assert api.patches[0]["name"] == "email"
+    assert api.patches[0]["body"]["metadata"]["annotations"][
+        dependencies.DEPENDENCY_TRIGGER_ANNOTATION
+    ] == f"{API_GROUP}/{KEYCLOAK_IDENTITY_PROVIDER_PLURAL}/apps/github-provider@42"
+
+
 def test_enqueue_dependents_skips_current_trigger_and_deleted_resources() -> None:
     source = dependencies.SECRET_RESOURCE
     trigger = "core/secrets/apps/credentials@12"

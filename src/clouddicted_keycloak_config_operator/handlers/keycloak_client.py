@@ -69,8 +69,10 @@ AUTHENTICATION_FAILED_REASON = "AuthenticationFailed"
 CLIENT_CREATED_REASON = "ClientCreated"
 CLIENT_DRIFT_DETECTED_REASON = "ClientDriftDetected"
 CLIENT_MISSING_REASON = "ClientMissing"
+CLIENT_NOT_CONVERGED_REASON = "ClientNotConverged"
 CLIENT_OBSERVED_REASON = "ClientObserved"
 CLIENT_ORPHANED_REASON = "ClientOrphaned"
+CLIENT_SCOPE_MISSING_REASON = "ClientScopeMissing"
 CLIENT_UPDATED_REASON = "ClientUpdated"
 INVALID_SPEC_REASON = "InvalidSpec"
 NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
@@ -347,15 +349,20 @@ def patch_keycloak_client_status(
         _set_remote_id(patch, None)
         return retry
 
+    client_ready = _client_ready_condition(reconcile_result, client_spec, now=now)
     _set_remote_id(patch, reconcile_result.remote_id)
     _set_conditions(
         patch,
         existing_conditions,
         (
-            _client_ready_condition(reconcile_result, client_spec, now=now),
+            client_ready,
             _client_drift_condition(reconcile_result, now=now),
         ),
     )
+    if reconcile_result.ready_reason in {
+        CLIENT_SCOPE_MISSING_REASON, CLIENT_NOT_CONVERGED_REASON,
+    }:
+        return RetryRequest(client_ready["reason"], client_ready["message"])
     return None
 
 
@@ -366,15 +373,7 @@ def ensure_keycloak_client(
     client_secret_loader: Callable[[], str] | None = None,
 ) -> ClientReconcileResult:
     """Create, update, or observe a Keycloak client and return the result."""
-    clients = client.request(
-        "GET",
-        _clients_path(client_spec.realm),
-        params={"clientId": client_spec.client_id},
-    )
-    if not isinstance(clients, list):
-        raise KeycloakRequestError("Keycloak client lookup response was not a list")
-
-    existing_client = _matching_client(clients, client_spec.client_id)
+    existing_client = _find_client(client, client_spec)
     if existing_client is not None:
         remote_id = _remote_id(existing_client)
         if not _has_modeled_drift(existing_client, client_spec):
@@ -393,6 +392,9 @@ def ensure_keycloak_client(
                 remote_id,
             )
 
+        if not _required_client_scopes_exist(client, client_spec):
+            return ClientReconcileResult("False", CLIENT_SCOPE_MISSING_REASON, True, remote_id)
+
         internal_id = existing_client.get("id")
         if not _is_non_empty_string(internal_id):
             raise KeycloakRequestError("Keycloak client lookup response did not include id")
@@ -402,15 +404,13 @@ def ensure_keycloak_client(
             _client_path(client_spec.realm, internal_id.strip()),
             json=_client_update_payload(existing_client, client_spec),
         )
-        return ClientReconcileResult(
-            "True",
-            CLIENT_UPDATED_REASON,
-            False,
-            internal_id.strip(),
-        )
+        return _verify_client_write(client, client_spec, CLIENT_UPDATED_REASON)
 
     if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
         return ClientReconcileResult("False", CLIENT_MISSING_REASON, True, None)
+
+    if not _required_client_scopes_exist(client, client_spec):
+        return ClientReconcileResult("False", CLIENT_SCOPE_MISSING_REASON, True, None)
 
     client_secret: str | None = None
     if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
@@ -423,12 +423,34 @@ def ensure_keycloak_client(
         _clients_path(client_spec.realm),
         json=_client_create_payload(client_spec, client_secret=client_secret),
     )
-    return ClientReconcileResult(
-        "True",
-        CLIENT_CREATED_REASON,
-        False,
-        _created_client_remote_id(client, client_spec),
-    )
+    return _verify_client_write(client, client_spec, CLIENT_CREATED_REASON)
+
+
+def _required_client_scopes_exist(client: KeycloakPublicClient, client_spec: ClientSpec) -> bool:
+    required = set(client_spec.default_client_scopes) | set(client_spec.optional_client_scopes)
+    if not required:
+        return True
+
+    scopes = client.request("GET", f"realms/{quote(client_spec.realm, safe='')}/client-scopes")
+    if not isinstance(scopes, list):
+        raise KeycloakRequestError("Keycloak client scope lookup response was not a list")
+
+    available = {
+        scope["name"] for scope in scopes
+        if isinstance(scope, Mapping) and _is_non_empty_string(scope.get("name"))
+    }
+    return required <= available
+
+
+def _verify_client_write(
+    client: KeycloakPublicClient, client_spec: ClientSpec, success_reason: str,
+) -> ClientReconcileResult:
+    observed = _find_client(client, client_spec)
+    remote_id = _remote_id(observed) if observed is not None else None
+    if observed is None or _has_modeled_drift(observed, client_spec):
+        return ClientReconcileResult("False", CLIENT_NOT_CONVERGED_REASON, True, remote_id)
+
+    return ClientReconcileResult("True", success_reason, False, remote_id)
 
 
 def ensure_keycloak_public_client(
@@ -551,6 +573,16 @@ def _client_ready_condition(
         message = f"Keycloak {client_label} client was created."
     elif reconcile_result.ready_reason == CLIENT_UPDATED_REASON:
         message = f"Keycloak {client_label} client was updated."
+    elif reconcile_result.ready_reason == CLIENT_SCOPE_MISSING_REASON:
+        message = (
+            "Keycloak client is waiting for all declared default and optional client "
+            "scopes to exist in its realm. No client changes were made."
+        )
+    elif reconcile_result.ready_reason == CLIENT_NOT_CONVERGED_REASON:
+        message = (
+            "Keycloak client still differs from desired state after the write. "
+            "Reconciliation will retry."
+        )
     elif reconcile_result.ready_reason == CLIENT_DRIFT_DETECTED_REASON:
         message = (
             f"Keycloak {client_label} client has modeled drift and was not changed "
@@ -585,7 +617,11 @@ def _client_drift_condition(
             now=now,
         )
 
-    if reconcile_result.ready_reason == CLIENT_MISSING_REASON:
+    if reconcile_result.ready_reason == CLIENT_SCOPE_MISSING_REASON:
+        message = "Keycloak client cannot match desired state while a declared scope is missing."
+    elif reconcile_result.ready_reason == CLIENT_NOT_CONVERGED_REASON:
+        message = "Keycloak client still has modeled drift after the write."
+    elif reconcile_result.ready_reason == CLIENT_MISSING_REASON:
         message = (
             "Keycloak client is missing and was not created because managementPolicy "
             "is ObserveOnly."
@@ -615,10 +651,10 @@ def _matching_client(
     return None
 
 
-def _created_client_remote_id(
+def _find_client(
     client: KeycloakPublicClient,
     client_spec: ClientSpec,
-) -> str | None:
+) -> Mapping[str, Any] | None:
     clients = client.request(
         "GET",
         _clients_path(client_spec.realm),
@@ -627,8 +663,7 @@ def _created_client_remote_id(
     if not isinstance(clients, list):
         raise KeycloakRequestError("Keycloak client lookup response was not a list")
 
-    created_client = _matching_client(clients, client_spec.client_id)
-    return _remote_id(created_client) if created_client is not None else None
+    return _matching_client(clients, client_spec.client_id)
 
 
 def _remote_id(payload: Mapping[str, Any]) -> str | None:

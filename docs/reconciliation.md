@@ -20,6 +20,7 @@ Dependency-triggered reconciliation covers these references:
 | Every resource except `KeycloakTarget` | Its `spec.targetRef` |
 | `KeycloakTarget` | Admin password, bootstrap admin, client credentials, and legacy admin credential Secrets |
 | `KeycloakIdentityProvider` | Secrets in `spec.configSecretRefs` |
+| `KeycloakIdentityProviderMapper` | Its parent identity provider, referenced by CR name or provider alias |
 | `KeycloakClient` | Its client Secret and declared default or optional `KeycloakClientScope` resources |
 | `KeycloakClientRole` | Its `KeycloakClient` |
 | `KeycloakGroupRoleMapping` | Its group, realm role, client role, and owning client |
@@ -65,6 +66,12 @@ are serialized. A timer tick is skipped if that CR is already being processed;
 updates and deletions wait for the active call to finish. Different CRs can still
 reconcile concurrently. Once deletion is observed, further create/update and timer
 calls for that CR are skipped, preventing recreation during finalizer cleanup.
+
+Unchanged visible fields do not cause configuration writes. Groups are compared
+using their full detail response because search results can omit attributes.
+Identity providers use in-memory write acknowledgments for masked config; they
+reapply those values once after restart. Masked values cannot reveal out-of-band
+changes. See [identity provider secrets](resources/keycloak-identity-provider.md#secrets).
 
 ## Configure The Interval
 
