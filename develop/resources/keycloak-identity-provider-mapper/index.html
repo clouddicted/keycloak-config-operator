@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client-scope/">
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-identity-provider-mapper/">
       
       
-        <link rel="prev" href="../keycloak-role/">
+        <link rel="prev" href="../keycloak-identity-provider/">
       
       
-        <link rel="next" href="../keycloak-protocol-mapper/">
+        <link rel="next" href="../keycloak-client/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>KeycloakClientScope - Keycloak Config Operator</title>
+        <title>KeycloakIdentityProviderMapper - Keycloak Config Operator</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#keycloakclientscope" class="md-skip">
+        <a href="#keycloakidentityprovidermapper" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              KeycloakClientScope
+              KeycloakIdentityProviderMapper
             
           </span>
         </div>
@@ -501,10 +501,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../keycloak-identity-provider-mapper/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -520,6 +547,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#provider-reference-and-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider Reference And Identity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapper-types-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapper Types And Config
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#attribute-mapper-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attribute Mapper Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#role-mapper-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Role Mapper Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption And Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -669,37 +782,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    KeycloakClientScope
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../keycloak-client-scope/" class="md-nav__link">
         
   
   
@@ -715,70 +801,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Practices
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#lifecycle-choices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lifecycle Choices
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Operations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -927,10 +949,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#provider-reference-and-identity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example
+        Provider Reference And Identity
       
     </span>
   </a>
@@ -938,10 +960,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#practices" class="md-nav__link">
+  <a href="#mapper-types-and-config" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Practices
+        Mapper Types And Config
       
     </span>
   </a>
@@ -949,10 +971,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lifecycle-choices" class="md-nav__link">
+  <a href="#attribute-mapper-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lifecycle Choices
+        Attribute Mapper Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#role-mapper-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Role Mapper Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption And Lifecycle
       
     </span>
   </a>
@@ -990,42 +1034,82 @@
   
 
 
-<h1 id="keycloakclientscope">KeycloakClientScope<a class="headerlink" href="#keycloakclientscope" title="Permanent link">&para;</a></h1>
-<p><code>KeycloakClientScope</code> manages a realm-level client scope. Use scopes to define
-reusable protocol behavior that can be shared by multiple clients.</p>
-<p>Client scopes are especially useful when several applications need the same
-claims or mapper setup. Model the scope once, then attach mappers to it.</p>
-<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<h1 id="keycloakidentityprovidermapper">KeycloakIdentityProviderMapper<a class="headerlink" href="#keycloakidentityprovidermapper" title="Permanent link">&para;</a></h1>
+<p><code>KeycloakIdentityProviderMapper</code> manages external identity claim, username,
+attribute, and role mappings attached to an identity provider.</p>
+<p>Use it when users authenticating through an external OIDC, SAML, or social provider
+need their claims, attributes, or groups mapped into Keycloak user profiles or roles.</p>
+<h2 id="provider-reference-and-identity">Provider Reference And Identity<a class="headerlink" href="#provider-reference-and-identity" title="Permanent link">&para;</a></h2>
+<p>Each mapper belongs to a specific identity provider instance within a realm:</p>
+<ul>
+<li><code>realm</code>: Keycloak realm containing the identity provider.</li>
+<li><code>name</code>: Remote mapper name and lookup key under the identity provider.</li>
+<li><code>identityProviderRef.name</code>: Name of the <code>KeycloakIdentityProvider</code> custom resource in the same namespace.</li>
+<li><code>identityProviderRef.alias</code>: (Optional) Remote identity provider alias in Keycloak if it differs from the custom resource name.</li>
+</ul>
+<p>The operator watches the parent <code>KeycloakIdentityProvider</code>. If the parent provider
+is not yet present in Keycloak, the mapper enters a <code>Ready=False</code> state with reason
+<code>IdentityProviderMissing</code> and automatically reconciles once the provider is created.</p>
+<h2 id="mapper-types-and-config">Mapper Types And Config<a class="headerlink" href="#mapper-types-and-config" title="Permanent link">&para;</a></h2>
+<p><code>identityProviderMapper</code> specifies the Keycloak mapper provider ID. Common mapper types
+include:</p>
+<ul>
+<li><code>oidc-user-attribute-idp-mapper</code>: Maps external token claims to Keycloak user attributes.</li>
+<li><code>oidc-role-idp-mapper</code>: Maps token claims or roles to Keycloak realm or client roles.</li>
+<li><code>oidc-username-idp-mapper</code>: Maps a claim to the user's Keycloak username.</li>
+<li><code>saml-user-attribute-idp-mapper</code>: Maps SAML assertion attributes to user attributes.</li>
+<li><code>saml-role-idp-mapper</code>: Maps SAML assertion attributes to Keycloak roles.</li>
+</ul>
+<p>Config keys correspond directly to Keycloak Admin API attributes. Good practice is to
+inspect or configure the mapper in Keycloak once, then declare the required keys in
+<code>spec.config</code>.</p>
+<p>The operator reconciles declared keys in <code>spec.config</code> while preserving existing
+undeclared keys in Keycloak.</p>
+<h2 id="attribute-mapper-example">Attribute Mapper Example<a class="headerlink" href="#attribute-mapper-example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClientScope</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakIdentityProviderMapper</span>
 <span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc-email-claim</span>
 <span class="nt">spec</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
 <span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile client scope</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email-claim</span>
+<span class="w">  </span><span class="nt">identityProviderRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc</span>
+<span class="w">  </span><span class="nt">identityProviderMapper</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc-user-attribute-idp-mapper</span>
+<span class="w">  </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+<span class="w">    </span><span class="nt">user.attribute</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
 </code></pre></div>
-<h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
+<h2 id="role-mapper-example">Role Mapper Example<a class="headerlink" href="#role-mapper-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakIdentityProviderMapper</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc-admin-role</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin-role</span>
+<span class="w">  </span><span class="nt">identityProviderRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-oidc</span>
+<span class="w">  </span><span class="nt">identityProviderMapper</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc-role-idp-mapper</span>
+<span class="w">  </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">groups</span>
+<span class="w">    </span><span class="nt">claim.value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/platform-admins</span>
+<span class="w">    </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin</span>
+</code></pre></div>
+<h2 id="adoption-and-lifecycle">Adoption And Lifecycle<a class="headerlink" href="#adoption-and-lifecycle" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Create client scopes before protocol mappers that reference them.</li>
-<li>Prefer small, purpose-specific scopes over broad scopes that mix unrelated
-  claims.</li>
-<li>Use clear names that describe the claims or behavior the scope provides.</li>
-<li>Keep shared scopes stable. Changes can affect every client that uses them.</li>
+<li><code>managementPolicy: ObserveOnly</code>: Checks whether the mapper exists and detects modeled drift without modifying Keycloak.</li>
+<li><code>deletionPolicy: Orphan</code> (default): Leaves the remote mapper in Keycloak when the Kubernetes resource is deleted.</li>
+<li><code>deletionPolicy: Delete</code>: Removes the remote mapper via Keycloak's Admin API when the custom resource is deleted.</li>
 </ul>
-<h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
-<p>The operator creates the client scope if it is missing and updates the modeled
-fields when they drift.</p>
-<p>Use <code>managementPolicy: ObserveOnly</code> during adoption if a scope already exists or
-is shared. The operator reports missing scopes and modeled drift without
-changing Keycloak.</p>
-<p>Remote deletion is opt-in. Keep <code>Orphan</code> for shared scopes. Use <code>Delete</code> for
-test scopes or scopes that are owned by one application lifecycle.</p>
 <h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
-<p><code>.status.remoteId</code> contains the Keycloak internal client scope ID. This ID is
-also used by protocol mapper operations under the hood.</p>
+<p><code>.status.remoteId</code> contains the remote mapper UUID once observed or created.</p>
+<p><code>kubectl describe keycloakidentityprovidermapper &lt;name&gt;</code> shows Kubernetes events for
+creation, updates, drift detection, and deletion.</p>
 
 
 

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client/">
       
       
-        <link rel="prev" href="../keycloak-identity-provider/">
+        <link rel="prev" href="../keycloak-identity-provider-mapper/">
       
       
         <link rel="next" href="../keycloak-client-role/">
@@ -484,6 +484,34 @@
     
   
     KeycloakIdentityProvider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
   
 
     
@@ -1090,6 +1118,12 @@ explicit scope assignments. Prefer attaching common mappers to a shared
 already assigned in Keycloak.</p>
 <p>Keep each scope list unique. Duplicate values usually hide a copy-paste mistake
 and are rejected before the operator reconciles the client.</p>
+<p>All declared scopes must exist in the client's realm before the operator creates
+or updates the client. If a scope is missing, reconciliation reports
+<code>Ready=False</code> and <code>DriftDetected=True</code> with reason <code>ClientScopeMissing</code>, and retries
+without writing to the client. Scopes can be managed by <code>KeycloakClientScope</code> or
+created independently in Keycloak. Create the missing scope or correct the
+client's scope list to allow reconciliation to continue.</p>
 <h2 id="adoption-and-drift">Adoption And Drift<a class="headerlink" href="#adoption-and-drift" title="Permanent link">&para;</a></h2>
 <p>For new clients, use the default reconcile behavior. The operator creates the
 client if it is missing and updates the fields it owns when they drift.</p>
@@ -1098,6 +1132,11 @@ lets you see whether the declared configuration matches Keycloak before allowing
 the operator to update anything.</p>
 <p>When you are comfortable with the observed state, switch to the default
 reconcile mode.</p>
+<p>After creating or updating a client, the operator reads it back and verifies
+the modeled fields. If Keycloak accepts the request but the observed state still
+differs, the operator reports <code>Ready=False</code> and <code>DriftDetected=True</code> with reason
+<code>ClientNotConverged</code> and retries. A successful HTTP response alone does not mark
+the client ready.</p>
 <h2 id="public-client-example">Public Client Example<a class="headerlink" href="#public-client-example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>

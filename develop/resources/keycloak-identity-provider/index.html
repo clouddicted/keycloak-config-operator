@@ -16,7 +16,7 @@
         <link rel="prev" href="../keycloak-realm/">
       
       
-        <link rel="next" href="../keycloak-client/">
+        <link rel="next" href="../keycloak-identity-provider-mapper/">
       
       
         
@@ -547,6 +547,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#flow-and-login-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow And Login Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -594,6 +605,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -921,6 +960,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#flow-and-login-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow And Login Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1001,12 +1051,37 @@ yet because each provider type has different requirements.</p>
 <p>Only declare config keys you want the operator to own. During updates,
 undeclared existing config keys are preserved. If the same key exists in both
 <code>config</code> and <code>configSecretRefs</code>, the Secret value wins.</p>
+<h2 id="flow-and-login-settings">Flow And Login Settings<a class="headerlink" href="#flow-and-login-settings" title="Permanent link">&para;</a></h2>
+<p>The resource also supports core identity provider login and brokerage behavior:</p>
+<ul>
+<li><code>trustEmail</code>: Set to <code>true</code> if emails provided by this identity provider are verified and trusted by your realm.</li>
+<li><code>storeToken</code>: Set to <code>true</code> if the external identity token should be stored in Keycloak for the user.</li>
+<li><code>linkOnly</code>: Set to <code>true</code> to forbid direct login with this identity provider; accounts can only be linked after the user is already authenticated.</li>
+<li><code>hideOnLogin</code>: Set to <code>true</code> to hide the identity provider button on the login screen.</li>
+<li><code>authenticateByDefault</code>: Set to <code>true</code> to automatically redirect users to this identity provider when they visit the login page.</li>
+<li><code>updateProfileFirstLoginMode</code>: Accepts <code>"on"</code>, <code>"missing"</code>, or <code>"off"</code> only when the Keycloak Admin API exposes this legacy field. If the declared field is absent or null in the response, the operator reports <code>Ready=False</code> and <code>DriftDetected=Unknown</code> with reason <code>UnverifiableField</code> and stops updating that provider. Omit it on these servers and configure the appropriate first broker login flow instead. Quote <code>"on"</code> and <code>"off"</code> in YAML.</li>
+<li><code>firstBrokerLoginFlowAlias</code>: Specify the authentication flow alias to run on first broker login (e.g. <code>first broker login</code>).</li>
+</ul>
 <h2 id="secrets">Secrets<a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h2>
 <p>Use <code>configSecretRefs</code> for values such as OIDC client secrets. Each map key is
 the Keycloak provider config key. The Secret key defaults to the same value, or
 you can set <code>secretKey</code> explicitly.</p>
 <p>Keep real Secret values out of Git. Store them with your normal Kubernetes
 Secret management flow.</p>
+<p>Keycloak can mask sensitive config values as <code>**********</code> in API responses.
+After a successful write, the operator keeps fingerprints of the submitted config
+in the resource's process-local memory, bound to the target URL and remote provider
+identity. These fingerprints are never written to CR status or annotations.
+Unchanged masked values do not cause repeated PUT requests; a changed Secret value
+is applied on the next dependency event or periodic check. After an operator
+restart, the provider is updated once to establish the write acknowledgment again.</p>
+<p>An out-of-band change to a masked value cannot be detected through that API
+response. In <code>ObserveOnly</code>, masked declared values produce
+<code>DriftDetected=Unknown</code> with reason <code>MaskedConfigUnverifiable</code>, unless another
+visible field already proves drift. No write is made in <code>ObserveOnly</code>.</p>
+<p>Writes are followed by a detail read. If visible fields still differ, the operator
+reports <code>Ready=False</code> and <code>DriftDetected=True</code> with reason
+<code>IdentityProviderNotConverged</code> and retries using the failure retry delay.</p>
 <h2 id="adoption-and-lifecycle">Adoption And Lifecycle<a class="headerlink" href="#adoption-and-lifecycle" title="Permanent link">&para;</a></h2>
 <p>Use <code>managementPolicy: ObserveOnly</code> when adopting an existing identity provider.
 The operator reports whether the provider exists and whether declared fields
@@ -1035,6 +1110,12 @@ remote provider lifecycle.</p>
 <span class="w">  </span><span class="nt">providerId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example OIDC</span>
+<span class="w">  </span><span class="nt">trustEmail</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">storeToken</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">linkOnly</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">hideOnLogin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">authenticateByDefault</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">firstBrokerLoginFlowAlias</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">first broker login</span>
 <span class="w">  </span><span class="nt">config</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-client</span>
 <span class="w">    </span><span class="nt">authorizationUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://idp.example.com/oauth2/authorize</span>

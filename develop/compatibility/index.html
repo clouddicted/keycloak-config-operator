@@ -502,6 +502,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
@@ -986,21 +1014,21 @@ It does not replace the Keycloak project's own supported-platform policy.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>0.5.0</code></td>
+<td><code>0.6.0</code></td>
 <td><code>26.6.2</code></td>
 <td>Supported</td>
 <td>PR, branch, tag, and manual kind e2e</td>
 <td>Default <code>KEYCLOAK_VERSION</code>.</td>
 </tr>
 <tr>
-<td><code>0.5.0</code></td>
+<td><code>0.6.0</code></td>
 <td><code>26.5.3</code></td>
 <td>Compatibility tested</td>
 <td>Tag and manual kind e2e</td>
 <td>Previous-minor smoke coverage.</td>
 </tr>
 <tr>
-<td><code>0.5.0</code></td>
+<td><code>0.6.0</code></td>
 <td><code>&lt;26.5</code></td>
 <td>Unsupported</td>
 <td>Not tested</td>
@@ -1015,6 +1043,15 @@ It does not replace the Keycloak project's own supported-platform policy.</p>
 .venv/bin/python<span class="w"> </span>tests/kind/e2e.py<span class="w"> </span>cleanup
 </code></pre></div>
 <p>The fixture image is <code>quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}</code>.</p>
+<p>Deployment startup has a separate four-minute budget, configurable with
+<code>E2E_DEPLOYMENT_TIMEOUT</code> (default <code>240s</code>). <code>E2E_READY_TIMEOUT</code> remains <code>60s</code> for
+CRD and resource readiness checks. This allows a cold Keycloak image to start
+without extending ordinary reconciliation waits.</p>
+<p>The suite checks that groups, identity providers, and clients settle, then
+observes multiple timer cycles with no configuration writes while the resources
+still exist. It repeats this check after restarting the operator. Authentication
+POSTs and periodic GETs remain expected. Client fixtures are deleted before
+their required scopes.</p>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Keycloak downloads: https://www.keycloak.org/downloads</li>

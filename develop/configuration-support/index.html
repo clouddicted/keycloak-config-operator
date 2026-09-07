@@ -502,6 +502,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
@@ -935,6 +963,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keycloakidentityprovidermapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakIdentityProviderMapper
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-new-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1143,6 +1182,17 @@
     <span class="md-ellipsis">
       
         KeycloakProtocolMapper
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keycloakidentityprovidermapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KeycloakIdentityProviderMapper
       
     </span>
   </a>
@@ -1635,15 +1685,20 @@ secret in Kubernetes.</p>
 <tr>
 <td><code>spec.defaultClientScopes</code></td>
 <td>Supported</td>
-<td>Reconciled list of default client scope assignments when set.</td>
+<td>Reconciled list of default client scope assignments when set. All declared scopes must exist in the realm before client writes.</td>
 </tr>
 <tr>
 <td><code>spec.optionalClientScopes</code></td>
 <td>Supported</td>
-<td>Reconciled list of optional client scope assignments when set.</td>
+<td>Reconciled list of optional client scope assignments when set. All declared scopes must exist in the realm before client writes.</td>
 </tr>
 </tbody>
 </table>
+<p>In <code>Reconcile</code> mode, missing scopes produce <code>Ready=False</code> and <code>DriftDetected=True</code>
+with reason <code>ClientScopeMissing</code>. The operator retries without creating or
+updating the client until its declared scopes are available. After a client
+write, the operator reads back the modeled fields; remaining drift produces
+<code>ClientNotConverged</code> with the same condition statuses and a retry.</p>
 <h2 id="keycloakclientrole">KeycloakClientRole<a class="headerlink" href="#keycloakclientrole" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1737,6 +1792,41 @@ secret in Kubernetes.</p>
 <td>Reconciled when set.</td>
 </tr>
 <tr>
+<td><code>spec.trustEmail</code></td>
+<td>Supported</td>
+<td>Reconciled boolean indicating whether email from provider is trusted.</td>
+</tr>
+<tr>
+<td><code>spec.storeToken</code></td>
+<td>Supported</td>
+<td>Reconciled boolean indicating whether tokens are stored locally.</td>
+</tr>
+<tr>
+<td><code>spec.linkOnly</code></td>
+<td>Supported</td>
+<td>Reconciled boolean indicating whether identity provider is link-only.</td>
+</tr>
+<tr>
+<td><code>spec.hideOnLogin</code></td>
+<td>Supported</td>
+<td>Reconciled boolean indicating whether identity provider button is hidden on login page.</td>
+</tr>
+<tr>
+<td><code>spec.authenticateByDefault</code></td>
+<td>Supported</td>
+<td>Reconciled boolean indicating whether authentication redirects to this provider automatically.</td>
+</tr>
+<tr>
+<td><code>spec.updateProfileFirstLoginMode</code></td>
+<td>Partial</td>
+<td><code>on</code>, <code>missing</code>, or <code>off</code> on servers exposing this legacy field. An absent/null response for a declared value blocks updates with <code>Ready=False</code>, <code>DriftDetected=Unknown</code>, and <code>UnverifiableField</code>. Omit on servers that do not expose it.</td>
+</tr>
+<tr>
+<td><code>spec.firstBrokerLoginFlowAlias</code></td>
+<td>Supported</td>
+<td>Flow alias used for first broker login.</td>
+</tr>
+<tr>
 <td><code>spec.config</code></td>
 <td>Partial</td>
 <td>Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved.</td>
@@ -1758,6 +1848,12 @@ secret in Kubernetes.</p>
 </tr>
 </tbody>
 </table>
+<p>Identity-provider config returned as <code>**********</code> is tracked through process-local
+write acknowledgments. Desired Secret changes are applied; an operator restart
+reapplies masked config once. Out-of-band changes to masked values cannot be
+verified. <code>ObserveOnly</code> reports unknown drift for masked values unless visible
+drift is already present. A successful write with remaining visible drift reports
+<code>IdentityProviderNotConverged</code>. See the <a href="../resources/keycloak-identity-provider/#secrets">identity provider guide</a>.</p>
 <h2 id="keycloakgroup">KeycloakGroup<a class="headerlink" href="#keycloakgroup" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1786,7 +1882,7 @@ secret in Kubernetes.</p>
 <tr>
 <td><code>spec.attributes</code></td>
 <td>Supported</td>
-<td>Reconciled when set. Values are lists of strings.</td>
+<td>Compared against the full group detail response. Values are lists of strings. Writes are verified; remaining drift reports <code>GroupNotConverged</code> and <code>Ready=False</code>.</td>
 </tr>
 <tr>
 <td><code>spec.managementPolicy</code></td>
@@ -2015,6 +2111,68 @@ secret in Kubernetes.</p>
 <td><code>spec.parent.clientScopeRef.name</code></td>
 <td>Supported</td>
 <td>Required when parent type is <code>ClientScope</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keycloakidentityprovidermapper">KeycloakIdentityProviderMapper<a class="headerlink" href="#keycloakidentityprovidermapper" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.targetRef</code></td>
+<td>Supported</td>
+<td>References a <code>KeycloakTarget</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.realm</code></td>
+<td>Supported</td>
+<td>Realm containing the identity provider.</td>
+</tr>
+<tr>
+<td><code>spec.name</code></td>
+<td>Supported</td>
+<td>Mapper name and remote lookup key under the identity provider.</td>
+</tr>
+<tr>
+<td><code>spec.identityProviderRef</code></td>
+<td>Supported</td>
+<td>References a managed <code>KeycloakIdentityProvider</code> in the same namespace.</td>
+</tr>
+<tr>
+<td><code>spec.identityProviderRef.name</code></td>
+<td>Supported</td>
+<td>KeycloakIdentityProvider resource name used as parent dependency key.</td>
+</tr>
+<tr>
+<td><code>spec.identityProviderRef.alias</code></td>
+<td>Supported</td>
+<td>Optional identity provider alias in Keycloak when different from resource name.</td>
+</tr>
+<tr>
+<td><code>spec.identityProviderMapper</code></td>
+<td>Supported</td>
+<td>Keycloak identity provider mapper provider ID (e.g. <code>oidc-user-attribute-idp-mapper</code>, <code>saml-user-attribute-idp-mapper</code>).</td>
+</tr>
+<tr>
+<td><code>spec.config</code></td>
+<td>Partial</td>
+<td>Desired mapper config keys are reconciled; undeclared existing keys are preserved.</td>
+</tr>
+<tr>
+<td><code>spec.managementPolicy</code></td>
+<td>Supported</td>
+<td><code>Reconcile</code> or <code>ObserveOnly</code>; defaults to <code>Reconcile</code>.</td>
+</tr>
+<tr>
+<td><code>spec.deletionPolicy</code></td>
+<td>Supported</td>
+<td><code>Orphan</code> or <code>Delete</code>; defaults to <code>Orphan</code>.</td>
 </tr>
 </tbody>
 </table>

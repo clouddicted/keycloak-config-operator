@@ -593,6 +593,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
@@ -994,6 +1022,10 @@ or report changes made directly through the Keycloak API or admin console.</p>
 <td>Secrets in <code>spec.configSecretRefs</code></td>
 </tr>
 <tr>
+<td><code>KeycloakIdentityProviderMapper</code></td>
+<td>Its parent identity provider, referenced by CR name or provider alias</td>
+</tr>
+<tr>
 <td><code>KeycloakClient</code></td>
 <td>Its client Secret and declared default or optional <code>KeycloakClientScope</code> resources</td>
 </tr>
@@ -1046,6 +1078,11 @@ are serialized. A timer tick is skipped if that CR is already being processed;
 updates and deletions wait for the active call to finish. Different CRs can still
 reconcile concurrently. Once deletion is observed, further create/update and timer
 calls for that CR are skipped, preventing recreation during finalizer cleanup.</p>
+<p>Unchanged visible fields do not cause configuration writes. Groups are compared
+using their full detail response because search results can omit attributes.
+Identity providers use in-memory write acknowledgments for masked config; they
+reapply those values once after restart. Masked values cannot reveal out-of-band
+changes. See <a href="../resources/keycloak-identity-provider/#secrets">identity provider secrets</a>.</p>
 <h2 id="configure-the-interval">Configure The Interval<a class="headerlink" href="#configure-the-interval" title="Permanent link">&para;</a></h2>
 <p>For Helm, set <code>reconciliationIntervalSeconds</code> to a non-negative integer:</p>
 <div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>keycloak-config-operator<span class="w"> </span><span class="se">\</span>

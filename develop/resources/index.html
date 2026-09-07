@@ -606,6 +606,34 @@
   
   
     <li class="md-nav__item">
+      <a href="keycloak-identity-provider-mapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KeycloakIdentityProviderMapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="keycloak-client/" class="md-nav__link">
         
   
@@ -996,14 +1024,15 @@ Use the <a href="../api-reference/">API reference</a> when you need the complete
 to one Keycloak instance.</p>
 <p><code>KeycloakRealm</code> creates or observes the realm that contains the rest of the
 configuration.</p>
-<p><code>KeycloakIdentityProvider</code>, <code>KeycloakClient</code>, <code>KeycloakClientRole</code>,
-<code>KeycloakGroup</code>, <code>KeycloakGroupRoleMapping</code>, <code>KeycloakRole</code>,
-<code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage selected objects
-inside a realm.</p>
+<p><code>KeycloakIdentityProvider</code>, <code>KeycloakIdentityProviderMapper</code>, <code>KeycloakClient</code>,
+<code>KeycloakClientRole</code>, <code>KeycloakGroup</code>, <code>KeycloakGroupRoleMapping</code>,
+<code>KeycloakRole</code>, <code>KeycloakClientScope</code>, and <code>KeycloakProtocolMapper</code> manage
+selected objects inside a realm.</p>
 <p>Arrows point from prerequisites to resources that depend on them:</p>
 <div class="highlight"><pre><span></span><code>flowchart TD
   target[KeycloakTarget] --&gt; realm[KeycloakRealm]
   target --&gt; idp[KeycloakIdentityProvider]
+  target --&gt; idpMapper[KeycloakIdentityProviderMapper]
   target --&gt; client[KeycloakClient]
   target --&gt; clientRole[KeycloakClientRole]
   target --&gt; group[KeycloakGroup]
@@ -1013,12 +1042,14 @@ inside a realm.</p>
   target --&gt; mapper[KeycloakProtocolMapper]
 
   realm --&gt; idp
+  realm --&gt; idpMapper
   realm --&gt; client
   realm --&gt; clientRole
   realm --&gt; group
   realm --&gt; groupRoleMapping
   realm --&gt; role
   realm --&gt; scope
+  idp --&gt; idpMapper
   client --&gt; clientRole
   client --&gt; mapper
   clientRole --&gt; groupRoleMapping
@@ -1030,6 +1061,7 @@ inside a realm.</p>
 <div class="highlight"><pre><span></span><code>KeycloakTarget
 KeycloakRealm
 KeycloakIdentityProvider
+KeycloakIdentityProviderMapper
 KeycloakGroup
 KeycloakRole
 KeycloakClient
@@ -1038,7 +1070,8 @@ KeycloakGroupRoleMapping
 KeycloakClientScope
 KeycloakProtocolMapper
 </code></pre></div>
-<p>Client scopes must exist before protocol mappers that attach to them. Clients
+<p>Identity provider mappers must have their parent identity provider created first.
+Client scopes must exist before protocol mappers that attach to them. Clients
 must exist before protocol mappers that attach directly to clients.</p>
 <h2 id="namespace-model">Namespace Model<a class="headerlink" href="#namespace-model" title="Permanent link">&para;</a></h2>
 <p>All operator resources are namespace-scoped. Create a target and every object
