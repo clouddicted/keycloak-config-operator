@@ -130,10 +130,11 @@ secret in Kubernetes.
 | `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. All declared scopes must exist in the realm before client writes. |
 
 In `Reconcile` mode, missing scopes produce `Ready=False` and `DriftDetected=True`
-with reason `ClientScopeMissing`. The operator retries without creating or
-updating the client until its declared scopes are available. After a client
-write, the operator reads back the modeled fields; remaining drift produces
-`ClientNotConverged` with the same condition statuses and a retry.
+with reason `ClientScopeMissing`, without creating or updating the client. This is a completed
+blocked state: managed scope changes trigger a check, and periodic reconciliation
+detects scopes created directly in Keycloak. After a client write, the operator
+reads back the modeled fields; remaining drift produces `ClientNotConverged` with
+the same condition statuses and a failure retry.
 
 ## KeycloakClientRole
 

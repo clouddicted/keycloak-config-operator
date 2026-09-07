@@ -11,6 +11,8 @@
 
 - Wait for declared client scopes to exist before creating or updating clients,
   reporting `ClientScopeMissing` instead of repeatedly writing unsatisfiable assignments.
+  Complete that blocked reconciliation so later client changes and dependency
+  fan-out are not held behind Kopf's failure retry.
 - Verify client state after writes and report `ClientNotConverged` when Keycloak
   accepts a request without applying all modeled fields.
 - Delete e2e clients before their required scopes, preventing continued client
