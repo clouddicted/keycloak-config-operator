@@ -8,6 +8,7 @@ resources:
   - keycloak.clouddicted.com_keycloakgroups.yaml
   - keycloak.clouddicted.com_keycloakgrouprolemappings.yaml
   - keycloak.clouddicted.com_keycloakidentityproviders.yaml
+  - keycloak.clouddicted.com_keycloakidentityprovidermappers.yaml
   - keycloak.clouddicted.com_keycloakroles.yaml
   - keycloak.clouddicted.com_keycloakclientscopes.yaml
   - keycloak.clouddicted.com_keycloakprotocolmappers.yaml

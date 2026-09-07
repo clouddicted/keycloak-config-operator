@@ -61,6 +61,7 @@ GROUP_MISSING_REASON = "GroupMissing"
 GROUP_OBSERVED_REASON = "GroupObserved"
 GROUP_ORPHANED_REASON = "GroupOrphaned"
 GROUP_UPDATED_REASON = "GroupUpdated"
+GROUP_NOT_CONVERGED_REASON = "GroupNotConverged"
 INVALID_SPEC_REASON = "InvalidSpec"
 NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
 REQUEST_FAILED_REASON = "RequestFailed"
@@ -280,6 +281,11 @@ def patch_keycloak_group_status(
             _group_drift_condition(reconcile_result, now=now),
         ),
     )
+    if reconcile_result.ready_reason == GROUP_NOT_CONVERGED_REASON:
+        return RetryRequest(
+            GROUP_NOT_CONVERGED_REASON,
+            "Keycloak group still differs from the declared spec after a successful write.",
+        )
     return None
 
 
@@ -301,12 +307,10 @@ def ensure_keycloak_group(
         created_group = find_keycloak_group(client, group_spec)
         if created_group is None:
             raise KeycloakRequestError("Keycloak group was not found after creation")
-        return GroupReconcileResult(
-            "True",
-            GROUP_CREATED_REASON,
-            False,
-            _remote_id(created_group),
-        )
+        return _verify_group_write(client, group_spec, created_group, GROUP_CREATED_REASON)
+
+    # The search endpoint can return brief representations without attributes.
+    existing_group = _get_group(client, group_spec, existing_group)
 
     if not _has_modeled_drift(existing_group, group_spec):
         return GroupReconcileResult(
@@ -333,7 +337,37 @@ def ensure_keycloak_group(
         _group_path(group_spec.realm, group_id),
         json=_group_update_payload(existing_group, group_spec),
     )
-    return GroupReconcileResult("True", GROUP_UPDATED_REASON, False, group_id)
+    return _verify_group_write(client, group_spec, existing_group, GROUP_UPDATED_REASON)
+
+
+def _get_group(
+    client: KeycloakGroupClient,
+    group_spec: GroupSpec,
+    group: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    group_id = _remote_id(group)
+    if group_id is None:
+        raise KeycloakRequestError("Keycloak group lookup response did not include id")
+    result = client.request("GET", _group_path(group_spec.realm, group_id))
+    if not isinstance(result, Mapping) or _remote_id(result) != group_id:
+        raise KeycloakRequestError("Keycloak group detail response was invalid")
+    return result
+
+
+def _verify_group_write(
+    client: KeycloakGroupClient,
+    group_spec: GroupSpec,
+    group: Mapping[str, Any],
+    reason: str,
+) -> GroupReconcileResult:
+    observed = _get_group(client, group_spec, group)
+    drift = _has_modeled_drift(observed, group_spec)
+    return GroupReconcileResult(
+        "False" if drift else "True",
+        GROUP_NOT_CONVERGED_REASON if drift else reason,
+        drift,
+        _remote_id(observed),
+    )
 
 
 def delete_keycloak_group_if_exists(
@@ -600,6 +634,8 @@ def _group_ready_condition(
         message = "Keycloak group was created."
     elif reconcile_result.ready_reason == GROUP_UPDATED_REASON:
         message = "Keycloak group was updated."
+    elif reconcile_result.ready_reason == GROUP_NOT_CONVERGED_REASON:
+        message = "Keycloak group still differs from the declared spec after a successful write."
     elif reconcile_result.ready_reason == GROUP_DRIFT_DETECTED_REASON:
         message = (
             "Keycloak group has modeled drift and was not changed because "
@@ -634,7 +670,9 @@ def _group_drift_condition(
             now=now,
         )
 
-    if reconcile_result.ready_reason == GROUP_MISSING_REASON:
+    if reconcile_result.ready_reason == GROUP_NOT_CONVERGED_REASON:
+        message = "Keycloak group still differs from the declared spec after a successful write."
+    elif reconcile_result.ready_reason == GROUP_MISSING_REASON:
         message = (
             "Keycloak group is missing and was not created because "
             "managementPolicy is ObserveOnly."

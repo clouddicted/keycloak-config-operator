@@ -24,6 +24,7 @@ nav:
       - KeycloakTarget: resources/keycloak-target.md
       - KeycloakRealm: resources/keycloak-realm.md
       - KeycloakIdentityProvider: resources/keycloak-identity-provider.md
+      - KeycloakIdentityProviderMapper: resources/keycloak-identity-provider-mapper.md
       - KeycloakClient: resources/keycloak-client.md
       - KeycloakClientRole: resources/keycloak-client-role.md
       - KeycloakGroup: resources/keycloak-group.md

@@ -17,6 +17,6 @@ dist/
 site/
 *.egg-info/
 
-.log
+*.log
 
 internal/

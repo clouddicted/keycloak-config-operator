@@ -17,9 +17,9 @@ It does not replace the Keycloak project's own supported-platform policy.
 
 | Operator version | Keycloak version | Status | Test scope | Notes |
 | --- | --- | --- | --- | --- |
-| `0.5.0` | `26.6.2` | Supported | PR, branch, tag, and manual kind e2e | Default `KEYCLOAK_VERSION`. |
-| `0.5.0` | `26.5.3` | Compatibility tested | Tag and manual kind e2e | Previous-minor smoke coverage. |
-| `0.5.0` | `<26.5` | Unsupported | Not tested | Upgrade Keycloak or validate locally before use. |
+| `0.6.0` | `26.6.2` | Supported | PR, branch, tag, and manual kind e2e | Default `KEYCLOAK_VERSION`. |
+| `0.6.0` | `26.5.3` | Compatibility tested | Tag and manual kind e2e | Previous-minor smoke coverage. |
+| `0.6.0` | `<26.5` | Unsupported | Not tested | Upgrade Keycloak or validate locally before use. |
 
 ## Local Compatibility Testing
 
@@ -32,6 +32,17 @@ KEYCLOAK_VERSION=26.6.2 .venv/bin/python tests/kind/e2e.py test
 ```
 
 The fixture image is `quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}`.
+
+Deployment startup has a separate four-minute budget, configurable with
+`E2E_DEPLOYMENT_TIMEOUT` (default `240s`). `E2E_READY_TIMEOUT` remains `60s` for
+CRD and resource readiness checks. This allows a cold Keycloak image to start
+without extending ordinary reconciliation waits.
+
+The suite checks that groups, identity providers, and clients settle, then
+observes multiple timer cycles with no configuration writes while the resources
+still exist. It repeats this check after restarting the operator. Authentication
+POSTs and periodic GETs remain expected. Client fixtures are deleted before
+their required scopes.
 
 ## References
 

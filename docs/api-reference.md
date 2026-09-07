@@ -8,6 +8,8 @@ This page is generated from the Kubernetes CustomResourceDefinition schemas.
 
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakidentityproviders.yaml", title="KeycloakIdentityProvider", show_status=False) }}
 
+{{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakidentityprovidermappers.yaml", title="KeycloakIdentityProviderMapper", show_status=False) }}
+
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakclients.yaml", title="KeycloakClient", show_status=False) }}
 
 {{ crd_viewer("config/crd/keycloak.clouddicted.com_keycloakclientroles.yaml", title="KeycloakClientRole", show_status=False) }}

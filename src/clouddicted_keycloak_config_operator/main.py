@@ -16,6 +16,7 @@ from clouddicted_keycloak_config_operator.handlers import (
     keycloak_group,
     keycloak_group_role_mapping,
     keycloak_identity_provider,
+    keycloak_identity_provider_mapper,
     keycloak_protocol_mapper,
     keycloak_realm,
     keycloak_role,
@@ -38,6 +39,7 @@ REGISTERED_HANDLER_MODULES = (
     keycloak_client_scope,
     keycloak_protocol_mapper,
     keycloak_identity_provider,
+    keycloak_identity_provider_mapper,
 )
 
 REGISTERED_SUPPORT_MODULES = (dependencies,)

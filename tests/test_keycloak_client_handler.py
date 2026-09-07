@@ -59,6 +59,9 @@ class FakeKeycloakClient:
         post_error: Exception | None = None,
         put_error: Exception | None = None,
         delete_error: Exception | None = None,
+        scope_lookup_result: Any = None,
+        scope_lookup_error: Exception | None = None,
+        ignore_writes: bool = False,
     ) -> None:
         self.lookup_result = [] if lookup_result is None else lookup_result
         self.auth_error = auth_error
@@ -66,6 +69,9 @@ class FakeKeycloakClient:
         self.post_error = post_error
         self.put_error = put_error
         self.delete_error = delete_error
+        self.scope_lookup_result = [] if scope_lookup_result is None else scope_lookup_result
+        self.scope_lookup_error = scope_lookup_error
+        self.ignore_writes = ignore_writes
         self.authenticate_calls = 0
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -80,11 +86,17 @@ class FakeKeycloakClient:
         if method == "GET":
             if self.get_error is not None:
                 raise self.get_error
+            if path.endswith("/client-scopes"):
+                if self.scope_lookup_error is not None:
+                    raise self.scope_lookup_error
+                return self.scope_lookup_result
             return self.lookup_result
 
         if method == "POST":
             if self.post_error is not None:
                 raise self.post_error
+            if self.ignore_writes:
+                return None
             payload = kwargs.get("json")
             if isinstance(payload, dict) and isinstance(payload.get("clientId"), str):
                 self.lookup_result.append(
@@ -98,6 +110,11 @@ class FakeKeycloakClient:
         if method == "PUT":
             if self.put_error is not None:
                 raise self.put_error
+            if not self.ignore_writes:
+                payload = kwargs["json"]
+                for existing in self.lookup_result:
+                    if existing.get("id") == payload.get("id"):
+                        existing.update(payload)
             return None
 
         if method == "DELETE":
@@ -428,6 +445,7 @@ def test_patch_keycloak_client_status_matches_scope_assignments_without_order_dr
 
 def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_fields() -> None:
     keycloak_client = FakeKeycloakClient(
+        scope_lookup_result=[{"name": name} for name in ("profile", "roles", "offline_access")],
         lookup_result=[
             _existing_public_client(
                 enabled=False,
@@ -497,6 +515,7 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
             "realms/example/clients",
             {"params": {"clientId": "example-web"}},
         ),
+        ("GET", "realms/example/client-scopes", {}),
         (
             "PUT",
             "realms/example/clients/client-uuid",
@@ -524,8 +543,129 @@ def test_patch_keycloak_client_status_updates_drifted_public_client_preserving_f
                 }
             },
         ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-web"}},
+        ),
     ]
     assert patch["status"]["remoteId"] == "client-uuid"
+
+
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize("scope_field", ["default_client_scopes", "optional_client_scopes"])
+def test_missing_client_scope_blocks_repeated_writes_and_recovers(
+    existing: bool, scope_field: str,
+) -> None:
+    client = FakeKeycloakClient(lookup_result=[_existing_public_client()] if existing else [])
+    spec = _client_spec(**{scope_field: ["profile"]})
+    factory = FakeKeycloakClientFactory(client)
+    status: dict[str, Any] = {}
+
+    for _ in range(3):
+        patch: dict[str, Any] = {}
+        retry = keycloak_client_handler.patch_keycloak_client_status(
+            spec=spec, status=status, patch=patch, target_resolver=_target_resolver(),
+            keycloak_client_factory=factory, now=NOW,
+        )
+        conditions = _conditions_by_type(patch)
+        assert retry is not None
+        assert retry.reason == "ClientScopeMissing"
+        assert retry.delay == 60
+        assert conditions[CONDITION_READY]["status"] == "False"
+        assert conditions[CONDITION_READY]["reason"] == "ClientScopeMissing"
+        assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
+        assert patch["status"]["remoteId"] == ("client-uuid" if existing else None)
+        status = patch["status"]
+    assert all(method == "GET" for method, _, _ in client.requests)
+
+    client.scope_lookup_result = [{"name": "profile"}]
+    for expected_reason in ("ClientUpdated" if existing else "ClientCreated", "ClientObserved"):
+        patch = {}
+        retry = keycloak_client_handler.patch_keycloak_client_status(
+            spec=spec, status=status, patch=patch, target_resolver=_target_resolver(),
+            keycloak_client_factory=factory, now=NOW,
+        )
+        assert retry is None
+        conditions = _conditions_by_type(patch)
+        assert conditions[CONDITION_READY]["status"] == "True"
+        assert conditions[CONDITION_READY]["reason"] == expected_reason
+        assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+        status = patch["status"]
+    assert [method for method, _, _ in client.requests if method != "GET"] == [
+        "PUT" if existing else "POST",
+    ]
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_observe_only_missing_scope_does_not_mutate_or_resolve_scopes(existing: bool) -> None:
+    client = FakeKeycloakClient(lookup_result=[_existing_public_client()] if existing else [])
+    patch: dict[str, Any] = {}
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(management_policy="ObserveOnly", default_client_scopes=["missing"]),
+        status={}, patch=patch, target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client), now=NOW,
+    )
+    assert retry is None
+    assert _conditions_by_type(patch)[CONDITION_DRIFT_DETECTED]["status"] == "True"
+    assert [(method, path) for method, path, _ in client.requests] == [
+        ("GET", "realms/example/clients"),
+    ]
+
+
+@pytest.mark.parametrize("lookup_error", [None, KeycloakRequestError("scope lookup failed")])
+def test_scope_lookup_failure_prevents_client_write(lookup_error: Exception | None) -> None:
+    client = FakeKeycloakClient(scope_lookup_result={}, scope_lookup_error=lookup_error)
+    patch: dict[str, Any] = {}
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(optional_client_scopes=["offline_access"]), status={}, patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+    assert retry is not None
+    assert retry.reason == "RequestFailed"
+    assert _conditions_by_type(patch)[CONDITION_READY]["status"] == "False"
+    assert all(method == "GET" for method, _, _ in client.requests)
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_successful_http_write_must_converge_before_reporting_ready(existing: bool) -> None:
+    client = FakeKeycloakClient(
+        lookup_result=[_existing_public_client()] if existing else [], ignore_writes=True,
+    )
+    patch: dict[str, Any] = {}
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(display_name="Updated"), status={}, patch=patch,
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+        now=NOW,
+    )
+    assert retry is not None
+    assert retry.reason == "ClientNotConverged"
+    assert retry.delay == 60
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["status"] == "False"
+    assert conditions[CONDITION_READY]["reason"] == "ClientNotConverged"
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "True"
+    assert patch["status"]["remoteId"] == ("client-uuid" if existing else None)
+    assert [method for method, _, _ in client.requests] == [
+        "GET", "PUT" if existing else "POST", "GET",
+    ]
+
+
+def test_client_deletion_does_not_wait_for_missing_scopes() -> None:
+    client = FakeKeycloakClient(lookup_result=[_existing_public_client()])
+    result = keycloak_client_handler.delete_keycloak_client_resource(
+        spec=_client_spec(deletion_policy="Delete", default_client_scopes=["missing"]),
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(client),
+    )
+    assert result == "Delete"
+    assert [(method, path) for method, path, _ in client.requests] == [
+        ("GET", "realms/example/clients"),
+        ("DELETE", "realms/example/clients/client-uuid"),
+    ]
 
 
 def test_patch_keycloak_client_status_reports_observe_only_drift_without_put() -> None:
@@ -719,6 +859,11 @@ def test_patch_keycloak_client_status_updates_confidential_client_without_secret
                     "serviceAccountsEnabled": True,
                 }
             },
+        ),
+        (
+            "GET",
+            "realms/example/clients",
+            {"params": {"clientId": "example-service"}},
         ),
     ]
     put_payload = keycloak_client.requests[1][2]["json"]

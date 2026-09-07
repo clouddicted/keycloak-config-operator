@@ -18,6 +18,12 @@ spec:
   providerId: oidc
   enabled: true
   displayName: Example OIDC
+  trustEmail: true
+  storeToken: false
+  linkOnly: false
+  hideOnLogin: false
+  authenticateByDefault: false
+  firstBrokerLoginFlowAlias: first broker login
   config:
     clientId: example-client
     authorizationUrl: https://idp.example.com/oauth2/authorize

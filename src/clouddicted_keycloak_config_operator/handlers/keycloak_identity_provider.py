@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from datetime import datetime
+from hashlib import sha256
 from typing import Any, Protocol
 from urllib.parse import quote
 
@@ -66,6 +68,10 @@ IDENTITY_PROVIDER_MISSING_REASON = "IdentityProviderMissing"
 IDENTITY_PROVIDER_OBSERVED_REASON = "IdentityProviderObserved"
 IDENTITY_PROVIDER_ORPHANED_REASON = "IdentityProviderOrphaned"
 IDENTITY_PROVIDER_UPDATED_REASON = "IdentityProviderUpdated"
+IDENTITY_PROVIDER_NOT_CONVERGED_REASON = "IdentityProviderNotConverged"
+UNVERIFIABLE_FIELD_REASON = "UnverifiableField"
+MASKED_CONFIG_REASON = "MaskedConfigUnverifiable"
+_SECRET_MASK = "**********"
 INVALID_SPEC_REASON = "InvalidSpec"
 NO_DRIFT_DETECTED_REASON = "NoDriftDetected"
 REQUEST_FAILED_REASON = "RequestFailed"
@@ -115,6 +121,13 @@ class IdentityProviderSpec:
     deletion_policy: str
     enabled: bool = True
     display_name: str | None = None
+    trust_email: bool | None = None
+    store_token: bool | None = None
+    link_only: bool | None = None
+    hide_on_login: bool | None = None
+    authenticate_by_default: bool | None = None
+    update_profile_first_login_mode: str | None = None
+    first_broker_login_flow_alias: str | None = None
     config: Mapping[str, str] | None = None
     config_secret_refs: Mapping[str, Mapping[str, Any]] | None = None
 
@@ -123,8 +136,17 @@ class IdentityProviderSpec:
 class IdentityProviderReconcileResult:
     ready_status: str
     ready_reason: str
-    drift_detected: bool
+    drift_detected: bool | None
     remote_id: str | None = None
+
+
+@dataclass
+class IdentityProviderWriteState:
+    """Process-local write acknowledgments; never serialize these into CR status."""
+
+    target_url: str | None = None
+    remote_key: tuple[str, str, str, str | None] | None = None
+    config_fingerprints: dict[str, str] = dataclass_field(default_factory=dict)
 
 
 @kopf.on.create(**KEYCLOAK_IDENTITY_PROVIDER_RESOURCE)
@@ -137,6 +159,7 @@ def reconcile_keycloak_identity_provider(
     status: Mapping[str, Any] | None,
     patch: MutableMapping[str, Any],
     namespace: str | None = None,
+    memo: MutableMapping[str, Any] | None = None,
     **_: Any,
 ) -> None:
     """Observe, create, or update a realm identity provider and patch status."""
@@ -145,6 +168,10 @@ def reconcile_keycloak_identity_provider(
         status=status,
         patch=patch,
         namespace=namespace,
+        write_state=(
+            memo.setdefault("identity_provider_write_state", IdentityProviderWriteState())
+            if memo is not None else IdentityProviderWriteState()
+        ),
     )
     discard_unchanged_status_patch(patch, status)
     if retry is None:
@@ -221,6 +248,7 @@ def patch_keycloak_identity_provider_status(
     core_v1_api: Any | None = None,
     keycloak_client_factory: KeycloakClientFactory = KeycloakAdminClient,
     now: datetime | None = None,
+    write_state: IdentityProviderWriteState | None = None,
 ) -> RetryRequest | None:
     """Patch KeycloakIdentityProvider status after reconciliation."""
     existing_conditions = _existing_conditions(status)
@@ -259,6 +287,10 @@ def patch_keycloak_identity_provider_status(
         return retry
 
     try:
+        if write_state is not None and write_state.target_url != target.url:
+            write_state.target_url = target.url
+            write_state.remote_key = None
+            write_state.config_fingerprints.clear()
         keycloak_client = keycloak_client_factory(**keycloak_client_factory_kwargs(target))
         keycloak_client.authenticate()
         reconcile_result = ensure_keycloak_identity_provider(
@@ -271,6 +303,7 @@ def patch_keycloak_identity_provider_status(
                     provider_spec=provider_spec,
                 ),
             ),
+            write_state=write_state,
         )
     except KeycloakAuthenticationError:
         retry = RetryRequest(
@@ -328,6 +361,11 @@ def patch_keycloak_identity_provider_status(
             _identity_provider_drift_condition(reconcile_result, now=now),
         ),
     )
+    if reconcile_result.ready_reason == IDENTITY_PROVIDER_NOT_CONVERGED_REASON:
+        return RetryRequest(
+            IDENTITY_PROVIDER_NOT_CONVERGED_REASON,
+            "Keycloak identity provider still differs from the declared spec after a write.",
+        )
     return None
 
 
@@ -373,6 +411,8 @@ def _config_secret_loader(
 def ensure_keycloak_identity_provider(
     client: KeycloakIdentityProviderClient,
     provider_spec: IdentityProviderSpec,
+    *,
+    write_state: IdentityProviderWriteState | None = None,
 ) -> IdentityProviderReconcileResult:
     """Create, update, or observe an identity provider and return the result."""
     providers = client.request("GET", _identity_providers_path(provider_spec.realm))
@@ -381,6 +421,9 @@ def ensure_keycloak_identity_provider(
 
     existing_provider = _matching_identity_provider(providers, provider_spec.alias)
     if existing_provider is None:
+        if write_state is not None:
+            write_state.remote_key = None
+            write_state.config_fingerprints.clear()
         if provider_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
             return IdentityProviderReconcileResult(
                 "False",
@@ -393,27 +436,38 @@ def ensure_keycloak_identity_provider(
             _identity_providers_path(provider_spec.realm),
             json=_modeled_identity_provider_payload(provider_spec),
         )
-        created_provider = _get_identity_provider(client, provider_spec)
-        return IdentityProviderReconcileResult(
-            "True",
-            IDENTITY_PROVIDER_CREATED_REASON,
-            False,
-            _remote_id(created_provider),
+        return _verify_provider_write(
+            client, provider_spec, write_state, IDENTITY_PROVIDER_CREATED_REASON,
         )
 
-    if not _has_modeled_drift(existing_provider, provider_spec):
+    existing_provider = _get_identity_provider(client, provider_spec)
+    if _profile_mode_unobservable(existing_provider, provider_spec):
+        return IdentityProviderReconcileResult(
+            "False", UNVERIFIABLE_FIELD_REASON, None, _remote_id(existing_provider),
+        )
+    fingerprints = _acknowledged_config(existing_provider, provider_spec, write_state)
+    if provider_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
+        # Masked values cannot prove either drift or agreement in ObserveOnly mode.
+        if _has_modeled_drift(
+            existing_provider, provider_spec, _config_fingerprints(provider_spec),
+        ):
+            return IdentityProviderReconcileResult(
+                "True", IDENTITY_PROVIDER_DRIFT_DETECTED_REASON, True,
+                _remote_id(existing_provider),
+            )
+        config = existing_provider.get("config")
+        if isinstance(config, Mapping) and any(
+            config.get(key) == _SECRET_MASK for key in provider_spec.config or {}
+        ):
+            return IdentityProviderReconcileResult(
+                "True", MASKED_CONFIG_REASON, None, _remote_id(existing_provider),
+            )
+
+    if not _has_modeled_drift(existing_provider, provider_spec, fingerprints):
         return IdentityProviderReconcileResult(
             "True",
             IDENTITY_PROVIDER_OBSERVED_REASON,
             False,
-            _remote_id(existing_provider),
-        )
-
-    if provider_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
-        return IdentityProviderReconcileResult(
-            "True",
-            IDENTITY_PROVIDER_DRIFT_DETECTED_REASON,
-            True,
             _remote_id(existing_provider),
         )
 
@@ -422,13 +476,64 @@ def ensure_keycloak_identity_provider(
         _identity_provider_path(provider_spec.realm, provider_spec.alias),
         json=_identity_provider_update_payload(existing_provider, provider_spec),
     )
-    updated_provider = _get_identity_provider(client, provider_spec)
-    return IdentityProviderReconcileResult(
-        "True",
-        IDENTITY_PROVIDER_UPDATED_REASON,
-        False,
-        _remote_id(updated_provider),
+    return _verify_provider_write(
+        client, provider_spec, write_state, IDENTITY_PROVIDER_UPDATED_REASON,
     )
+
+
+def _config_fingerprints(provider_spec: IdentityProviderSpec) -> dict[str, str]:
+    return {
+        key: sha256(value.encode()).hexdigest()
+        for key, value in (provider_spec.config or {}).items()
+    }
+
+
+def _acknowledged_config(
+    provider: Mapping[str, Any],
+    provider_spec: IdentityProviderSpec,
+    write_state: IdentityProviderWriteState | None,
+) -> Mapping[str, str]:
+    if write_state is None:
+        return {}
+    remote_key = (
+        provider_spec.realm, provider_spec.alias, provider_spec.provider_id, _remote_id(provider),
+    )
+    if write_state.remote_key != remote_key:
+        write_state.remote_key = remote_key
+        write_state.config_fingerprints.clear()
+    return write_state.config_fingerprints
+
+
+def _profile_mode_unobservable(
+    provider: Mapping[str, Any], provider_spec: IdentityProviderSpec,
+) -> bool:
+    return (
+        provider_spec.update_profile_first_login_mode is not None
+        and provider.get("updateProfileFirstLoginMode") is None
+    )
+
+
+def _verify_provider_write(
+    client: KeycloakIdentityProviderClient,
+    provider_spec: IdentityProviderSpec,
+    write_state: IdentityProviderWriteState | None,
+    reason: str,
+) -> IdentityProviderReconcileResult:
+    observed = _get_identity_provider(client, provider_spec)
+    if _profile_mode_unobservable(observed, provider_spec):
+        return IdentityProviderReconcileResult(
+            "False", UNVERIFIABLE_FIELD_REASON, None, _remote_id(observed),
+        )
+    fingerprints = _config_fingerprints(provider_spec)
+    # A successful write acknowledges masked values. Read back every visible field.
+    if _has_modeled_drift(observed, provider_spec, fingerprints):
+        return IdentityProviderReconcileResult(
+            "False", IDENTITY_PROVIDER_NOT_CONVERGED_REASON, True, _remote_id(observed),
+        )
+    if write_state is not None:
+        _acknowledged_config(observed, provider_spec, write_state)
+        write_state.config_fingerprints = fingerprints
+    return IdentityProviderReconcileResult("True", reason, False, _remote_id(observed))
 
 
 def delete_keycloak_identity_provider_if_exists(
@@ -473,6 +578,20 @@ def _modeled_identity_provider_payload(
     }
     if provider_spec.display_name is not None:
         payload["displayName"] = provider_spec.display_name
+    if provider_spec.trust_email is not None:
+        payload["trustEmail"] = provider_spec.trust_email
+    if provider_spec.store_token is not None:
+        payload["storeToken"] = provider_spec.store_token
+    if provider_spec.link_only is not None:
+        payload["linkOnly"] = provider_spec.link_only
+    if provider_spec.hide_on_login is not None:
+        payload["hideOnLogin"] = provider_spec.hide_on_login
+    if provider_spec.authenticate_by_default is not None:
+        payload["authenticateByDefault"] = provider_spec.authenticate_by_default
+    if provider_spec.update_profile_first_login_mode is not None:
+        payload["updateProfileFirstLoginMode"] = provider_spec.update_profile_first_login_mode
+    if provider_spec.first_broker_login_flow_alias is not None:
+        payload["firstBrokerLoginFlowAlias"] = provider_spec.first_broker_login_flow_alias
     if provider_spec.config:
         payload["config"] = dict(provider_spec.config)
 
@@ -482,11 +601,14 @@ def _modeled_identity_provider_payload(
 def _has_modeled_drift(
     existing_provider: Mapping[str, Any],
     provider_spec: IdentityProviderSpec,
+    acknowledged_config: Mapping[str, str] | None = None,
 ) -> bool:
     desired_payload = _modeled_identity_provider_payload(provider_spec)
     for field, desired_value in desired_payload.items():
         if field == "config":
-            if not _modeled_config_matches(existing_provider.get("config"), desired_value):
+            if not _modeled_config_matches(
+                existing_provider.get("config"), desired_value, acknowledged_config or {},
+            ):
                 return True
         elif existing_provider.get(field) != desired_value:
             return True
@@ -494,14 +616,23 @@ def _has_modeled_drift(
     return False
 
 
-def _modeled_config_matches(existing_config: Any, desired_config: Any) -> bool:
+def _modeled_config_matches(
+    existing_config: Any, desired_config: Any, acknowledged_config: Mapping[str, str],
+) -> bool:
     if not isinstance(desired_config, Mapping):
         return existing_config == desired_config
 
     if not isinstance(existing_config, Mapping):
         return False
 
-    return all(existing_config.get(key) == value for key, value in desired_config.items())
+    return all(
+        (
+            acknowledged_config.get(key) == sha256(value.encode()).hexdigest()
+            if existing_config.get(key) == _SECRET_MASK
+            else existing_config.get(key) == value
+        )
+        for key, value in desired_config.items()
+    )
 
 
 def _identity_provider_update_payload(
@@ -577,12 +708,30 @@ def _parse_identity_provider_spec(
     parsed_enabled = _parse_bool(enabled)
     parsed_config = _parse_config(config)
     parsed_config_secret_refs = _parse_config_secret_refs(config_secret_refs)
+    parsed_trust_email = _parse_optional_bool(spec, "trustEmail")
+    parsed_store_token = _parse_optional_bool(spec, "storeToken")
+    parsed_link_only = _parse_optional_bool(spec, "linkOnly")
+    parsed_hide_on_login = _parse_optional_bool(spec, "hideOnLogin")
+    parsed_authenticate_by_default = _parse_optional_bool(spec, "authenticateByDefault")
+    parsed_update_profile_first_login_mode = _parse_update_profile_first_login_mode(
+        spec.get("updateProfileFirstLoginMode")
+    )
+    parsed_first_broker_login_flow_alias = _parse_first_broker_login_flow_alias(
+        spec.get("firstBrokerLoginFlowAlias")
+    )
     if (
         parsed_management_policy is None
         or parsed_deletion_policy is None
         or parsed_enabled is None
         or parsed_config is None
         or parsed_config_secret_refs is None
+        or parsed_trust_email is _INVALID_VALUE
+        or parsed_store_token is _INVALID_VALUE
+        or parsed_link_only is _INVALID_VALUE
+        or parsed_hide_on_login is _INVALID_VALUE
+        or parsed_authenticate_by_default is _INVALID_VALUE
+        or parsed_update_profile_first_login_mode is _INVALID_VALUE
+        or parsed_first_broker_login_flow_alias is _INVALID_VALUE
     ):
         return None
 
@@ -598,9 +747,20 @@ def _parse_identity_provider_spec(
         deletion_policy=parsed_deletion_policy,
         enabled=parsed_enabled,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
+        trust_email=parsed_trust_email,  # type: ignore[arg-type]
+        store_token=parsed_store_token,  # type: ignore[arg-type]
+        link_only=parsed_link_only,  # type: ignore[arg-type]
+        hide_on_login=parsed_hide_on_login,  # type: ignore[arg-type]
+        authenticate_by_default=parsed_authenticate_by_default,  # type: ignore[arg-type]
+        update_profile_first_login_mode=parsed_update_profile_first_login_mode,  # type: ignore[arg-type]
+        first_broker_login_flow_alias=parsed_first_broker_login_flow_alias,  # type: ignore[arg-type]
         config=parsed_config,
         config_secret_refs=parsed_config_secret_refs,
     )
+
+
+_INVALID_VALUE = object()
+_ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES = {"on", "missing", "off"}
 
 
 def _parse_policy(value: Any, allowed_values: set[str]) -> str | None:
@@ -613,6 +773,34 @@ def _parse_policy(value: Any, allowed_values: set[str]) -> str | None:
 
 def _parse_bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
+
+
+def _parse_optional_bool(spec: Mapping[str, Any], field: str) -> bool | object | None:
+    if field not in spec:
+        return None
+
+    value = spec[field]
+    return value if isinstance(value, bool) else _INVALID_VALUE
+
+
+def _parse_update_profile_first_login_mode(value: Any) -> str | object | None:
+    if value is None:
+        return None
+
+    if isinstance(value, str) and value.strip() in _ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES:
+        return value.strip()
+
+    return _INVALID_VALUE
+
+
+def _parse_first_broker_login_flow_alias(value: Any) -> str | object | None:
+    if value is None:
+        return None
+
+    if _is_non_empty_string(value):
+        return value.strip()
+
+    return _INVALID_VALUE
 
 
 def _parse_config(value: Any) -> Mapping[str, str] | None:
@@ -723,6 +911,17 @@ def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
         ),
         bool_field_error(spec, "enabled"),
         non_empty_string_field_error(spec, "displayName"),
+        bool_field_error(spec, "trustEmail"),
+        bool_field_error(spec, "storeToken"),
+        bool_field_error(spec, "linkOnly"),
+        bool_field_error(spec, "hideOnLogin"),
+        bool_field_error(spec, "authenticateByDefault"),
+        enum_field_error(
+            spec,
+            "updateProfileFirstLoginMode",
+            _ALLOWED_UPDATE_PROFILE_FIRST_LOGIN_MODES,
+        ),
+        non_empty_string_field_error(spec, "firstBrokerLoginFlowAlias"),
         _config_field_error(spec.get("config", {})),
         _config_secret_refs_field_error(spec.get("configSecretRefs", {})),
     ]
@@ -768,6 +967,15 @@ def _identity_provider_ready_condition(
         message = "Keycloak identity provider was created."
     elif reconcile_result.ready_reason == IDENTITY_PROVIDER_UPDATED_REASON:
         message = "Keycloak identity provider was updated."
+    elif reconcile_result.ready_reason == IDENTITY_PROVIDER_NOT_CONVERGED_REASON:
+        message = "Keycloak identity provider still differs from the declared spec after a write."
+    elif reconcile_result.ready_reason == UNVERIFIABLE_FIELD_REASON:
+        message = (
+            "Keycloak does not expose the declared updateProfileFirstLoginMode field; "
+            "remove this field or use a Keycloak version that exposes it."
+        )
+    elif reconcile_result.ready_reason == MASKED_CONFIG_REASON:
+        message = "Keycloak masks declared config values; ObserveOnly cannot verify these values."
     elif reconcile_result.ready_reason == IDENTITY_PROVIDER_DRIFT_DETECTED_REASON:
         message = (
             "Keycloak identity provider has modeled drift and was not changed because "
@@ -794,6 +1002,12 @@ def _identity_provider_drift_condition(
     *,
     now: datetime | None,
 ) -> Condition:
+    if reconcile_result.drift_detected is None:
+        return drift_unknown_condition(
+            reconcile_result.ready_reason,
+            _identity_provider_ready_condition(reconcile_result, now=now)["message"],
+            now=now,
+        )
     if not reconcile_result.drift_detected:
         return drift_detected_condition(
             "False",
@@ -802,7 +1016,9 @@ def _identity_provider_drift_condition(
             now=now,
         )
 
-    if reconcile_result.ready_reason == IDENTITY_PROVIDER_MISSING_REASON:
+    if reconcile_result.ready_reason == IDENTITY_PROVIDER_NOT_CONVERGED_REASON:
+        message = "Keycloak identity provider still differs from the declared spec after a write."
+    elif reconcile_result.ready_reason == IDENTITY_PROVIDER_MISSING_REASON:
         message = (
             "Keycloak identity provider is missing and was not created because "
             "managementPolicy is ObserveOnly."

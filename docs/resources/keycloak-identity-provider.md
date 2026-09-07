@@ -22,6 +22,18 @@ Only declare config keys you want the operator to own. During updates,
 undeclared existing config keys are preserved. If the same key exists in both
 `config` and `configSecretRefs`, the Secret value wins.
 
+## Flow And Login Settings
+
+The resource also supports core identity provider login and brokerage behavior:
+
+- `trustEmail`: Set to `true` if emails provided by this identity provider are verified and trusted by your realm.
+- `storeToken`: Set to `true` if the external identity token should be stored in Keycloak for the user.
+- `linkOnly`: Set to `true` to forbid direct login with this identity provider; accounts can only be linked after the user is already authenticated.
+- `hideOnLogin`: Set to `true` to hide the identity provider button on the login screen.
+- `authenticateByDefault`: Set to `true` to automatically redirect users to this identity provider when they visit the login page.
+- `updateProfileFirstLoginMode`: Accepts `"on"`, `"missing"`, or `"off"` only when the Keycloak Admin API exposes this legacy field. If the declared field is absent or null in the response, the operator reports `Ready=False` and `DriftDetected=Unknown` with reason `UnverifiableField` and stops updating that provider. Omit it on these servers and configure the appropriate first broker login flow instead. Quote `"on"` and `"off"` in YAML.
+- `firstBrokerLoginFlowAlias`: Specify the authentication flow alias to run on first broker login (e.g. `first broker login`).
+
 ## Secrets
 
 Use `configSecretRefs` for values such as OIDC client secrets. Each map key is
@@ -30,6 +42,23 @@ you can set `secretKey` explicitly.
 
 Keep real Secret values out of Git. Store them with your normal Kubernetes
 Secret management flow.
+
+Keycloak can mask sensitive config values as `**********` in API responses.
+After a successful write, the operator keeps fingerprints of the submitted config
+in the resource's process-local memory, bound to the target URL and remote provider
+identity. These fingerprints are never written to CR status or annotations.
+Unchanged masked values do not cause repeated PUT requests; a changed Secret value
+is applied on the next dependency event or periodic check. After an operator
+restart, the provider is updated once to establish the write acknowledgment again.
+
+An out-of-band change to a masked value cannot be detected through that API
+response. In `ObserveOnly`, masked declared values produce
+`DriftDetected=Unknown` with reason `MaskedConfigUnverifiable`, unless another
+visible field already proves drift. No write is made in `ObserveOnly`.
+
+Writes are followed by a detail read. If visible fields still differ, the operator
+reports `Ready=False` and `DriftDetected=True` with reason
+`IdentityProviderNotConverged` and retries using the failure retry delay.
 
 ## Adoption And Lifecycle
 
@@ -64,6 +93,12 @@ spec:
   providerId: oidc
   enabled: true
   displayName: Example OIDC
+  trustEmail: true
+  storeToken: false
+  linkOnly: false
+  hideOnLogin: false
+  authenticateByDefault: false
+  firstBrokerLoginFlowAlias: first broker login
   config:
     clientId: example-client
     authorizationUrl: https://idp.example.com/oauth2/authorize

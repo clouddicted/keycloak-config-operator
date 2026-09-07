@@ -126,8 +126,14 @@ secret in Kubernetes.
 | `spec.secretRef.secretKey` | Supported | Optional key name containing the secret value. |
 | `spec.redirectUris` | Supported | Reconciled list of redirect URIs. |
 | `spec.webOrigins` | Supported | Reconciled list of web origins. |
-| `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. |
-| `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. |
+| `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. All declared scopes must exist in the realm before client writes. |
+| `spec.optionalClientScopes` | Supported | Reconciled list of optional client scope assignments when set. All declared scopes must exist in the realm before client writes. |
+
+In `Reconcile` mode, missing scopes produce `Ready=False` and `DriftDetected=True`
+with reason `ClientScopeMissing`. The operator retries without creating or
+updating the client until its declared scopes are available. After a client
+write, the operator reads back the modeled fields; remaining drift produces
+`ClientNotConverged` with the same condition statuses and a retry.
 
 ## KeycloakClientRole
 
@@ -152,10 +158,24 @@ secret in Kubernetes.
 | `spec.providerId` | Supported | Keycloak provider type, such as `oidc`, `saml`, `github`, or `google`. |
 | `spec.enabled` | Supported | Reconciled with default `true`. |
 | `spec.displayName` | Supported | Reconciled when set. |
+| `spec.trustEmail` | Supported | Reconciled boolean indicating whether email from provider is trusted. |
+| `spec.storeToken` | Supported | Reconciled boolean indicating whether tokens are stored locally. |
+| `spec.linkOnly` | Supported | Reconciled boolean indicating whether identity provider is link-only. |
+| `spec.hideOnLogin` | Supported | Reconciled boolean indicating whether identity provider button is hidden on login page. |
+| `spec.authenticateByDefault` | Supported | Reconciled boolean indicating whether authentication redirects to this provider automatically. |
+| `spec.updateProfileFirstLoginMode` | Partial | `on`, `missing`, or `off` on servers exposing this legacy field. An absent/null response for a declared value blocks updates with `Ready=False`, `DriftDetected=Unknown`, and `UnverifiableField`. Omit on servers that do not expose it. |
+| `spec.firstBrokerLoginFlowAlias` | Supported | Flow alias used for first broker login. |
 | `spec.config` | Partial | Desired non-sensitive provider config keys are reconciled; undeclared existing keys are preserved. |
 | `spec.configSecretRefs` | Partial | Desired sensitive provider config keys are loaded from Kubernetes Secrets and reconciled; these values override the same keys in `spec.config`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
+
+Identity-provider config returned as `**********` is tracked through process-local
+write acknowledgments. Desired Secret changes are applied; an operator restart
+reapplies masked config once. Out-of-band changes to masked values cannot be
+verified. `ObserveOnly` reports unknown drift for masked values unless visible
+drift is already present. A successful write with remaining visible drift reports
+`IdentityProviderNotConverged`. See the [identity provider guide](resources/keycloak-identity-provider.md#secrets).
 
 ## KeycloakGroup
 
@@ -164,7 +184,7 @@ secret in Kubernetes.
 | `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
 | `spec.realm` | Supported | Realm containing the group. |
 | `spec.name` | Supported | Top-level group name and remote lookup key. |
-| `spec.attributes` | Supported | Reconciled when set. Values are lists of strings. |
+| `spec.attributes` | Supported | Compared against the full group detail response. Values are lists of strings. Writes are verified; remaining drift reports `GroupNotConverged` and `Ready=False`. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
@@ -221,6 +241,21 @@ secret in Kubernetes.
 | `spec.parent.type` | Supported | `Client` or `ClientScope`. |
 | `spec.parent.clientRef.name` | Supported | Required when parent type is `Client`. |
 | `spec.parent.clientScopeRef.name` | Supported | Required when parent type is `ClientScope`. |
+
+## KeycloakIdentityProviderMapper
+
+| Field | Status | Notes |
+| --- | --- | --- |
+| `spec.targetRef` | Supported | References a `KeycloakTarget` in the same namespace. |
+| `spec.realm` | Supported | Realm containing the identity provider. |
+| `spec.name` | Supported | Mapper name and remote lookup key under the identity provider. |
+| `spec.identityProviderRef` | Supported | References a managed `KeycloakIdentityProvider` in the same namespace. |
+| `spec.identityProviderRef.name` | Supported | KeycloakIdentityProvider resource name used as parent dependency key. |
+| `spec.identityProviderRef.alias` | Supported | Optional identity provider alias in Keycloak when different from resource name. |
+| `spec.identityProviderMapper` | Supported | Keycloak identity provider mapper provider ID (e.g. `oidc-user-attribute-idp-mapper`, `saml-user-attribute-idp-mapper`). |
+| `spec.config` | Partial | Desired mapper config keys are reconciled; undeclared existing keys are preserved. |
+| `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
+| `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 
 ## Adding New Fields
 

@@ -12,6 +12,7 @@ from clouddicted_keycloak_config_operator.constants import (
     KEYCLOAK_CLIENT_SCOPE_PLURAL,
     KEYCLOAK_GROUP_PLURAL,
     KEYCLOAK_GROUP_ROLE_MAPPING_PLURAL,
+    KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL,
     KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
     KEYCLOAK_PROTOCOL_MAPPER_PLURAL,
     KEYCLOAK_ROLE_PLURAL,
@@ -138,6 +139,25 @@ def test_identity_provider_and_protocol_mapper_dependencies() -> None:
     }
 
 
+def test_identity_provider_mapper_dependencies() -> None:
+    keys = dependencies.dependency_keys_for_resource(
+        plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL,
+        namespace="apps",
+        spec={
+            "targetRef": {"name": "keycloak"},
+            "realm": "example",
+            "name": "claim-mapper",
+            "identityProviderRef": {"name": "github-idp"},
+            "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+        },
+    )
+
+    assert keys == {
+        _key(API_GROUP, KEYCLOAK_TARGET_PLURAL, "apps", "keycloak"),
+        _key(API_GROUP, KEYCLOAK_IDENTITY_PROVIDER_PLURAL, "apps", "github-idp"),
+    }
+
+
 def test_index_resource_dependencies_records_dependent_and_trigger() -> None:
     result = dependencies.index_resource_dependencies(
         body={
@@ -211,6 +231,33 @@ def test_enqueue_dependents_patches_each_resource_once_and_supports_natural_keys
             },
         }
     ]
+
+
+def test_identity_provider_alias_changes_enqueue_mapper() -> None:
+    api = FakeCustomObjectsApi()
+    keys = dependencies.dependency_keys_for_resource(
+        plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL, namespace="apps",
+        spec={"identityProviderRef": {"name": "github"}},
+    )
+    dependent = dependencies.DependentResource(
+        namespace="apps", plural=KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL, name="email",
+    )
+    patched = dependencies.fanout_dependents(
+        body={"metadata": {"resourceVersion": "42"}, "spec": {"alias": "github"}},
+        namespace="apps", name="github-provider",
+        param=dependencies.SourceResource(
+            API_GROUP, API_VERSION, KEYCLOAK_IDENTITY_PROVIDER_PLURAL,
+        ),
+        custom_objects_api=api,
+        **{f"{KEYCLOAK_IDENTITY_PROVIDER_MAPPER_PLURAL}_dependencies": {
+            key: [dependent] for key in keys
+        }},
+    )
+    assert patched == 1
+    assert api.patches[0]["name"] == "email"
+    assert api.patches[0]["body"]["metadata"]["annotations"][
+        dependencies.DEPENDENCY_TRIGGER_ANNOTATION
+    ] == f"{API_GROUP}/{KEYCLOAK_IDENTITY_PROVIDER_PLURAL}/apps/github-provider@42"
 
 
 def test_enqueue_dependents_skips_current_trigger_and_deleted_resources() -> None:

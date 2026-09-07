@@ -40,6 +40,7 @@ rules:
       - keycloakgroups
       - keycloakgrouprolemappings
       - keycloakidentityproviders
+      - keycloakidentityprovidermappers
       - keycloakroles
       - keycloakclientscopes
       - keycloakprotocolmappers
@@ -59,6 +60,7 @@ rules:
       - keycloakgroups/status
       - keycloakgrouprolemappings/status
       - keycloakidentityproviders/status
+      - keycloakidentityprovidermappers/status
       - keycloakroles/status
       - keycloakclientscopes/status
       - keycloakprotocolmappers/status
@@ -76,6 +78,7 @@ rules:
       - keycloakgroups/finalizers
       - keycloakgrouprolemappings/finalizers
       - keycloakidentityproviders/finalizers
+      - keycloakidentityprovidermappers/finalizers
       - keycloakroles/finalizers
       - keycloakclientscopes/finalizers
       - keycloakprotocolmappers/finalizers

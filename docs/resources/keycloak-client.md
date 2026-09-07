@@ -52,6 +52,13 @@ already assigned in Keycloak.
 Keep each scope list unique. Duplicate values usually hide a copy-paste mistake
 and are rejected before the operator reconciles the client.
 
+All declared scopes must exist in the client's realm before the operator creates
+or updates the client. If a scope is missing, reconciliation reports
+`Ready=False` and `DriftDetected=True` with reason `ClientScopeMissing`, and retries
+without writing to the client. Scopes can be managed by `KeycloakClientScope` or
+created independently in Keycloak. Create the missing scope or correct the
+client's scope list to allow reconciliation to continue.
+
 ## Adoption And Drift
 
 For new clients, use the default reconcile behavior. The operator creates the
@@ -63,6 +70,12 @@ the operator to update anything.
 
 When you are comfortable with the observed state, switch to the default
 reconcile mode.
+
+After creating or updating a client, the operator reads it back and verifies
+the modeled fields. If Keycloak accepts the request but the observed state still
+differs, the operator reports `Ready=False` and `DriftDetected=True` with reason
+`ClientNotConverged` and retries. A successful HTTP response alone does not mark
+the client ready.
 
 ## Public Client Example
 

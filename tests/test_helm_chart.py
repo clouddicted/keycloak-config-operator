@@ -21,8 +21,8 @@ def test_helm_chart_metadata_matches_operator_release() -> None:
         "name": "keycloak-config-operator",
         "description": "Helm chart for the Clouddicted Keycloak Config Operator",
         "type": "application",
-        "version": "0.5.0",
-        "appVersion": "v0.5.0",
+        "version": "0.6.0",
+        "appVersion": "v0.6.0",
     }
     assert chart["version"] == __version__
 
