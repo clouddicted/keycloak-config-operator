@@ -84,6 +84,9 @@ ROLE_SAMPLE = REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakrole.
 CONFIDENTIAL_CLIENT_SAMPLE = (
     REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient_confidential.yaml"
 )
+SIGNED_JWT_CLIENT_SAMPLE = (
+    REPO_ROOT / "config" / "samples" / "keycloak_v1beta1_keycloakclient_signed_jwt.yaml"
+)
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CLUSTER_NAME = os.getenv("KIND_CLUSTER_NAME", "clouddicted-keycloak-config-operator-it")
 NAMESPACE = "keycloak-operator-test"
@@ -103,6 +106,8 @@ OPERATOR_CLIENT_ID = "keycloak-config-operator"
 OPERATOR_CLIENT_SECRET_NAME = "keycloak-operator-client"
 PUBLIC_CLIENT_ID = "example-web"
 CONFIDENTIAL_CLIENT_ID = "example-service"
+SIGNED_JWT_CLIENT_ID = "example-signed-jwt-service"
+SIGNED_JWT_CLIENT_JWKS_URL = "https://service.example.test/.well-known/jwks.json"
 CONFIDENTIAL_CLIENT_SECRET = "not-a-production-secret"
 IDENTITY_PROVIDER_ALIAS = "example-oidc"
 IDENTITY_PROVIDER_NAME = "example-oidc-provider"
@@ -226,6 +231,17 @@ def test_keycloak_target_fixture_server_side_dry_run(kind_cluster_env: dict[str,
             "--dry-run=server",
             "-f",
             str(CONFIDENTIAL_CLIENT_SAMPLE),
+        ],
+        env=kind_cluster_env,
+    )
+    _run(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "-f",
+            str(SIGNED_JWT_CLIENT_SAMPLE),
         ],
         env=kind_cluster_env,
     )
@@ -648,6 +664,19 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
         )
 
+        _log("applying Signed JWT KeycloakClient")
+        _apply_document(kind_cluster_env, _keycloak_signed_jwt_client(realm))
+        _wait_for_ready(kind_cluster_env, "keycloakclients", SIGNED_JWT_CLIENT_ID)
+        _eventually(lambda: _assert_signed_jwt_client(keycloak_url, realm))
+        _eventually(
+            lambda: _assert_remote_id_matches(
+                kind_cluster_env,
+                "keycloakclients",
+                SIGNED_JWT_CLIENT_ID,
+                _client(keycloak_url, realm, SIGNED_JWT_CLIENT_ID)["id"],
+            )
+        )
+
         _log("verifying steady reconciliation performs reads without configuration writes")
         group_path = f"/admin/realms/{realm}/groups/{_group(keycloak_url, realm)['id']}"
         provider_path = (
@@ -693,6 +722,10 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
         _log("deleting confidential KeycloakClient with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_confidential_client(realm))
         _eventually(lambda: _assert_client_missing(keycloak_url, realm, CONFIDENTIAL_CLIENT_ID))
+
+        _log("deleting Signed JWT KeycloakClient with deletionPolicy Delete")
+        _delete_document(kind_cluster_env, _keycloak_signed_jwt_client(realm))
+        _eventually(lambda: _assert_client_missing(keycloak_url, realm, SIGNED_JWT_CLIENT_ID))
 
         _log("deleting KeycloakProtocolMapper with deletionPolicy Delete")
         _delete_document(kind_cluster_env, _keycloak_protocol_mapper(realm))
@@ -964,6 +997,7 @@ def _assert_steady_reconciliation(
             ("keycloakidentityproviders", IDENTITY_PROVIDER_NAME, "IdentityProviderObserved"),
             ("keycloakclients", PUBLIC_CLIENT_ID, "ClientObserved"),
             ("keycloakclients", CONFIDENTIAL_CLIENT_ID, "ClientObserved"),
+            ("keycloakclients", SIGNED_JWT_CLIENT_ID, "ClientObserved"),
         ):
             _assert_resource_conditions(
                 env, plural, name,
@@ -1464,6 +1498,9 @@ def _keycloak_client_scope(realm: str) -> dict[str, Any]:
             "realm": realm,
             "name": CLIENT_SCOPE_NAME,
             "description": "Example profile client scope",
+            "displayOnConsentScreen": True,
+            "consentScreenText": "Example profile access",
+            "includeInTokenScope": True,
             "deletionPolicy": "Delete",
         },
     }
@@ -1672,6 +1709,13 @@ def _keycloak_public_client(realm: str) -> dict[str, Any]:
             "directAccessGrantsEnabled": False,
             "fullScopeAllowed": False,
             "frontchannelLogout": True,
+            "consentRequired": False,
+            "pkceCodeChallengeMethod": "S256",
+            "postLogoutRedirectUris": ["https://app.example.com/signed-out"],
+            "backchannelLogoutUrl": "https://app.example.com/backchannel-logout",
+            "backchannelLogoutSessionRequired": True,
+            "backchannelLogoutRevokeOfflineTokens": False,
+            "useRefreshTokens": True,
             "redirectUris": ["https://app.example.com/*"],
             "webOrigins": ["https://app.example.com"],
             "defaultClientScopes": [CLIENT_SCOPE_NAME],
@@ -1727,6 +1771,29 @@ def _keycloak_confidential_client(realm: str) -> dict[str, Any]:
     }
 
 
+def _keycloak_signed_jwt_client(realm: str) -> dict[str, Any]:
+    return {
+        "apiVersion": "keycloak.clouddicted.com/v1beta1",
+        "kind": "KeycloakClient",
+        "metadata": {"name": SIGNED_JWT_CLIENT_ID, "namespace": NAMESPACE},
+        "spec": {
+            "targetRef": {"name": TARGET_NAME},
+            "realm": realm,
+            "clientId": SIGNED_JWT_CLIENT_ID,
+            "clientType": "Confidential",
+            "serviceAccountsEnabled": True,
+            "deletionPolicy": "Delete",
+            "authentication": {
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "jwksUrl": SIGNED_JWT_CLIENT_JWKS_URL,
+                    "signatureAlgorithm": "RS256",
+                },
+            },
+        },
+    }
+
+
 def _assert_realm(base_url: str, realm: str, display_name: str = "Example") -> None:
     realm_payload = _admin_get(base_url, f"realms/{realm}")
     assert realm_payload["realm"] == realm
@@ -1738,6 +1805,9 @@ def _assert_client_scope(base_url: str, realm: str) -> dict[str, Any]:
     assert client_scope["name"] == CLIENT_SCOPE_NAME
     assert client_scope["protocol"] == "openid-connect"
     assert client_scope["description"] == "Example profile client scope"
+    assert client_scope["attributes"]["display.on.consent.screen"] == "true"
+    assert client_scope["attributes"]["consent.screen.text"] == "Example profile access"
+    assert client_scope["attributes"]["include.in.token.scope"] == "true"
     return client_scope
 
 
@@ -1931,10 +2001,21 @@ def _assert_public_client(base_url: str, realm: str) -> None:
     assert client["directAccessGrantsEnabled"] is False
     assert client["fullScopeAllowed"] is False
     assert client["frontchannelLogout"] is True
+    assert client["consentRequired"] is False
     assert client["redirectUris"] == ["https://app.example.com/*"]
     assert client["webOrigins"] == ["https://app.example.com"]
     assert CLIENT_SCOPE_NAME in client["defaultClientScopes"]
     assert "offline_access" in client["optionalClientScopes"]
+    assert client["attributes"]["pkce.code.challenge.method"] == "S256"
+    assert client["attributes"]["post.logout.redirect.uris"] == (
+        "https://app.example.com/signed-out"
+    )
+    assert client["attributes"]["backchannel.logout.url"] == (
+        "https://app.example.com/backchannel-logout"
+    )
+    assert client["attributes"]["backchannel.logout.session.required"] == "true"
+    assert client["attributes"]["backchannel.logout.revoke.offline.tokens"] == "false"
+    assert client["attributes"]["use.refresh.tokens"] == "true"
 
 
 def _assert_confidential_client(base_url: str, realm: str) -> None:
@@ -1946,6 +2027,18 @@ def _assert_confidential_client(base_url: str, realm: str) -> None:
 
     secret = _admin_get(base_url, f"realms/{realm}/clients/{client['id']}/client-secret")
     assert secret["value"] == CONFIDENTIAL_CLIENT_SECRET
+
+
+def _assert_signed_jwt_client(base_url: str, realm: str) -> None:
+    client = _client(base_url, realm, SIGNED_JWT_CLIENT_ID)
+    assert client["clientId"] == SIGNED_JWT_CLIENT_ID
+    assert client["protocol"] == "openid-connect"
+    assert client["publicClient"] is False
+    assert client["serviceAccountsEnabled"] is True
+    assert client["clientAuthenticatorType"] == "client-jwt"
+    assert client["attributes"]["use.jwks.url"] == "true"
+    assert client["attributes"]["jwks.url"] == SIGNED_JWT_CLIENT_JWKS_URL
+    assert client["attributes"]["token.endpoint.auth.signing.alg"] == "RS256"
 
 
 def _assert_client_missing(base_url: str, realm: str, client_id: str) -> None:

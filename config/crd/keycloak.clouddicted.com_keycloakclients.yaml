@@ -51,6 +51,22 @@ spec:
                     self.serviceAccountsEnabled == false ||
                     (has(self.clientType) && self.clientType == 'Confidential')
                   message: serviceAccountsEnabled can be true only when clientType is Confidential.
+                - rule: >-
+                    !has(self.authentication) ||
+                    (has(self.clientType) && self.clientType == 'Confidential')
+                  message: authentication can be set only when clientType is Confidential.
+                - rule: >-
+                    !has(self.clientType) || self.clientType != 'Confidential' ||
+                    has(self.authentication) || has(self.secretRef)
+                  message: Confidential clients require authentication or secretRef.
+                - rule: >-
+                    !has(self.authentication) ||
+                    self.authentication.method != 'ClientSecret' || has(self.secretRef)
+                  message: ClientSecret authentication requires secretRef.
+                - rule: >-
+                    !has(self.authentication) ||
+                    self.authentication.method != 'SignedJwt' || !has(self.secretRef)
+                  message: secretRef cannot be set with SignedJwt authentication.
               required:
                 - targetRef
                 - realm
@@ -137,6 +153,38 @@ spec:
                 frontchannelLogout:
                   type: boolean
                   description: Whether front-channel logout is enabled for the client.
+                consentRequired:
+                  type: boolean
+                  description: Whether users must consent before granting access to the client.
+                pkceCodeChallengeMethod:
+                  type: string
+                  description: PKCE code challenge method required by the client.
+                  enum:
+                    - S256
+                    - plain
+                postLogoutRedirectUris:
+                  type: array
+                  description: Allowed redirect URIs after an OpenID Connect logout.
+                  x-kubernetes-list-type: set
+                  items:
+                    type: string
+                    minLength: 1
+                backchannelLogoutUrl:
+                  type: string
+                  description: URL Keycloak calls for OpenID Connect back-channel logout.
+                  minLength: 1
+                backchannelLogoutSessionRequired:
+                  type: boolean
+                  description: Whether back-channel logout tokens include the session ID.
+                backchannelLogoutRevokeOfflineTokens:
+                  type: boolean
+                  description: Whether back-channel logout revokes offline sessions.
+                useRefreshTokens:
+                  type: boolean
+                  description: Whether the client can receive refresh tokens.
+                useRefreshTokensForClientCredentials:
+                  type: boolean
+                  description: Whether client credentials grants can receive refresh tokens.
                 secretRef:
                   type: object
                   description: Secret containing the confidential client secret.
@@ -155,6 +203,59 @@ spec:
                       type: string
                       description: Secret key containing the client secret.
                       minLength: 1
+                authentication:
+                  type: object
+                  description: Explicit authentication method for a confidential client.
+                  required:
+                    - method
+                  x-kubernetes-validations:
+                    - rule: >-
+                        self.method != 'SignedJwt' || has(self.signedJwt)
+                      message: SignedJwt authentication requires signedJwt configuration.
+                    - rule: >-
+                        self.method == 'SignedJwt' || !has(self.signedJwt)
+                      message: signedJwt can be set only when method is SignedJwt.
+                  properties:
+                    method:
+                      type: string
+                      description: Authentication method used by the confidential client.
+                      enum:
+                        - ClientSecret
+                        - SignedJwt
+                    signedJwt:
+                      type: object
+                      description: Signed JWT key source and optional signature constraint.
+                      x-kubernetes-validations:
+                        - rule: >-
+                            has(self.certificateSecretRef) != has(self.jwksUrl)
+                          message: Set exactly one of certificateSecretRef or jwksUrl.
+                      properties:
+                        certificateSecretRef:
+                          type: object
+                          description: Secret containing a PEM X.509 client certificate.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: Secret name.
+                              minLength: 1
+                            namespace:
+                              type: string
+                              description: Secret namespace. Defaults to this resource namespace.
+                              minLength: 1
+                            secretKey:
+                              type: string
+                              description: Secret key containing the certificate. Defaults to tls.crt.
+                              minLength: 1
+                        jwksUrl:
+                          type: string
+                          description: URL where Keycloak loads the client's public JWKS.
+                          minLength: 1
+                        signatureAlgorithm:
+                          type: string
+                          description: Optional accepted JWT signature algorithm, such as RS256.
+                          minLength: 1
                 redirectUris:
                   type: array
                   description: Allowed redirect URI patterns.

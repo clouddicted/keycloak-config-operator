@@ -13,3 +13,4 @@ resources:
   - keycloak_v1beta1_keycloakgroup.yaml
   - keycloak_v1beta1_keycloakgrouprolemapping.yaml
   - keycloak_v1beta1_keycloakclient_confidential.yaml
+  - keycloak_v1beta1_keycloakclient_signed_jwt.yaml

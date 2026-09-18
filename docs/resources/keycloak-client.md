@@ -9,8 +9,26 @@ as part of application delivery.
 Use `Public` for browser and native applications that cannot keep a secret.
 
 Use `Confidential` for backend services, machine-to-machine access, and clients
-that can safely use a client secret. Store the desired client secret in a
-Kubernetes Secret and reference it from the resource.
+that authenticate with a shared secret or a signed JWT.
+
+## Client Authentication
+
+Existing confidential clients continue to use client-secret authentication when
+`authentication` is omitted. Store the desired client secret in a Kubernetes
+Secret and reference it with `secretRef`.
+
+Set `authentication.method: SignedJwt` when the application signs client
+assertions with its private key. Keycloak needs only the corresponding public
+material. Choose exactly one source:
+
+- `signedJwt.certificateSecretRef` loads a PEM X.509 certificate from a
+  Kubernetes Secret. The key defaults to `tls.crt`. Store only the certificate;
+  the application private key does not belong in the operator's Secret.
+- `signedJwt.jwksUrl` lets Keycloak fetch and rotate public keys from the
+  application's JWKS endpoint.
+
+`signedJwt.signatureAlgorithm` optionally restricts assertions to an algorithm
+such as `RS256`. Omit it to use Keycloak's configured defaults.
 
 ## URLs And Flows
 
@@ -24,6 +42,13 @@ contract. Common fields are:
   flow.
 - `directAccessGrantsEnabled` for password grant access.
 - `frontchannelLogout` when browser logout must notify the client.
+- `pkceCodeChallengeMethod` to require `S256` or `plain` PKCE challenges.
+- `postLogoutRedirectUris` for redirects after OpenID Connect logout.
+- `backchannelLogoutUrl`, `backchannelLogoutSessionRequired`, and
+  `backchannelLogoutRevokeOfflineTokens` for back-channel logout.
+- `useRefreshTokens` and `useRefreshTokensForClientCredentials` for refresh-token
+  behavior.
+- `consentRequired` when users must approve the client before access is granted.
 
 Only declare fields you want the operator to own. Omitted fields are left as
 they are in Keycloak.
@@ -102,6 +127,14 @@ spec:
   directAccessGrantsEnabled: false
   fullScopeAllowed: false
   frontchannelLogout: true
+  consentRequired: false
+  pkceCodeChallengeMethod: S256
+  postLogoutRedirectUris:
+    - https://app.example.com/signed-out
+  backchannelLogoutUrl: https://app.example.com/backchannel-logout
+  backchannelLogoutSessionRequired: true
+  backchannelLogoutRevokeOfflineTokens: false
+  useRefreshTokens: true
   redirectUris:
     - https://app.example.com/*
   webOrigins:
@@ -130,6 +163,55 @@ spec:
     name: example-service-client-secret
     secretKey: clientSecret
 ```
+
+## Signed JWT Client Examples
+
+Use a JWKS URL when the application publishes a rotating key set:
+
+```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakClient
+metadata:
+  name: example-signed-jwt-service
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientId: example-signed-jwt-service
+  clientType: Confidential
+  serviceAccountsEnabled: true
+  authentication:
+    method: SignedJwt
+    signedJwt:
+      jwksUrl: https://service.example.com/.well-known/jwks.json
+      signatureAlgorithm: RS256
+```
+
+Reference a certificate Secret when the public certificate is distributed with
+the application configuration:
+
+```yaml
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakClient
+metadata:
+  name: example-certificate-service
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientId: example-certificate-service
+  clientType: Confidential
+  authentication:
+    method: SignedJwt
+    signedJwt:
+      certificateSecretRef:
+        name: example-certificate-service
+        secretKey: tls.crt
+      signatureAlgorithm: RS256
+```
+
+The operator watches the referenced certificate Secret. A certificate rotation
+triggers reconciliation and updates the managed Keycloak client attribute.
 
 ## Lifecycle Choices
 

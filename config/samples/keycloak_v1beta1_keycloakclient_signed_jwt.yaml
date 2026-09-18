@@ -1,0 +1,16 @@
+apiVersion: keycloak.clouddicted.com/v1beta1
+kind: KeycloakClient
+metadata:
+  name: example-signed-jwt-service
+spec:
+  targetRef:
+    name: example-keycloak
+  realm: example
+  clientId: example-signed-jwt-service
+  clientType: Confidential
+  serviceAccountsEnabled: true
+  authentication:
+    method: SignedJwt
+    signedJwt:
+      jwksUrl: https://service.example.com/.well-known/jwks.json
+      signatureAlgorithm: RS256

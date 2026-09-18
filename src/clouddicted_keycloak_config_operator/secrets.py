@@ -11,6 +11,7 @@ from typing import Any
 DEFAULT_USERNAME_KEY = "username"
 DEFAULT_PASSWORD_KEY = "password"
 DEFAULT_CLIENT_SECRET_KEY = "clientSecret"
+DEFAULT_CLIENT_CERTIFICATE_KEY = "tls.crt"
 
 
 class SecretRefError(ValueError):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -46,8 +48,10 @@ from clouddicted_keycloak_config_operator.keycloak_client import (
     KeycloakRequestError,
 )
 from clouddicted_keycloak_config_operator.secrets import (
+    DEFAULT_CLIENT_CERTIFICATE_KEY,
     DEFAULT_CLIENT_SECRET_KEY,
     SecretRefError,
+    SecretValueDecodeError,
     load_secret_value,
 )
 from clouddicted_keycloak_config_operator.status import (
@@ -82,6 +86,28 @@ TARGET_UNAVAILABLE_REASON = "TargetUnavailable"
 CLIENT_TYPE_PUBLIC = "Public"
 CLIENT_TYPE_CONFIDENTIAL = "Confidential"
 DEFAULT_CLIENT_TYPE = CLIENT_TYPE_PUBLIC
+AUTHENTICATION_METHOD_CLIENT_SECRET = "ClientSecret"
+AUTHENTICATION_METHOD_SIGNED_JWT = "SignedJwt"
+CLIENT_AUTHENTICATOR_CLIENT_SECRET = "client-secret"
+CLIENT_AUTHENTICATOR_SIGNED_JWT = "client-jwt"
+ATTRIBUTE_PKCE_CODE_CHALLENGE_METHOD = "pkce.code.challenge.method"
+ATTRIBUTE_POST_LOGOUT_REDIRECT_URIS = "post.logout.redirect.uris"
+ATTRIBUTE_BACKCHANNEL_LOGOUT_URL = "backchannel.logout.url"
+ATTRIBUTE_BACKCHANNEL_LOGOUT_SESSION_REQUIRED = (
+    "backchannel.logout.session.required"
+)
+ATTRIBUTE_BACKCHANNEL_LOGOUT_REVOKE_OFFLINE_TOKENS = (
+    "backchannel.logout.revoke.offline.tokens"
+)
+ATTRIBUTE_USE_REFRESH_TOKENS = "use.refresh.tokens"
+ATTRIBUTE_USE_REFRESH_TOKENS_FOR_CLIENT_CREDENTIALS = (
+    "client_credentials.use_refresh_token"
+)
+ATTRIBUTE_USE_JWKS_URL = "use.jwks.url"
+ATTRIBUTE_JWKS_URL = "jwks.url"
+ATTRIBUTE_JWT_CERTIFICATE = "jwt.credential.certificate"
+ATTRIBUTE_TOKEN_ENDPOINT_AUTH_SIGNING_ALGORITHM = "token.endpoint.auth.signing.alg"
+POST_LOGOUT_REDIRECT_URI_SEPARATOR = "##"
 MANAGEMENT_POLICY_OBSERVE_ONLY = "ObserveOnly"
 MANAGEMENT_POLICY_RECONCILE = "Reconcile"
 DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
@@ -125,6 +151,11 @@ class ClientSpec:
     management_policy: str
     deletion_policy: str
     secret_ref: Mapping[str, Any] | None = None
+    authentication_declared: bool = False
+    authentication_method: str | None = None
+    signed_jwt_certificate_secret_ref: Mapping[str, Any] | None = None
+    signed_jwt_jwks_url: str | None = None
+    signed_jwt_signature_algorithm: str | None = None
     enabled: bool = True
     display_name: str | None = None
     description: str | None = None
@@ -137,6 +168,14 @@ class ClientSpec:
     service_accounts_enabled: bool | None = None
     full_scope_allowed: bool | None = None
     frontchannel_logout: bool | None = None
+    consent_required: bool | None = None
+    pkce_code_challenge_method: str | None = None
+    post_logout_redirect_uris: tuple[str, ...] | None = None
+    backchannel_logout_url: str | None = None
+    backchannel_logout_session_required: bool | None = None
+    backchannel_logout_revoke_offline_tokens: bool | None = None
+    use_refresh_tokens: bool | None = None
+    use_refresh_tokens_for_client_credentials: bool | None = None
     redirect_uris: tuple[str, ...] = ()
     web_origins: tuple[str, ...] = ()
     default_client_scopes: tuple[str, ...] = ()
@@ -289,6 +328,11 @@ def patch_keycloak_client_status(
                 namespace=namespace,
                 client_spec=client_spec,
             ),
+            client_certificate_loader=_client_certificate_loader(
+                core_v1_api=core_v1_api,
+                namespace=namespace,
+                client_spec=client_spec,
+            ),
         )
     except KeycloakAuthenticationError:
         retry = RetryRequest(
@@ -312,7 +356,8 @@ def patch_keycloak_client_status(
     except (SecretRefError, ApiException):
         retry = RetryRequest(
             SECRET_UNAVAILABLE_REASON,
-            "KeycloakClient is not ready because the client Secret could not be loaded.",
+            "KeycloakClient is not ready because a client credential Secret could not "
+            "be loaded.",
         )
         _set_blocked_conditions(
             patch,
@@ -323,8 +368,8 @@ def patch_keycloak_client_status(
                 retry.message,
                 now=now,
             ),
-            "Drift detection was skipped because the Keycloak client Secret could not "
-            "be loaded.",
+            "Drift detection was skipped because a Keycloak client credential Secret "
+            "could not be loaded.",
             now=now,
         )
         _set_remote_id(patch, None)
@@ -369,12 +414,26 @@ def ensure_keycloak_client(
     client_spec: ClientSpec,
     *,
     client_secret_loader: Callable[[], str] | None = None,
+    client_certificate_loader: Callable[[], str] | None = None,
 ) -> ClientReconcileResult:
     """Create, update, or observe a Keycloak client and return the result."""
+    client_certificate: str | None = None
+    if client_spec.authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT:
+        if client_spec.signed_jwt_certificate_secret_ref is not None:
+            if client_certificate_loader is None:
+                raise KeycloakRequestError(
+                    "Signed JWT Keycloak client certificate was not loaded"
+                )
+            client_certificate = client_certificate_loader()
+
     existing_client = _find_client(client, client_spec)
     if existing_client is not None:
         remote_id = _remote_id(existing_client)
-        if not _has_modeled_drift(existing_client, client_spec):
+        if not _has_modeled_drift(
+            existing_client,
+            client_spec,
+            client_certificate=client_certificate,
+        ):
             return ClientReconcileResult(
                 "True",
                 CLIENT_OBSERVED_REASON,
@@ -400,9 +459,18 @@ def ensure_keycloak_client(
         client.request(
             "PUT",
             _client_path(client_spec.realm, internal_id.strip()),
-            json=_client_update_payload(existing_client, client_spec),
+            json=_client_update_payload(
+                existing_client,
+                client_spec,
+                client_certificate=client_certificate,
+            ),
         )
-        return _verify_client_write(client, client_spec, CLIENT_UPDATED_REASON)
+        return _verify_client_write(
+            client,
+            client_spec,
+            CLIENT_UPDATED_REASON,
+            client_certificate=client_certificate,
+        )
 
     if client_spec.management_policy == MANAGEMENT_POLICY_OBSERVE_ONLY:
         return ClientReconcileResult("False", CLIENT_MISSING_REASON, True, None)
@@ -411,7 +479,7 @@ def ensure_keycloak_client(
         return ClientReconcileResult("False", CLIENT_SCOPE_MISSING_REASON, True, None)
 
     client_secret: str | None = None
-    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+    if _uses_client_secret(client_spec):
         if client_secret_loader is None:
             raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
         client_secret = client_secret_loader()
@@ -419,9 +487,18 @@ def ensure_keycloak_client(
     client.request(
         "POST",
         _clients_path(client_spec.realm),
-        json=_client_create_payload(client_spec, client_secret=client_secret),
+        json=_client_create_payload(
+            client_spec,
+            client_secret=client_secret,
+            client_certificate=client_certificate,
+        ),
     )
-    return _verify_client_write(client, client_spec, CLIENT_CREATED_REASON)
+    return _verify_client_write(
+        client,
+        client_spec,
+        CLIENT_CREATED_REASON,
+        client_certificate=client_certificate,
+    )
 
 
 def _required_client_scopes_exist(client: KeycloakPublicClient, client_spec: ClientSpec) -> bool:
@@ -441,11 +518,19 @@ def _required_client_scopes_exist(client: KeycloakPublicClient, client_spec: Cli
 
 
 def _verify_client_write(
-    client: KeycloakPublicClient, client_spec: ClientSpec, success_reason: str,
+    client: KeycloakPublicClient,
+    client_spec: ClientSpec,
+    success_reason: str,
+    *,
+    client_certificate: str | None = None,
 ) -> ClientReconcileResult:
     observed = _find_client(client, client_spec)
     remote_id = _remote_id(observed) if observed is not None else None
-    if observed is None or _has_modeled_drift(observed, client_spec):
+    if observed is None or _has_modeled_drift(
+        observed,
+        client_spec,
+        client_certificate=client_certificate,
+    ):
         return ClientReconcileResult("False", CLIENT_NOT_CONVERGED_REASON, True, remote_id)
 
     return ClientReconcileResult("True", success_reason, False, remote_id)
@@ -487,9 +572,13 @@ def _client_create_payload(
     client_spec: ClientSpec,
     *,
     client_secret: str | None,
+    client_certificate: str | None,
 ) -> dict[str, Any]:
-    payload = _modeled_client_payload(client_spec)
-    if client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL:
+    payload = _modeled_client_payload(
+        client_spec,
+        client_certificate=client_certificate,
+    )
+    if _uses_client_secret(client_spec):
         if client_secret is None:
             raise KeycloakRequestError("Confidential Keycloak client secret was not loaded")
         payload["secret"] = client_secret
@@ -497,7 +586,11 @@ def _client_create_payload(
     return payload
 
 
-def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
+def _modeled_client_payload(
+    client_spec: ClientSpec,
+    *,
+    client_certificate: str | None = None,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "clientId": client_spec.client_id,
         "enabled": client_spec.enabled,
@@ -527,6 +620,8 @@ def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
         payload["fullScopeAllowed"] = client_spec.full_scope_allowed
     if client_spec.frontchannel_logout is not None:
         payload["frontchannelLogout"] = client_spec.frontchannel_logout
+    if client_spec.consent_required is not None:
+        payload["consentRequired"] = client_spec.consent_required
     if client_spec.redirect_uris:
         payload["redirectUris"] = list(client_spec.redirect_uris)
     if client_spec.web_origins:
@@ -536,7 +631,99 @@ def _modeled_client_payload(client_spec: ClientSpec) -> dict[str, Any]:
     if client_spec.optional_client_scopes:
         payload["optionalClientScopes"] = list(client_spec.optional_client_scopes)
 
+    if client_spec.authentication_declared:
+        payload["clientAuthenticatorType"] = (
+            CLIENT_AUTHENTICATOR_SIGNED_JWT
+            if client_spec.authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT
+            else CLIENT_AUTHENTICATOR_CLIENT_SECRET
+        )
+
+    attributes = _modeled_client_attributes(
+        client_spec,
+        client_certificate=client_certificate,
+    )
+    if attributes:
+        payload["attributes"] = attributes
+
     return payload
+
+
+def _modeled_client_attributes(
+    client_spec: ClientSpec,
+    *,
+    client_certificate: str | None = None,
+) -> dict[str, str]:
+    attributes: dict[str, str] = {}
+
+    if client_spec.pkce_code_challenge_method is not None:
+        attributes[ATTRIBUTE_PKCE_CODE_CHALLENGE_METHOD] = (
+            client_spec.pkce_code_challenge_method
+        )
+    if client_spec.post_logout_redirect_uris is not None:
+        attributes[ATTRIBUTE_POST_LOGOUT_REDIRECT_URIS] = (
+            POST_LOGOUT_REDIRECT_URI_SEPARATOR.join(
+                client_spec.post_logout_redirect_uris
+            )
+        )
+    if client_spec.backchannel_logout_url is not None:
+        attributes[ATTRIBUTE_BACKCHANNEL_LOGOUT_URL] = (
+            client_spec.backchannel_logout_url
+        )
+    _set_boolean_attribute(
+        attributes,
+        ATTRIBUTE_BACKCHANNEL_LOGOUT_SESSION_REQUIRED,
+        client_spec.backchannel_logout_session_required,
+    )
+    _set_boolean_attribute(
+        attributes,
+        ATTRIBUTE_BACKCHANNEL_LOGOUT_REVOKE_OFFLINE_TOKENS,
+        client_spec.backchannel_logout_revoke_offline_tokens,
+    )
+    _set_boolean_attribute(
+        attributes,
+        ATTRIBUTE_USE_REFRESH_TOKENS,
+        client_spec.use_refresh_tokens,
+    )
+    _set_boolean_attribute(
+        attributes,
+        ATTRIBUTE_USE_REFRESH_TOKENS_FOR_CLIENT_CREDENTIALS,
+        client_spec.use_refresh_tokens_for_client_credentials,
+    )
+
+    if client_spec.authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT:
+        attributes[ATTRIBUTE_USE_JWKS_URL] = _keycloak_boolean(
+            client_spec.signed_jwt_jwks_url is not None
+        )
+        if client_spec.signed_jwt_jwks_url is not None:
+            attributes[ATTRIBUTE_JWKS_URL] = client_spec.signed_jwt_jwks_url
+        elif client_certificate is not None:
+            attributes[ATTRIBUTE_JWT_CERTIFICATE] = client_certificate
+        if client_spec.signed_jwt_signature_algorithm is not None:
+            attributes[ATTRIBUTE_TOKEN_ENDPOINT_AUTH_SIGNING_ALGORITHM] = (
+                client_spec.signed_jwt_signature_algorithm
+            )
+
+    return attributes
+
+
+def _set_boolean_attribute(
+    attributes: MutableMapping[str, str],
+    key: str,
+    value: bool | None,
+) -> None:
+    if value is not None:
+        attributes[key] = _keycloak_boolean(value)
+
+
+def _keycloak_boolean(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _uses_client_secret(client_spec: ClientSpec) -> bool:
+    return (
+        client_spec.client_type == CLIENT_TYPE_CONFIDENTIAL
+        and client_spec.authentication_method != AUTHENTICATION_METHOD_SIGNED_JWT
+    )
 
 
 def _client_secret_loader(
@@ -545,7 +732,7 @@ def _client_secret_loader(
     namespace: str | None,
     client_spec: ClientSpec,
 ) -> Callable[[], str] | None:
-    if client_spec.client_type != CLIENT_TYPE_CONFIDENTIAL:
+    if not _uses_client_secret(client_spec):
         return None
 
     def load_client_secret() -> str:
@@ -558,6 +745,59 @@ def _client_secret_loader(
         return secret_value.value
 
     return load_client_secret
+
+
+def _client_certificate_loader(
+    *,
+    core_v1_api: Any | None,
+    namespace: str | None,
+    client_spec: ClientSpec,
+) -> Callable[[], str] | None:
+    secret_ref = client_spec.signed_jwt_certificate_secret_ref
+    if secret_ref is None:
+        return None
+
+    def load_client_certificate() -> str:
+        secret_value = load_secret_value(
+            core_v1_api or kubernetes_client.CoreV1Api(),
+            namespace,
+            secret_ref,
+            default_key=DEFAULT_CLIENT_CERTIFICATE_KEY,
+        )
+        return _normalize_client_certificate(secret_value.value)
+
+    return load_client_certificate
+
+
+def _normalize_client_certificate(value: str) -> str:
+    certificate = value.strip()
+    begin_marker = "-----BEGIN CERTIFICATE-----"
+    end_marker = "-----END CERTIFICATE-----"
+    if not (
+        certificate.startswith(begin_marker) and certificate.endswith(end_marker)
+    ):
+        raise SecretValueDecodeError(
+            "The Signed JWT certificate Secret value is not a valid PEM X.509 "
+            "certificate"
+        )
+    certificate = certificate[len(begin_marker) : -len(end_marker)]
+
+    encoded_der = "".join(certificate.split())
+    try:
+        decoded_der = base64.b64decode(encoded_der, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise SecretValueDecodeError(
+            "The Signed JWT certificate Secret value is not a valid PEM X.509 "
+            "certificate"
+        ) from exc
+
+    if not decoded_der or decoded_der[0] != 0x30:
+        raise SecretValueDecodeError(
+            "The Signed JWT certificate Secret value is not a valid PEM X.509 "
+            "certificate"
+        )
+
+    return encoded_der
 
 
 def _client_ready_condition(
@@ -672,11 +912,51 @@ def _remote_id(payload: Mapping[str, Any]) -> str | None:
 def _has_modeled_drift(
     existing_client: Mapping[str, Any],
     client_spec: ClientSpec,
+    *,
+    client_certificate: str | None = None,
 ) -> bool:
-    desired_payload = _modeled_client_payload(client_spec)
-    return any(
+    desired_payload = _modeled_client_payload(
+        client_spec,
+        client_certificate=client_certificate,
+    )
+    desired_attributes = desired_payload.pop("attributes", {})
+    if any(
         not _modeled_value_matches(field, existing_client.get(field), desired_value)
         for field, desired_value in desired_payload.items()
+    ):
+        return True
+
+    existing_attributes = existing_client.get("attributes")
+    if not isinstance(existing_attributes, Mapping):
+        existing_attributes = {}
+    if any(
+        not _modeled_client_attribute_matches(
+            key,
+            existing_attributes.get(key),
+            value,
+        )
+        for key, value in desired_attributes.items()
+    ):
+        return True
+
+    return any(
+        key in existing_attributes
+        for key in _client_attribute_removals(client_spec)
+    )
+
+
+def _modeled_client_attribute_matches(
+    key: str,
+    existing_value: Any,
+    desired_value: str,
+) -> bool:
+    if key != ATTRIBUTE_POST_LOGOUT_REDIRECT_URIS:
+        return existing_value == desired_value
+
+    if not isinstance(existing_value, str):
+        return not desired_value and existing_value is None
+    return set(existing_value.split(POST_LOGOUT_REDIRECT_URI_SEPARATOR)) == set(
+        desired_value.split(POST_LOGOUT_REDIRECT_URI_SEPARATOR)
     )
 
 
@@ -710,11 +990,36 @@ def _string_set(value: Any) -> set[str] | None:
 def _client_update_payload(
     existing_client: Mapping[str, Any],
     client_spec: ClientSpec,
+    *,
+    client_certificate: str | None = None,
 ) -> dict[str, Any]:
     payload = dict(existing_client)
     payload.pop("secret", None)
-    payload.update(_modeled_client_payload(client_spec))
+    modeled_payload = _modeled_client_payload(
+        client_spec,
+        client_certificate=client_certificate,
+    )
+    modeled_attributes = modeled_payload.pop("attributes", {})
+    payload.update(modeled_payload)
+
+    existing_attributes = existing_client.get("attributes")
+    attributes = dict(existing_attributes) if isinstance(existing_attributes, Mapping) else {}
+    for key in _client_attribute_removals(client_spec):
+        attributes.pop(key, None)
+    attributes.update(modeled_attributes)
+    if attributes or isinstance(existing_attributes, Mapping):
+        payload["attributes"] = attributes
     return payload
+
+
+def _client_attribute_removals(client_spec: ClientSpec) -> set[str]:
+    if client_spec.authentication_method != AUTHENTICATION_METHOD_SIGNED_JWT:
+        return set()
+
+    if client_spec.signed_jwt_jwks_url is not None:
+        return {ATTRIBUTE_JWT_CERTIFICATE}
+
+    return {ATTRIBUTE_JWKS_URL}
 
 
 def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
@@ -729,6 +1034,8 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     secret_ref = spec.get("secretRef")
+    authentication = spec.get("authentication")
+    authentication_declared = "authentication" in spec
     enabled = spec.get("enabled", True)
     display_name = spec.get("displayName")
     description = spec.get("description")
@@ -739,6 +1046,9 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     web_origins = spec.get("webOrigins", ())
     default_client_scopes = spec.get("defaultClientScopes", ())
     optional_client_scopes = spec.get("optionalClientScopes", ())
+    pkce_code_challenge_method = spec.get("pkceCodeChallengeMethod")
+    post_logout_redirect_uris = spec.get("postLogoutRedirectUris")
+    backchannel_logout_url = spec.get("backchannelLogoutUrl")
 
     if (
         not _is_non_empty_string(target_name)
@@ -771,14 +1081,71 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     if parsed_deletion_policy not in {DELETION_POLICY_ORPHAN, DELETION_POLICY_DELETE}:
         return None
 
+    parsed_authentication_method: str | None = None
+    parsed_signed_jwt_certificate_secret_ref: Mapping[str, Any] | None = None
+    parsed_signed_jwt_jwks_url: str | None = None
+    parsed_signed_jwt_signature_algorithm: str | None = None
+    if authentication_declared:
+        if not isinstance(authentication, Mapping):
+            return None
+        authentication_method = authentication.get("method")
+        if not _is_non_empty_string(authentication_method):
+            return None
+        parsed_authentication_method = authentication_method.strip()
+        if parsed_authentication_method not in {
+            AUTHENTICATION_METHOD_CLIENT_SECRET,
+            AUTHENTICATION_METHOD_SIGNED_JWT,
+        }:
+            return None
+
+    if parsed_client_type == CLIENT_TYPE_PUBLIC and authentication_declared:
+        return None
+
+    if parsed_client_type == CLIENT_TYPE_CONFIDENTIAL and not authentication_declared:
+        parsed_authentication_method = AUTHENTICATION_METHOD_CLIENT_SECRET
+
     parsed_secret_ref = None
-    if parsed_client_type == CLIENT_TYPE_CONFIDENTIAL:
+    if (
+        parsed_client_type == CLIENT_TYPE_CONFIDENTIAL
+        and parsed_authentication_method == AUTHENTICATION_METHOD_CLIENT_SECRET
+    ):
         if (
             not isinstance(secret_ref, Mapping)
             or not _is_non_empty_string(secret_ref.get("name"))
         ):
             return None
         parsed_secret_ref = secret_ref
+
+    if parsed_authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT:
+        if secret_ref is not None:
+            return None
+        signed_jwt = authentication.get("signedJwt")
+        if not isinstance(signed_jwt, Mapping):
+            return None
+        certificate_secret_ref = signed_jwt.get("certificateSecretRef")
+        jwks_url = signed_jwt.get("jwksUrl")
+        has_certificate = (
+            isinstance(certificate_secret_ref, Mapping)
+            and _is_non_empty_string(certificate_secret_ref.get("name"))
+        )
+        has_jwks_url = _is_non_empty_string(jwks_url)
+        if (
+            "certificateSecretRef" in signed_jwt and not has_certificate
+        ) or ("jwksUrl" in signed_jwt and not has_jwks_url):
+            return None
+        if has_certificate == has_jwks_url:
+            return None
+        if has_certificate:
+            parsed_signed_jwt_certificate_secret_ref = certificate_secret_ref
+        if has_jwks_url:
+            parsed_signed_jwt_jwks_url = jwks_url.strip()
+        signature_algorithm = signed_jwt.get("signatureAlgorithm")
+        if signature_algorithm is not None:
+            if not _is_non_empty_string(signature_algorithm):
+                return None
+            parsed_signed_jwt_signature_algorithm = signature_algorithm.strip()
+    elif isinstance(authentication, Mapping) and "signedJwt" in authentication:
+        return None
 
     if display_name is not None and not _is_non_empty_string(display_name):
         return None
@@ -789,6 +1156,18 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     if base_url is not None and not _is_non_empty_string(base_url):
         return None
     if admin_url is not None and not _is_non_empty_string(admin_url):
+        return None
+    if (
+        pkce_code_challenge_method is not None
+        and (
+            not isinstance(pkce_code_challenge_method, str)
+            or pkce_code_challenge_method not in {"S256", "plain"}
+        )
+    ):
+        return None
+    if backchannel_logout_url is not None and not _is_non_empty_string(
+        backchannel_logout_url
+    ):
         return None
 
     parsed_enabled = _parse_bool(enabled)
@@ -801,6 +1180,20 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     parsed_service_accounts_enabled = _parse_optional_bool(spec, "serviceAccountsEnabled")
     parsed_full_scope_allowed = _parse_optional_bool(spec, "fullScopeAllowed")
     parsed_frontchannel_logout = _parse_optional_bool(spec, "frontchannelLogout")
+    parsed_consent_required = _parse_optional_bool(spec, "consentRequired")
+    parsed_backchannel_logout_session_required = _parse_optional_bool(
+        spec,
+        "backchannelLogoutSessionRequired",
+    )
+    parsed_backchannel_logout_revoke_offline_tokens = _parse_optional_bool(
+        spec,
+        "backchannelLogoutRevokeOfflineTokens",
+    )
+    parsed_use_refresh_tokens = _parse_optional_bool(spec, "useRefreshTokens")
+    parsed_use_refresh_tokens_for_client_credentials = _parse_optional_bool(
+        spec,
+        "useRefreshTokensForClientCredentials",
+    )
     if (
         parsed_enabled is _INVALID_BOOL
         or parsed_standard_flow_enabled is _INVALID_BOOL
@@ -809,6 +1202,11 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         or parsed_service_accounts_enabled is _INVALID_BOOL
         or parsed_full_scope_allowed is _INVALID_BOOL
         or parsed_frontchannel_logout is _INVALID_BOOL
+        or parsed_consent_required is _INVALID_BOOL
+        or parsed_backchannel_logout_session_required is _INVALID_BOOL
+        or parsed_backchannel_logout_revoke_offline_tokens is _INVALID_BOOL
+        or parsed_use_refresh_tokens is _INVALID_BOOL
+        or parsed_use_refresh_tokens_for_client_credentials is _INVALID_BOOL
     ):
         return None
     if (
@@ -821,11 +1219,20 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     parsed_web_origins = _parse_string_tuple(web_origins)
     parsed_default_client_scopes = _parse_unique_string_tuple(default_client_scopes)
     parsed_optional_client_scopes = _parse_unique_string_tuple(optional_client_scopes)
+    parsed_post_logout_redirect_uris = (
+        _parse_unique_string_tuple(post_logout_redirect_uris)
+        if post_logout_redirect_uris is not None
+        else None
+    )
     if (
         parsed_redirect_uris is None
         or parsed_web_origins is None
         or parsed_default_client_scopes is None
         or parsed_optional_client_scopes is None
+        or (
+            post_logout_redirect_uris is not None
+            and parsed_post_logout_redirect_uris is None
+        )
     ):
         return None
 
@@ -837,6 +1244,13 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         management_policy=parsed_management_policy,
         deletion_policy=parsed_deletion_policy,
         secret_ref=parsed_secret_ref,
+        authentication_declared=authentication_declared,
+        authentication_method=parsed_authentication_method,
+        signed_jwt_certificate_secret_ref=(
+            parsed_signed_jwt_certificate_secret_ref
+        ),
+        signed_jwt_jwks_url=parsed_signed_jwt_jwks_url,
+        signed_jwt_signature_algorithm=parsed_signed_jwt_signature_algorithm,
         enabled=parsed_enabled,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
         description=description.strip() if isinstance(description, str) else None,
@@ -871,6 +1285,38 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
         frontchannel_logout=(
             parsed_frontchannel_logout
             if isinstance(parsed_frontchannel_logout, bool)
+            else None
+        ),
+        consent_required=(
+            parsed_consent_required
+            if isinstance(parsed_consent_required, bool)
+            else None
+        ),
+        pkce_code_challenge_method=pkce_code_challenge_method,
+        post_logout_redirect_uris=parsed_post_logout_redirect_uris,
+        backchannel_logout_url=(
+            backchannel_logout_url.strip()
+            if isinstance(backchannel_logout_url, str)
+            else None
+        ),
+        backchannel_logout_session_required=(
+            parsed_backchannel_logout_session_required
+            if isinstance(parsed_backchannel_logout_session_required, bool)
+            else None
+        ),
+        backchannel_logout_revoke_offline_tokens=(
+            parsed_backchannel_logout_revoke_offline_tokens
+            if isinstance(parsed_backchannel_logout_revoke_offline_tokens, bool)
+            else None
+        ),
+        use_refresh_tokens=(
+            parsed_use_refresh_tokens
+            if isinstance(parsed_use_refresh_tokens, bool)
+            else None
+        ),
+        use_refresh_tokens_for_client_credentials=(
+            parsed_use_refresh_tokens_for_client_credentials
+            if isinstance(parsed_use_refresh_tokens_for_client_credentials, bool)
             else None
         ),
         redirect_uris=parsed_redirect_uris,
@@ -964,11 +1410,40 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("clientId")
 
     client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    authentication = spec.get("authentication")
+    authentication_method = (
+        authentication.get("method") if isinstance(authentication, Mapping) else None
+    )
     secret_ref = spec.get("secretRef")
     secret_name = secret_ref.get("name") if isinstance(secret_ref, Mapping) else None
 
-    if client_type == CLIENT_TYPE_CONFIDENTIAL and not _is_non_empty_string(secret_name):
-        missing_fields.append("secretRef.name")
+    if client_type == CLIENT_TYPE_CONFIDENTIAL:
+        if "authentication" in spec and not _is_non_empty_string(authentication_method):
+            missing_fields.append("authentication.method")
+        elif authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT:
+            signed_jwt = (
+                authentication.get("signedJwt")
+                if isinstance(authentication, Mapping)
+                else None
+            )
+            if not isinstance(signed_jwt, Mapping):
+                missing_fields.append("authentication.signedJwt")
+            else:
+                certificate_secret_ref = signed_jwt.get("certificateSecretRef")
+                certificate_name = (
+                    certificate_secret_ref.get("name")
+                    if isinstance(certificate_secret_ref, Mapping)
+                    else None
+                )
+                if not _is_non_empty_string(
+                    certificate_name
+                ) and not _is_non_empty_string(signed_jwt.get("jwksUrl")):
+                    missing_fields.append(
+                        "authentication.signedJwt.certificateSecretRef.name or "
+                        "authentication.signedJwt.jwksUrl"
+                    )
+        elif not _is_non_empty_string(secret_name):
+            missing_fields.append("secretRef.name")
 
     return missing_fields
 
@@ -1008,6 +1483,18 @@ def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
         bool_field_error(spec, "serviceAccountsEnabled"),
         bool_field_error(spec, "fullScopeAllowed"),
         bool_field_error(spec, "frontchannelLogout"),
+        bool_field_error(spec, "consentRequired"),
+        enum_field_error(
+            spec,
+            "pkceCodeChallengeMethod",
+            {"S256", "plain"},
+        ),
+        unique_string_list_field_error(spec, "postLogoutRedirectUris"),
+        non_empty_string_field_error(spec, "backchannelLogoutUrl"),
+        bool_field_error(spec, "backchannelLogoutSessionRequired"),
+        bool_field_error(spec, "backchannelLogoutRevokeOfflineTokens"),
+        bool_field_error(spec, "useRefreshTokens"),
+        bool_field_error(spec, "useRefreshTokensForClientCredentials"),
         string_list_field_error(spec, "redirectUris"),
         string_list_field_error(spec, "webOrigins"),
         unique_string_list_field_error(spec, "defaultClientScopes"),
@@ -1023,7 +1510,74 @@ def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
     ):
         errors.append("serviceAccountsEnabled can be true only for Confidential clients")
 
+    errors.extend(_authentication_field_errors(spec))
+
     return [error for error in errors if error is not None]
+
+
+def _authentication_field_errors(spec: Mapping[str, Any]) -> list[str]:
+    if "authentication" not in spec:
+        return []
+
+    authentication = spec.get("authentication")
+    if not isinstance(authentication, Mapping):
+        return ["authentication must be an object"]
+
+    errors: list[str] = []
+    client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    if client_type != CLIENT_TYPE_CONFIDENTIAL:
+        errors.append("authentication is supported only for Confidential clients")
+
+    method = authentication.get("method")
+    if _is_non_empty_string(method) and method not in {
+        AUTHENTICATION_METHOD_CLIENT_SECRET,
+        AUTHENTICATION_METHOD_SIGNED_JWT,
+    }:
+        errors.append(
+            "authentication.method must be one of: `ClientSecret`, `SignedJwt`"
+        )
+
+    signed_jwt = authentication.get("signedJwt")
+    if method == AUTHENTICATION_METHOD_CLIENT_SECRET and "signedJwt" in authentication:
+        errors.append(
+            "authentication.signedJwt can be set only when authentication.method "
+            "is SignedJwt"
+        )
+    if method != AUTHENTICATION_METHOD_SIGNED_JWT:
+        return errors
+
+    if spec.get("secretRef") is not None:
+        errors.append("secretRef cannot be set when authentication.method is SignedJwt")
+    if not isinstance(signed_jwt, Mapping):
+        return errors
+
+    certificate_secret_ref = signed_jwt.get("certificateSecretRef")
+    has_certificate = (
+        isinstance(certificate_secret_ref, Mapping)
+        and _is_non_empty_string(certificate_secret_ref.get("name"))
+    )
+    has_jwks_url = _is_non_empty_string(signed_jwt.get("jwksUrl"))
+    if "certificateSecretRef" in signed_jwt and not has_certificate:
+        errors.append(
+            "authentication.signedJwt.certificateSecretRef.name must be a "
+            "non-empty string"
+        )
+    if "jwksUrl" in signed_jwt and not has_jwks_url:
+        errors.append("authentication.signedJwt.jwksUrl must be a non-empty string")
+    if has_certificate and has_jwks_url:
+        errors.append(
+            "authentication.signedJwt must set exactly one of "
+            "certificateSecretRef or jwksUrl"
+        )
+    signature_algorithm = signed_jwt.get("signatureAlgorithm")
+    if signature_algorithm is not None and not _is_non_empty_string(
+        signature_algorithm
+    ):
+        errors.append(
+            "authentication.signedJwt.signatureAlgorithm must be a non-empty string"
+        )
+
+    return errors
 
 
 def _set_blocked_conditions(

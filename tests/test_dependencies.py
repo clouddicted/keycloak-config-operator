@@ -67,6 +67,14 @@ def test_client_dependencies_include_target_secret_and_client_scopes() -> None:
         spec={
             "targetRef": {"name": "keycloak"},
             "secretRef": {"name": "client-secret"},
+            "authentication": {
+                "signedJwt": {
+                    "certificateSecretRef": {
+                        "name": "client-certificate",
+                        "namespace": "security",
+                    }
+                }
+            },
             "defaultClientScopes": ["profile", "email"],
             "optionalClientScopes": ["offline_access", "profile"],
         },
@@ -75,6 +83,7 @@ def test_client_dependencies_include_target_secret_and_client_scopes() -> None:
     assert keys == {
         _key(API_GROUP, KEYCLOAK_TARGET_PLURAL, "apps", "keycloak"),
         _key("", "secrets", "apps", "client-secret"),
+        _key("", "secrets", "security", "client-certificate"),
         _key(API_GROUP, KEYCLOAK_CLIENT_SCOPE_PLURAL, "apps", "profile"),
         _key(API_GROUP, KEYCLOAK_CLIENT_SCOPE_PLURAL, "apps", "email"),
         _key(API_GROUP, KEYCLOAK_CLIENT_SCOPE_PLURAL, "apps", "offline_access"),
