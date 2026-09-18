@@ -77,6 +77,16 @@ spec:
                   description: Client scope protocol.
                   default: openid-connect
                   minLength: 1
+                displayOnConsentScreen:
+                  type: boolean
+                  description: Whether this scope appears on the user consent screen.
+                consentScreenText:
+                  type: string
+                  description: Text shown for this scope on the user consent screen.
+                  minLength: 1
+                includeInTokenScope:
+                  type: boolean
+                  description: Whether the scope name is included in token scope claims.
                 managementPolicy:
                   type: string
                   description:

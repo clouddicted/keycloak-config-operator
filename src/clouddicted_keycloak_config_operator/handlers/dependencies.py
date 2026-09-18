@@ -177,6 +177,13 @@ def dependency_keys_for_resource(
         _add_target_secret_dependencies(dependencies, spec, namespace)
     elif plural == KEYCLOAK_CLIENT_PLURAL:
         _add_secret_ref(dependencies, spec.get("secretRef"), namespace)
+        authentication = _mapping(spec.get("authentication"))
+        signed_jwt = _mapping(authentication.get("signedJwt"))
+        _add_secret_ref(
+            dependencies,
+            signed_jwt.get("certificateSecretRef"),
+            namespace,
+        )
         for scope_name in _string_values(spec.get("defaultClientScopes")):
             dependencies.add(
                 _dependency_key(API_GROUP, KEYCLOAK_CLIENT_SCOPE_PLURAL, namespace, scope_name)

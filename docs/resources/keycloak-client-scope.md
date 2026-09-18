@@ -19,6 +19,9 @@ spec:
   realm: example
   name: example-profile
   description: Example profile client scope
+  displayOnConsentScreen: true
+  consentScreenText: Example profile access
+  includeInTokenScope: true
 ```
 
 ## Practices
@@ -28,6 +31,13 @@ spec:
   claims.
 - Use clear names that describe the claims or behavior the scope provides.
 - Keep shared scopes stable. Changes can affect every client that uses them.
+- Set `displayOnConsentScreen` and `consentScreenText` when a client that requires
+  consent should explain this scope to users.
+- Set `includeInTokenScope` to control whether the scope name appears in token,
+  token response, and introspection `scope` claims.
+
+Only declared attributes are owned. If one of these fields is omitted, an
+existing value in Keycloak is preserved.
 
 ## Lifecycle Choices
 

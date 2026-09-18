@@ -30,6 +30,12 @@ from clouddicted_keycloak_config_operator.status import (
 
 NOW = datetime(2026, 5, 22, 10, 30, 45, tzinfo=UTC)
 OLD_NOW = datetime(2026, 5, 22, 9, 30, 45, tzinfo=UTC)
+CLIENT_CERTIFICATE_PEM = (
+    "-----BEGIN CERTIFICATE-----\n"
+    "MAMCAQE=\n"
+    "-----END CERTIFICATE-----\n"
+)
+CLIENT_CERTIFICATE_DER_BASE64 = "MAMCAQE="
 
 
 @dataclass
@@ -1026,6 +1032,294 @@ def test_patch_keycloak_client_status_creates_missing_confidential_client() -> N
     assert _condition_messages(patch).isdisjoint({"client-secret-value"})
 
 
+def test_patch_keycloak_client_status_reconciles_selected_attributes() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(
+                consentRequired=False,
+                attributes={
+                    "pkce.code.challenge.method": "plain",
+                    "post.logout.redirect.uris": "https://old.example.test/logout",
+                    "unmanaged.attribute": "preserved",
+                },
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            consent_required=True,
+            pkce_code_challenge_method="S256",
+            post_logout_redirect_uris=[
+                "https://app.example.test/logout",
+                "https://app.example.test/signed-out",
+            ],
+            backchannel_logout_url="https://app.example.test/backchannel-logout",
+            backchannel_logout_session_required=True,
+            backchannel_logout_revoke_offline_tokens=False,
+            use_refresh_tokens=True,
+            use_refresh_tokens_for_client_credentials=False,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+        keycloak_client_handler.CLIENT_UPDATED_REASON
+    )
+    put_payload = keycloak_client.requests[1][2]["json"]
+    assert put_payload["consentRequired"] is True
+    assert put_payload["attributes"] == {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": (
+            "https://app.example.test/logout##https://app.example.test/signed-out"
+        ),
+        "backchannel.logout.url": "https://app.example.test/backchannel-logout",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false",
+        "use.refresh.tokens": "true",
+        "client_credentials.use_refresh_token": "false",
+        "unmanaged.attribute": "preserved",
+    }
+    assert [request[0] for request in keycloak_client.requests] == ["GET", "PUT", "GET"]
+
+
+def test_post_logout_redirect_uri_order_does_not_cause_drift() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_public_client(
+                attributes={
+                    "post.logout.redirect.uris": (
+                        "https://app.example.test/signed-out##"
+                        "https://app.example.test/logout"
+                    )
+                }
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            post_logout_redirect_uris=[
+                "https://app.example.test/logout",
+                "https://app.example.test/signed-out",
+            ]
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+        keycloak_client_handler.CLIENT_OBSERVED_REASON
+    )
+    assert [request[0] for request in keycloak_client.requests] == ["GET"]
+
+
+def test_patch_keycloak_client_status_creates_signed_jwt_client_with_jwks_url() -> None:
+    keycloak_client = FakeKeycloakClient()
+    core_v1_api = FakeCoreV1Api()
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            authentication={
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "jwksUrl": "https://service.example.test/.well-known/jwks.json",
+                    "signatureAlgorithm": "RS256",
+                },
+            },
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+        keycloak_client_handler.CLIENT_CREATED_REASON
+    )
+    create_payload = keycloak_client.requests[1][2]["json"]
+    assert create_payload["clientAuthenticatorType"] == "client-jwt"
+    assert create_payload["attributes"] == {
+        "use.jwks.url": "true",
+        "jwks.url": "https://service.example.test/.well-known/jwks.json",
+        "token.endpoint.auth.signing.alg": "RS256",
+    }
+    assert "secret" not in create_payload
+    assert core_v1_api.calls == []
+
+
+def test_signed_jwt_source_change_removes_stale_certificate_attribute() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_confidential_client(
+                clientAuthenticatorType="client-jwt",
+                attributes={
+                    "use.jwks.url": "false",
+                    "jwt.credential.certificate": "old-certificate",
+                    "unmanaged.attribute": "preserved",
+                },
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            authentication={
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "jwksUrl": "https://service.example.test/.well-known/jwks.json",
+                },
+            },
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    attributes = keycloak_client.requests[1][2]["json"]["attributes"]
+    assert "jwt.credential.certificate" not in attributes
+    assert attributes == {
+        "use.jwks.url": "true",
+        "jwks.url": "https://service.example.test/.well-known/jwks.json",
+        "unmanaged.attribute": "preserved",
+    }
+    assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+        keycloak_client_handler.CLIENT_UPDATED_REASON
+    )
+
+
+def test_patch_keycloak_client_status_loads_signed_jwt_certificate_from_secret() -> None:
+    keycloak_client = FakeKeycloakClient()
+    core_v1_api = FakeCoreV1Api(
+        {
+            ("apps", "example-service-certificate"): FakeSecret(
+                data={"tls.crt": _b64(CLIENT_CERTIFICATE_PEM)},
+            )
+        }
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            authentication={
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "certificateSecretRef": {
+                        "name": "example-service-certificate",
+                    },
+                },
+            },
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    create_payload = keycloak_client.requests[1][2]["json"]
+    assert create_payload["clientAuthenticatorType"] == "client-jwt"
+    assert create_payload["attributes"] == {
+        "use.jwks.url": "false",
+        "jwt.credential.certificate": CLIENT_CERTIFICATE_DER_BASE64,
+    }
+    assert core_v1_api.calls == [("apps", "example-service-certificate")]
+
+
+def test_invalid_signed_jwt_certificate_reports_secret_unavailable_safely() -> None:
+    keycloak_client = FakeKeycloakClient()
+    core_v1_api = FakeCoreV1Api(
+        {
+            ("apps", "example-service-certificate"): FakeSecret(
+                data={"tls.crt": _b64("private-or-invalid-value")},
+            )
+        }
+    )
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            authentication={
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "certificateSecretRef": {
+                        "name": "example-service-certificate",
+                    },
+                },
+            },
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        core_v1_api=core_v1_api,
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    ready = _conditions_by_type(patch)[CONDITION_READY]
+    assert ready["reason"] == keycloak_client_handler.SECRET_UNAVAILABLE_REASON
+    assert retry == reconciliation.RetryRequest(ready["reason"], ready["message"])
+    assert "private-or-invalid-value" not in str(patch)
+    assert keycloak_client.requests == []
+
+
+def test_patch_keycloak_client_status_rejects_ambiguous_signed_jwt_source() -> None:
+    patch: dict[str, Any] = {}
+
+    keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            authentication={
+                "method": "SignedJwt",
+                "signedJwt": {
+                    "certificateSecretRef": {"name": "certificate"},
+                    "jwksUrl": "https://service.example.test/jwks",
+                },
+            },
+        ),
+        status={},
+        patch=patch,
+        target_resolver=_failing_target_resolver,
+        keycloak_client_factory=_failing_keycloak_client_factory,
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY]["message"] == (
+        "Invalid KeycloakClient spec fields: authentication.signedJwt must set "
+        "exactly one of certificateSecretRef or jwksUrl."
+    )
+
+
 def test_patch_keycloak_client_status_reports_missing_client_secret_without_secret_values() -> None:
     keycloak_client = FakeKeycloakClient()
     core_v1_api = FakeCoreV1Api(
@@ -1052,7 +1346,10 @@ def test_patch_keycloak_client_status_reports_missing_client_secret_without_secr
         "type": CONDITION_READY,
         "status": "False",
         "reason": keycloak_client_handler.SECRET_UNAVAILABLE_REASON,
-        "message": "KeycloakClient is not ready because the client Secret could not be loaded.",
+        "message": (
+            "KeycloakClient is not ready because a client credential Secret could not "
+            "be loaded."
+        ),
         "lastTransitionTime": "2026-05-22T10:30:45Z",
     }
     assert core_v1_api.calls == [("apps", "example-client-secret")]
@@ -1418,6 +1715,7 @@ def _client_spec(
     management_policy: str | None = None,
     deletion_policy: str | None = None,
     secret_ref: dict[str, str] | None = None,
+    authentication: dict[str, Any] | None = None,
     enabled: Any | None = None,
     display_name: str | None = None,
     description: str | None = None,
@@ -1432,6 +1730,14 @@ def _client_spec(
     service_accounts_enabled: bool | None = None,
     full_scope_allowed: Any | None = None,
     frontchannel_logout: Any | None = None,
+    consent_required: Any | None = None,
+    pkce_code_challenge_method: Any | None = None,
+    post_logout_redirect_uris: Any | None = None,
+    backchannel_logout_url: Any | None = None,
+    backchannel_logout_session_required: Any | None = None,
+    backchannel_logout_revoke_offline_tokens: Any | None = None,
+    use_refresh_tokens: Any | None = None,
+    use_refresh_tokens_for_client_credentials: Any | None = None,
     default_client_scopes: list[str] | None = None,
     optional_client_scopes: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -1448,6 +1754,8 @@ def _client_spec(
         spec["deletionPolicy"] = deletion_policy
     if secret_ref is not None:
         spec["secretRef"] = secret_ref
+    if authentication is not None:
+        spec["authentication"] = authentication
     if enabled is not None:
         spec["enabled"] = enabled
     if display_name is not None:
@@ -1476,6 +1784,28 @@ def _client_spec(
         spec["fullScopeAllowed"] = full_scope_allowed
     if frontchannel_logout is not None:
         spec["frontchannelLogout"] = frontchannel_logout
+    if consent_required is not None:
+        spec["consentRequired"] = consent_required
+    if pkce_code_challenge_method is not None:
+        spec["pkceCodeChallengeMethod"] = pkce_code_challenge_method
+    if post_logout_redirect_uris is not None:
+        spec["postLogoutRedirectUris"] = post_logout_redirect_uris
+    if backchannel_logout_url is not None:
+        spec["backchannelLogoutUrl"] = backchannel_logout_url
+    if backchannel_logout_session_required is not None:
+        spec["backchannelLogoutSessionRequired"] = (
+            backchannel_logout_session_required
+        )
+    if backchannel_logout_revoke_offline_tokens is not None:
+        spec["backchannelLogoutRevokeOfflineTokens"] = (
+            backchannel_logout_revoke_offline_tokens
+        )
+    if use_refresh_tokens is not None:
+        spec["useRefreshTokens"] = use_refresh_tokens
+    if use_refresh_tokens_for_client_credentials is not None:
+        spec["useRefreshTokensForClientCredentials"] = (
+            use_refresh_tokens_for_client_credentials
+        )
     if default_client_scopes is not None:
         spec["defaultClientScopes"] = default_client_scopes
     if optional_client_scopes is not None:

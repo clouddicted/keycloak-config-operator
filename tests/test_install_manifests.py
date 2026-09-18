@@ -24,7 +24,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.6.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.7.0"
 OPERATOR_ARGS = [
     "run",
     "-m",
@@ -109,15 +109,54 @@ def test_keycloak_client_crd_validates_common_user_mistakes() -> None:
             "message": (
                 "serviceAccountsEnabled can be true only when clientType is Confidential."
             ),
-        }
+        },
+        {
+            "rule": (
+                "!has(self.authentication) || "
+                "(has(self.clientType) && self.clientType == 'Confidential')"
+            ),
+            "message": "authentication can be set only when clientType is Confidential.",
+        },
+        {
+            "rule": (
+                "!has(self.clientType) || self.clientType != 'Confidential' || "
+                "has(self.authentication) || has(self.secretRef)"
+            ),
+            "message": "Confidential clients require authentication or secretRef.",
+        },
+        {
+            "rule": (
+                "!has(self.authentication) || "
+                "self.authentication.method != 'ClientSecret' || has(self.secretRef)"
+            ),
+            "message": "ClientSecret authentication requires secretRef.",
+        },
+        {
+            "rule": (
+                "!has(self.authentication) || "
+                "self.authentication.method != 'SignedJwt' || !has(self.secretRef)"
+            ),
+            "message": "secretRef cannot be set with SignedJwt authentication.",
+        },
     ]
     for field_name in (
         "redirectUris",
         "webOrigins",
         "defaultClientScopes",
         "optionalClientScopes",
+        "postLogoutRedirectUris",
     ):
         assert spec_properties[field_name]["x-kubernetes-list-type"] == "set"
+
+    authentication = spec_properties["authentication"]
+    assert authentication["required"] == ["method"]
+    signed_jwt = authentication["properties"]["signedJwt"]
+    assert signed_jwt["x-kubernetes-validations"] == [
+        {
+            "rule": "has(self.certificateSecretRef) != has(self.jwksUrl)",
+            "message": "Set exactly one of certificateSecretRef or jwksUrl.",
+        }
+    ]
 
 
 def test_crds_use_standard_status_condition_schema() -> None:
