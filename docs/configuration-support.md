@@ -23,12 +23,12 @@ from the Admin Console or a realm export into Kubernetes manifests.
 
 | Area | Current coverage | Notes |
 | --- | --- | --- |
-| Application clients | Partial | Core client settings are covered. Some Keycloak client attributes, such as PKCE, post-logout redirect URIs, backchannel logout options, and advanced token flags, are not modeled yet. |
-| Identity providers | Partial | Basic provider creation and config are covered. Identity provider mappers and several top-level provider flags are not modeled yet. |
+| Application clients | Partial | Core settings, selected OIDC attributes, client-secret authentication, and Signed JWT authentication are covered. Authorization services and other advanced attributes are not modeled. |
+| Identity providers | Supported | Provider creation, common top-level fields, provider config, Secret-backed config, and identity-provider mappers are covered. |
 | Protocol mappers on clients and client scopes | Supported | Generic mapper type and config support covers common OIDC and SAML mappers. |
 | Realm and client roles | Partial | Simple roles are covered. Composite roles are not modeled yet. |
 | Groups and group role assignments | Partial | Top-level groups and one declared group-to-role assignment are covered. Nested groups and user membership are not modeled yet. |
-| Client scopes | Partial | Scope name, protocol, description, and mappers are covered. Client scope attributes such as consent text and token-scope display flags are not modeled yet. |
+| Client scopes | Supported | Scope name, protocol, description, consent settings, token-scope inclusion, and protocol mappers are covered. |
 | Realm-wide settings | Limited | Realm creation and display name updates are covered. Lifespans, browser security headers, OTP/WebAuthn policy, brute-force settings, themes, events, SMTP, and default scope settings are not modeled yet. |
 | Authentication flows and required actions | Unsupported | Custom flows, flow bindings, authenticator config, and required actions are not modeled yet. |
 | Components | Unsupported | User profile provider config, client registration policies, and key provider components are not modeled. |
@@ -63,12 +63,12 @@ modeled field drift with a `DriftDetected=True` condition and a Warning Event.
 | --- | --- |
 | `KeycloakRealm` | `displayName` when set. Realm creation also sets `enabled: true`. |
 | `KeycloakIdentityProvider` | `providerId`, `enabled`, `displayName`, declared `config` keys, and declared `configSecretRefs` keys. Undeclared existing config keys are preserved. Provider alias is the lookup key. |
-| `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, and confidential client secret on create. |
+| `KeycloakClient` | `enabled`, `name`, `description`, `rootUrl`, `baseUrl`, `adminUrl`, flow and consent toggles, `fullScopeAllowed`, `frontchannelLogout`, `redirectUris`, `webOrigins`, default and optional client scopes, public/confidential type, declared OIDC attributes, and explicit client authentication. Undeclared existing attributes are preserved. Client-secret values are applied only on create; Signed JWT certificate changes are reconciled. |
 | `KeycloakClientRole` | `description` when set. Client reference and role name are lookup keys. |
 | `KeycloakGroup` | `attributes` when set. Group name is the lookup key. |
 | `KeycloakGroupRoleMapping` | Presence of one declared group-to-role assignment. It does not prune other role assignments on the group. |
 | `KeycloakRole` | `description` when set. Role name is the lookup key. |
-| `KeycloakClientScope` | `description` when set and `protocol`. Scope name is the lookup key. |
+| `KeycloakClientScope` | `description` when set, `protocol`, and declared consent or token-scope attributes. Undeclared existing attributes are preserved. Scope name is the lookup key. |
 | `KeycloakProtocolMapper` | `protocol`, `protocolMapper`, and declared `config` keys. Undeclared existing config keys are preserved. Mapper name and parent are lookup keys. |
 
 ## KeycloakTarget
@@ -120,10 +120,27 @@ secret in Kubernetes.
 | `spec.serviceAccountsEnabled` | Supported | Reconciled when set. Intended for confidential clients. |
 | `spec.fullScopeAllowed` | Supported | Reconciled when set. Use `false` with explicit scope assignments for least privilege. |
 | `spec.frontchannelLogout` | Supported | Reconciled when set. |
-| `spec.secretRef` | Supported | Required for confidential clients. |
+| `spec.consentRequired` | Supported | Reconciled when set. |
+| `spec.pkceCodeChallengeMethod` | Supported | `S256` or `plain`; reconciled through the Keycloak client attribute map. |
+| `spec.postLogoutRedirectUris` | Supported | Reconciled as an order-independent set through Keycloak's multi-value client attribute. |
+| `spec.backchannelLogoutUrl` | Supported | Reconciled when set. |
+| `spec.backchannelLogoutSessionRequired` | Supported | Reconciled when set. |
+| `spec.backchannelLogoutRevokeOfflineTokens` | Supported | Reconciled when set. |
+| `spec.useRefreshTokens` | Supported | Reconciled when set. |
+| `spec.useRefreshTokensForClientCredentials` | Supported | Reconciled when set. Keycloak recommends leaving this disabled for ordinary client-credentials use. |
+| `spec.secretRef` | Supported | Required for confidential clients using the default or explicit `ClientSecret` authentication method. |
 | `spec.secretRef.name` | Supported | Secret name containing the client secret. |
 | `spec.secretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |
 | `spec.secretRef.secretKey` | Supported | Optional key name containing the secret value. |
+| `spec.authentication` | Supported | Optional explicit authentication configuration for confidential clients. |
+| `spec.authentication.method` | Supported | `ClientSecret` or `SignedJwt`. Omit `authentication` to retain the existing client-secret behavior. |
+| `spec.authentication.signedJwt` | Supported | Required configuration object when the method is `SignedJwt`. |
+| `spec.authentication.signedJwt.certificateSecretRef` | Supported | Selects a Secret containing one PEM X.509 certificate. Mutually exclusive with `jwksUrl`. |
+| `spec.authentication.signedJwt.certificateSecretRef.name` | Supported | Secret name containing the certificate. |
+| `spec.authentication.signedJwt.certificateSecretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |
+| `spec.authentication.signedJwt.certificateSecretRef.secretKey` | Supported | Optional key name; defaults to `tls.crt`. |
+| `spec.authentication.signedJwt.jwksUrl` | Supported | URL from which Keycloak loads the client's public JWKS. Mutually exclusive with `certificateSecretRef`. |
+| `spec.authentication.signedJwt.signatureAlgorithm` | Supported | Optional Keycloak token-endpoint signature algorithm constraint, such as `RS256`. |
 | `spec.redirectUris` | Supported | Reconciled list of redirect URIs. |
 | `spec.webOrigins` | Supported | Reconciled list of web origins. |
 | `spec.defaultClientScopes` | Supported | Reconciled list of default client scope assignments when set. All declared scopes must exist in the realm before client writes. |
@@ -223,6 +240,9 @@ drift is already present. A successful write with remaining visible drift report
 | `spec.name` | Supported | Client scope name and remote lookup key. |
 | `spec.description` | Supported | Reconciled when set. |
 | `spec.protocol` | Supported | Defaults to `openid-connect`. |
+| `spec.displayOnConsentScreen` | Supported | Reconciled when set. |
+| `spec.consentScreenText` | Supported | Reconciled when set. |
+| `spec.includeInTokenScope` | Supported | Reconciled when set. |
 | `spec.managementPolicy` | Supported | `Reconcile` or `ObserveOnly`; defaults to `Reconcile`. |
 | `spec.deletionPolicy` | Supported | `Orphan` or `Delete`; defaults to `Orphan`. |
 

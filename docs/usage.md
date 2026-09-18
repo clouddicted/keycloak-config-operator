@@ -15,7 +15,7 @@ in the namespaces the operator watches.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.6.0 \
+  --version 0.7.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
@@ -26,7 +26,7 @@ the watch scope, install with `watchNamespaces`.
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.6.0 \
+  --version 0.7.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace \
   --set 'watchNamespaces[0]=keycloak-config'
@@ -53,9 +53,10 @@ keycloak-config                  KeycloakTarget, related CRs, and Secrets
 ```
 
 Referenced Secrets also default to the CR's namespace. A `secretRef.namespace`
-can select another namespace where the CRD supports it, but the operator's
-ServiceAccount must have Secret access there. Keeping Secrets with their CRs is
-the recommended layout, especially when `watchNamespaces` restricts RBAC.
+or Signed JWT `certificateSecretRef.namespace` can select another namespace
+where the CRD supports it, but the operator's ServiceAccount must have Secret
+access there. Keeping Secrets with their CRs is the recommended layout,
+especially when `watchNamespaces` restricts RBAC.
 
 ## Configure A Keycloak Target
 

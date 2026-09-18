@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.7.0 - 2026-09-18
+
+### Highlights
+
+- Added typed `KeycloakClient` fields for PKCE, post-logout redirect URIs,
+  back-channel logout, refresh-token behavior, and user consent.
+- Added client-scope consent text, consent-screen visibility, and token-scope
+  inclusion settings to `KeycloakClientScope`.
+- Added explicit confidential-client authentication with `ClientSecret` or
+  `SignedJwt`. Signed JWT clients can load a PEM X.509 certificate from a
+  Kubernetes Secret or publish their public keys through a JWKS URL.
+
+### Reconciliation
+
+- Reconcile only the declared client and client-scope attributes while preserving
+  unrelated Keycloak attributes.
+- Compare post-logout redirect URIs as a set and serialize them with Keycloak's
+  multi-value separator, avoiding writes caused only by ordering.
+- Watch Signed JWT certificate Secrets and reconcile certificate rotations without
+  exposing certificate or Secret values in status conditions.
+- Preserve the existing confidential-client behavior: when `spec.authentication`
+  is omitted, `spec.secretRef` continues to configure client-secret authentication.
+
+### Documentation and Testing
+
+- Added public and Signed JWT examples, complete field documentation, CRD validation,
+  focused unit coverage, and kind assertions for the Keycloak Admin API representation.
+- Updated operator, image, and Helm chart release metadata to `v0.7.0`.
+
+### Upgrade Notes
+
+- Apply the updated CRDs before deploying the `v0.7.0` operator.
+- Existing confidential client manifests remain compatible. Use
+  `spec.authentication.method: SignedJwt` only when migrating a client from a shared
+  secret to an X.509 certificate or JWKS endpoint.
+
 ## v0.6.0 - 2026-09-06
 
 ### Highlights

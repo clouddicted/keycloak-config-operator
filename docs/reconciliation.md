@@ -21,7 +21,7 @@ Dependency-triggered reconciliation covers these references:
 | `KeycloakTarget` | Admin password, bootstrap admin, client credentials, and legacy admin credential Secrets |
 | `KeycloakIdentityProvider` | Secrets in `spec.configSecretRefs` |
 | `KeycloakIdentityProviderMapper` | Its parent identity provider, referenced by CR name or provider alias |
-| `KeycloakClient` | Its client Secret and declared default or optional `KeycloakClientScope` resources |
+| `KeycloakClient` | Its client-secret or Signed JWT certificate Secret and declared default or optional `KeycloakClientScope` resources |
 | `KeycloakClientRole` | Its `KeycloakClient` |
 | `KeycloakGroupRoleMapping` | Its group, realm role, client role, and owning client |
 | `KeycloakProtocolMapper` | Its parent client or client scope |

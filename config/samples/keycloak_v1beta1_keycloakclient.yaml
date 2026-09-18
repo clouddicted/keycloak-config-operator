@@ -18,6 +18,14 @@ spec:
   directAccessGrantsEnabled: false
   fullScopeAllowed: false
   frontchannelLogout: true
+  consentRequired: false
+  pkceCodeChallengeMethod: S256
+  postLogoutRedirectUris:
+    - https://app.example.com/signed-out
+  backchannelLogoutUrl: https://app.example.com/backchannel-logout
+  backchannelLogoutSessionRequired: true
+  backchannelLogoutRevokeOfflineTokens: false
+  useRefreshTokens: true
   redirectUris:
     - https://app.example.com/*
   webOrigins:

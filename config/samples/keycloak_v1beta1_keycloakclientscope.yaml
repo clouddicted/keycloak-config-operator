@@ -8,3 +8,6 @@ spec:
   realm: example
   name: example-profile
   description: Example profile client scope
+  displayOnConsentScreen: true
+  consentScreenText: Example profile access
+  includeInTokenScope: true

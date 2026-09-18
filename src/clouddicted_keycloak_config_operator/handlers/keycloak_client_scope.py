@@ -30,6 +30,7 @@ from clouddicted_keycloak_config_operator.handlers.reconciliation import (
     serialized_deletion,
 )
 from clouddicted_keycloak_config_operator.handlers.spec_validation import (
+    bool_field_error,
     enum_field_error,
     invalid_spec_message,
     non_empty_string_field_error,
@@ -73,6 +74,9 @@ DEFAULT_MANAGEMENT_POLICY = MANAGEMENT_POLICY_RECONCILE
 DELETION_POLICY_ORPHAN = "Orphan"
 DELETION_POLICY_DELETE = "Delete"
 DEFAULT_DELETION_POLICY = DELETION_POLICY_ORPHAN
+ATTRIBUTE_DISPLAY_ON_CONSENT_SCREEN = "display.on.consent.screen"
+ATTRIBUTE_CONSENT_SCREEN_TEXT = "consent.screen.text"
+ATTRIBUTE_INCLUDE_IN_TOKEN_SCOPE = "include.in.token.scope"
 DELETE_RETRY_DELAY_SECONDS = 30
 _CONDITION_FIELDS = ("type", "status", "reason", "message", "lastTransitionTime")
 
@@ -110,6 +114,9 @@ class ClientScopeSpec:
     deletion_policy: str
     protocol: str = DEFAULT_PROTOCOL
     description: str | None = None
+    display_on_consent_screen: bool | None = None
+    consent_screen_text: str | None = None
+    include_in_token_scope: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -399,7 +406,32 @@ def _modeled_client_scope_payload(client_scope_spec: ClientScopeSpec) -> dict[st
     if client_scope_spec.description is not None:
         payload["description"] = client_scope_spec.description
 
+    attributes = _modeled_client_scope_attributes(client_scope_spec)
+    if attributes:
+        payload["attributes"] = attributes
+
     return payload
+
+
+def _modeled_client_scope_attributes(
+    client_scope_spec: ClientScopeSpec,
+) -> dict[str, str]:
+    attributes: dict[str, str] = {}
+    if client_scope_spec.display_on_consent_screen is not None:
+        attributes[ATTRIBUTE_DISPLAY_ON_CONSENT_SCREEN] = _keycloak_boolean(
+            client_scope_spec.display_on_consent_screen
+        )
+    if client_scope_spec.consent_screen_text is not None:
+        attributes[ATTRIBUTE_CONSENT_SCREEN_TEXT] = client_scope_spec.consent_screen_text
+    if client_scope_spec.include_in_token_scope is not None:
+        attributes[ATTRIBUTE_INCLUDE_IN_TOKEN_SCOPE] = _keycloak_boolean(
+            client_scope_spec.include_in_token_scope
+        )
+    return attributes
+
+
+def _keycloak_boolean(value: bool) -> str:
+    return "true" if value else "false"
 
 
 def _has_modeled_drift(
@@ -407,9 +439,19 @@ def _has_modeled_drift(
     client_scope_spec: ClientScopeSpec,
 ) -> bool:
     desired_payload = _modeled_client_scope_payload(client_scope_spec)
-    return any(
+    desired_attributes = desired_payload.pop("attributes", {})
+    if any(
         existing_client_scope.get(field) != desired_value
         for field, desired_value in desired_payload.items()
+    ):
+        return True
+
+    existing_attributes = existing_client_scope.get("attributes")
+    if not isinstance(existing_attributes, Mapping):
+        existing_attributes = {}
+    return any(
+        existing_attributes.get(key) != value
+        for key, value in desired_attributes.items()
     )
 
 
@@ -418,7 +460,14 @@ def _client_scope_update_payload(
     client_scope_spec: ClientScopeSpec,
 ) -> dict[str, Any]:
     payload = dict(existing_client_scope)
-    payload.update(_modeled_client_scope_payload(client_scope_spec))
+    modeled_payload = _modeled_client_scope_payload(client_scope_spec)
+    modeled_attributes = modeled_payload.pop("attributes", {})
+    payload.update(modeled_payload)
+    existing_attributes = existing_client_scope.get("attributes")
+    attributes = dict(existing_attributes) if isinstance(existing_attributes, Mapping) else {}
+    attributes.update(modeled_attributes)
+    if attributes or isinstance(existing_attributes, Mapping):
+        payload["attributes"] = attributes
     return payload
 
 
@@ -450,6 +499,12 @@ def _parse_client_scope_spec(spec: Mapping[str, Any] | None) -> ClientScopeSpec 
     management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     deletion_policy = spec.get("deletionPolicy", DEFAULT_DELETION_POLICY)
     description = spec.get("description")
+    display_on_consent_screen = _parse_optional_bool(
+        spec,
+        "displayOnConsentScreen",
+    )
+    consent_screen_text = spec.get("consentScreenText")
+    include_in_token_scope = _parse_optional_bool(spec, "includeInTokenScope")
 
     if (
         not _is_non_empty_string(target_name)
@@ -462,6 +517,15 @@ def _parse_client_scope_spec(spec: Mapping[str, Any] | None) -> ClientScopeSpec 
         return None
 
     if description is not None and not _is_non_empty_string(description):
+        return None
+    if consent_screen_text is not None and not _is_non_empty_string(
+        consent_screen_text
+    ):
+        return None
+    if (
+        display_on_consent_screen is _INVALID_BOOL
+        or include_in_token_scope is _INVALID_BOOL
+    ):
         return None
 
     if not _is_non_empty_string(management_policy):
@@ -489,6 +553,21 @@ def _parse_client_scope_spec(spec: Mapping[str, Any] | None) -> ClientScopeSpec 
         deletion_policy=parsed_deletion_policy,
         protocol=protocol.strip(),
         description=description.strip() if isinstance(description, str) else None,
+        display_on_consent_screen=(
+            display_on_consent_screen
+            if isinstance(display_on_consent_screen, bool)
+            else None
+        ),
+        consent_screen_text=(
+            consent_screen_text.strip()
+            if isinstance(consent_screen_text, str)
+            else None
+        ),
+        include_in_token_scope=(
+            include_in_token_scope
+            if isinstance(include_in_token_scope, bool)
+            else None
+        ),
     )
 
 
@@ -563,9 +642,23 @@ def _invalid_spec_fields(spec: Mapping[str, Any] | None) -> list[str]:
         ),
         non_empty_string_field_error(spec, "protocol"),
         non_empty_string_field_error(spec, "description"),
+        bool_field_error(spec, "displayOnConsentScreen"),
+        non_empty_string_field_error(spec, "consentScreenText"),
+        bool_field_error(spec, "includeInTokenScope"),
     ]
 
     return [error for error in errors if error is not None]
+
+
+_INVALID_BOOL = object()
+
+
+def _parse_optional_bool(spec: Mapping[str, Any], field: str) -> bool | object | None:
+    if field not in spec:
+        return None
+
+    value = spec[field]
+    return value if isinstance(value, bool) else _INVALID_BOOL
 
 
 def _client_scope_ready_condition(

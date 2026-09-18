@@ -417,6 +417,46 @@ def test_patch_keycloak_client_scope_status_updates_drift_preserving_fields() ->
     assert patch["status"]["remoteId"] == "client-scope-uuid"
 
 
+def test_patch_keycloak_client_scope_status_reconciles_consent_attributes() -> None:
+    keycloak_client = FakeKeycloakClient(
+        scope_result=[
+            _existing_client_scope(
+                attributes={
+                    "display.on.consent.screen": "false",
+                    "include.in.token.scope": "false",
+                    "unmanaged.attribute": "preserved",
+                }
+            )
+        ],
+    )
+    patch: dict[str, Any] = {}
+
+    keycloak_client_scope.patch_keycloak_client_scope_status(
+        spec=_client_scope_spec(
+            display_on_consent_screen=True,
+            consent_screen_text="Example profile access",
+            include_in_token_scope=True,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    assert _conditions_by_type(patch)[CONDITION_READY]["reason"] == (
+        keycloak_client_scope.CLIENT_SCOPE_UPDATED_REASON
+    )
+    assert keycloak_client.requests[1][2]["json"]["attributes"] == {
+        "display.on.consent.screen": "true",
+        "include.in.token.scope": "true",
+        "consent.screen.text": "Example profile access",
+        "unmanaged.attribute": "preserved",
+    }
+    assert [request[0] for request in keycloak_client.requests] == ["GET", "PUT"]
+
+
 def test_patch_keycloak_client_scope_status_observe_only_reports_modeled_drift() -> None:
     keycloak_client = FakeKeycloakClient(
         scope_result=[
@@ -706,6 +746,9 @@ def _client_scope_spec(
     protocol: str | None = None,
     management_policy: str | None = None,
     deletion_policy: str | None = None,
+    display_on_consent_screen: Any | None = None,
+    consent_screen_text: Any | None = None,
+    include_in_token_scope: Any | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = {
         "targetRef": {"name": "example-keycloak"},
@@ -720,6 +763,12 @@ def _client_scope_spec(
         spec["managementPolicy"] = management_policy
     if deletion_policy is not None:
         spec["deletionPolicy"] = deletion_policy
+    if display_on_consent_screen is not None:
+        spec["displayOnConsentScreen"] = display_on_consent_screen
+    if consent_screen_text is not None:
+        spec["consentScreenText"] = consent_screen_text
+    if include_in_token_scope is not None:
+        spec["includeInTokenScope"] = include_in_token_scope
 
     return spec
 
