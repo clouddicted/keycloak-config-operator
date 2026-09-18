@@ -1006,6 +1006,9 @@ claims or mapper setup. Model the scope once, then attach mappers to it.</p>
 <span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
 <span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile client scope</span>
+<span class="w">  </span><span class="nt">displayOnConsentScreen</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">consentScreenText</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile access</span>
+<span class="w">  </span><span class="nt">includeInTokenScope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1014,7 +1017,13 @@ claims or mapper setup. Model the scope once, then attach mappers to it.</p>
   claims.</li>
 <li>Use clear names that describe the claims or behavior the scope provides.</li>
 <li>Keep shared scopes stable. Changes can affect every client that uses them.</li>
+<li>Set <code>displayOnConsentScreen</code> and <code>consentScreenText</code> when a client that requires
+  consent should explain this scope to users.</li>
+<li>Set <code>includeInTokenScope</code> to control whether the scope name appears in token,
+  token response, and introspection <code>scope</code> claims.</li>
 </ul>
+<p>Only declared attributes are owned. If one of these fields is omitted, an
+existing value in Keycloak is preserved.</p>
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
 <p>The operator creates the client scope if it is missing and updates the modeled
 fields when they drift.</p>

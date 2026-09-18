@@ -1260,12 +1260,12 @@ from the Admin Console or a realm export into Kubernetes manifests.</p>
 <tr>
 <td>Application clients</td>
 <td>Partial</td>
-<td>Core client settings are covered. Some Keycloak client attributes, such as PKCE, post-logout redirect URIs, backchannel logout options, and advanced token flags, are not modeled yet.</td>
+<td>Core settings, selected OIDC attributes, client-secret authentication, and Signed JWT authentication are covered. Authorization services and other advanced attributes are not modeled.</td>
 </tr>
 <tr>
 <td>Identity providers</td>
-<td>Partial</td>
-<td>Basic provider creation and config are covered. Identity provider mappers and several top-level provider flags are not modeled yet.</td>
+<td>Supported</td>
+<td>Provider creation, common top-level fields, provider config, Secret-backed config, and identity-provider mappers are covered.</td>
 </tr>
 <tr>
 <td>Protocol mappers on clients and client scopes</td>
@@ -1284,8 +1284,8 @@ from the Admin Console or a realm export into Kubernetes manifests.</p>
 </tr>
 <tr>
 <td>Client scopes</td>
-<td>Partial</td>
-<td>Scope name, protocol, description, and mappers are covered. Client scope attributes such as consent text and token-scope display flags are not modeled yet.</td>
+<td>Supported</td>
+<td>Scope name, protocol, description, consent settings, token-scope inclusion, and protocol mappers are covered.</td>
 </tr>
 <tr>
 <td>Realm-wide settings</td>
@@ -1440,7 +1440,7 @@ modeled field drift with a <code>DriftDetected=True</code> condition and a Warni
 </tr>
 <tr>
 <td><code>KeycloakClient</code></td>
-<td><code>enabled</code>, <code>name</code>, <code>description</code>, <code>rootUrl</code>, <code>baseUrl</code>, <code>adminUrl</code>, flow toggles, <code>fullScopeAllowed</code>, <code>frontchannelLogout</code>, <code>redirectUris</code>, <code>webOrigins</code>, default and optional client scopes, public/confidential type, and confidential client secret on create.</td>
+<td><code>enabled</code>, <code>name</code>, <code>description</code>, <code>rootUrl</code>, <code>baseUrl</code>, <code>adminUrl</code>, flow and consent toggles, <code>fullScopeAllowed</code>, <code>frontchannelLogout</code>, <code>redirectUris</code>, <code>webOrigins</code>, default and optional client scopes, public/confidential type, declared OIDC attributes, and explicit client authentication. Undeclared existing attributes are preserved. Client-secret values are applied only on create; Signed JWT certificate changes are reconciled.</td>
 </tr>
 <tr>
 <td><code>KeycloakClientRole</code></td>
@@ -1460,7 +1460,7 @@ modeled field drift with a <code>DriftDetected=True</code> condition and a Warni
 </tr>
 <tr>
 <td><code>KeycloakClientScope</code></td>
-<td><code>description</code> when set and <code>protocol</code>. Scope name is the lookup key.</td>
+<td><code>description</code> when set, <code>protocol</code>, and declared consent or token-scope attributes. Undeclared existing attributes are preserved. Scope name is the lookup key.</td>
 </tr>
 <tr>
 <td><code>KeycloakProtocolMapper</code></td>
@@ -1653,9 +1653,49 @@ secret in Kubernetes.</p>
 <td>Reconciled when set.</td>
 </tr>
 <tr>
+<td><code>spec.consentRequired</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.pkceCodeChallengeMethod</code></td>
+<td>Supported</td>
+<td><code>S256</code> or <code>plain</code>; reconciled through the Keycloak client attribute map.</td>
+</tr>
+<tr>
+<td><code>spec.postLogoutRedirectUris</code></td>
+<td>Supported</td>
+<td>Reconciled as an order-independent set through Keycloak's multi-value client attribute.</td>
+</tr>
+<tr>
+<td><code>spec.backchannelLogoutUrl</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.backchannelLogoutSessionRequired</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.backchannelLogoutRevokeOfflineTokens</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.useRefreshTokens</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.useRefreshTokensForClientCredentials</code></td>
+<td>Supported</td>
+<td>Reconciled when set. Keycloak recommends leaving this disabled for ordinary client-credentials use.</td>
+</tr>
+<tr>
 <td><code>spec.secretRef</code></td>
 <td>Supported</td>
-<td>Required for confidential clients.</td>
+<td>Required for confidential clients using the default or explicit <code>ClientSecret</code> authentication method.</td>
 </tr>
 <tr>
 <td><code>spec.secretRef.name</code></td>
@@ -1671,6 +1711,51 @@ secret in Kubernetes.</p>
 <td><code>spec.secretRef.secretKey</code></td>
 <td>Supported</td>
 <td>Optional key name containing the secret value.</td>
+</tr>
+<tr>
+<td><code>spec.authentication</code></td>
+<td>Supported</td>
+<td>Optional explicit authentication configuration for confidential clients.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.method</code></td>
+<td>Supported</td>
+<td><code>ClientSecret</code> or <code>SignedJwt</code>. Omit <code>authentication</code> to retain the existing client-secret behavior.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt</code></td>
+<td>Supported</td>
+<td>Required configuration object when the method is <code>SignedJwt</code>.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.certificateSecretRef</code></td>
+<td>Supported</td>
+<td>Selects a Secret containing one PEM X.509 certificate. Mutually exclusive with <code>jwksUrl</code>.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.certificateSecretRef.name</code></td>
+<td>Supported</td>
+<td>Secret name containing the certificate.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.certificateSecretRef.namespace</code></td>
+<td>Supported</td>
+<td>Optional; defaults to the client resource namespace.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.certificateSecretRef.secretKey</code></td>
+<td>Supported</td>
+<td>Optional key name; defaults to <code>tls.crt</code>.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.jwksUrl</code></td>
+<td>Supported</td>
+<td>URL from which Keycloak loads the client's public JWKS. Mutually exclusive with <code>certificateSecretRef</code>.</td>
+</tr>
+<tr>
+<td><code>spec.authentication.signedJwt.signatureAlgorithm</code></td>
+<td>Supported</td>
+<td>Optional Keycloak token-endpoint signature algorithm constraint, such as <code>RS256</code>.</td>
 </tr>
 <tr>
 <td><code>spec.redirectUris</code></td>
@@ -2030,6 +2115,21 @@ drift is already present. A successful write with remaining visible drift report
 <td><code>spec.protocol</code></td>
 <td>Supported</td>
 <td>Defaults to <code>openid-connect</code>.</td>
+</tr>
+<tr>
+<td><code>spec.displayOnConsentScreen</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.consentScreenText</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
+</tr>
+<tr>
+<td><code>spec.includeInTokenScope</code></td>
+<td>Supported</td>
+<td>Reconciled when set.</td>
 </tr>
 <tr>
 <td><code>spec.managementPolicy</code></td>

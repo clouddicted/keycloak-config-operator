@@ -603,6 +603,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#urls-and-flows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -651,6 +662,17 @@
     <span class="md-ellipsis">
       
         Confidential Client Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signed-jwt-client-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed JWT Client Examples
       
     </span>
   </a>
@@ -982,6 +1004,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#urls-and-flows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1037,6 +1070,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#signed-jwt-client-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed JWT Client Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lifecycle-choices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1085,8 +1129,23 @@ as part of application delivery.</p>
 <h2 id="choosing-the-client-type">Choosing The Client Type<a class="headerlink" href="#choosing-the-client-type" title="Permanent link">&para;</a></h2>
 <p>Use <code>Public</code> for browser and native applications that cannot keep a secret.</p>
 <p>Use <code>Confidential</code> for backend services, machine-to-machine access, and clients
-that can safely use a client secret. Store the desired client secret in a
-Kubernetes Secret and reference it from the resource.</p>
+that authenticate with a shared secret or a signed JWT.</p>
+<h2 id="client-authentication">Client Authentication<a class="headerlink" href="#client-authentication" title="Permanent link">&para;</a></h2>
+<p>Existing confidential clients continue to use client-secret authentication when
+<code>authentication</code> is omitted. Store the desired client secret in a Kubernetes
+Secret and reference it with <code>secretRef</code>.</p>
+<p>Set <code>authentication.method: SignedJwt</code> when the application signs client
+assertions with its private key. Keycloak needs only the corresponding public
+material. Choose exactly one source:</p>
+<ul>
+<li><code>signedJwt.certificateSecretRef</code> loads a PEM X.509 certificate from a
+  Kubernetes Secret. The key defaults to <code>tls.crt</code>. Store only the certificate;
+  the application private key does not belong in the operator's Secret.</li>
+<li><code>signedJwt.jwksUrl</code> lets Keycloak fetch and rotate public keys from the
+  application's JWKS endpoint.</li>
+</ul>
+<p><code>signedJwt.signatureAlgorithm</code> optionally restricts assertions to an algorithm
+such as <code>RS256</code>. Omit it to use Keycloak's configured defaults.</p>
 <h2 id="urls-and-flows">URLs And Flows<a class="headerlink" href="#urls-and-flows" title="Permanent link">&para;</a></h2>
 <p>For browser clients, declare the URLs and flows that are part of the application
 contract. Common fields are:</p>
@@ -1098,6 +1157,13 @@ contract. Common fields are:</p>
   flow.</li>
 <li><code>directAccessGrantsEnabled</code> for password grant access.</li>
 <li><code>frontchannelLogout</code> when browser logout must notify the client.</li>
+<li><code>pkceCodeChallengeMethod</code> to require <code>S256</code> or <code>plain</code> PKCE challenges.</li>
+<li><code>postLogoutRedirectUris</code> for redirects after OpenID Connect logout.</li>
+<li><code>backchannelLogoutUrl</code>, <code>backchannelLogoutSessionRequired</code>, and
+  <code>backchannelLogoutRevokeOfflineTokens</code> for back-channel logout.</li>
+<li><code>useRefreshTokens</code> and <code>useRefreshTokensForClientCredentials</code> for refresh-token
+  behavior.</li>
+<li><code>consentRequired</code> when users must approve the client before access is granted.</li>
 </ul>
 <p>Only declare fields you want the operator to own. Omitted fields are left as
 they are in Keycloak.</p>
@@ -1160,6 +1226,14 @@ the client ready.</p>
 <span class="w">  </span><span class="nt">directAccessGrantsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">  </span><span class="nt">fullScopeAllowed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">  </span><span class="nt">frontchannelLogout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">consentRequired</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">pkceCodeChallengeMethod</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S256</span>
+<span class="w">  </span><span class="nt">postLogoutRedirectUris</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com/signed-out</span>
+<span class="w">  </span><span class="nt">backchannelLogoutUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com/backchannel-logout</span>
+<span class="w">  </span><span class="nt">backchannelLogoutSessionRequired</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">backchannelLogoutRevokeOfflineTokens</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">useRefreshTokens</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">redirectUris</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://app.example.com/*</span>
 <span class="w">  </span><span class="nt">webOrigins</span><span class="p">:</span>
@@ -1185,6 +1259,47 @@ the client ready.</p>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-service-client-secret</span>
 <span class="w">    </span><span class="nt">secretKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clientSecret</span>
 </code></pre></div>
+<h2 id="signed-jwt-client-examples">Signed JWT Client Examples<a class="headerlink" href="#signed-jwt-client-examples" title="Permanent link">&para;</a></h2>
+<p>Use a JWKS URL when the application publishes a rotating key set:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-signed-jwt-service</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-signed-jwt-service</span>
+<span class="w">  </span><span class="nt">clientType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Confidential</span>
+<span class="w">  </span><span class="nt">serviceAccountsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">authentication</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SignedJwt</span>
+<span class="w">    </span><span class="nt">signedJwt</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">jwksUrl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://service.example.com/.well-known/jwks.json</span>
+<span class="w">      </span><span class="nt">signatureAlgorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RS256</span>
+</code></pre></div>
+<p>Reference a certificate Secret when the public certificate is distributed with
+the application configuration:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClient</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-certificate-service</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
+<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<span class="w">  </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-certificate-service</span>
+<span class="w">  </span><span class="nt">clientType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Confidential</span>
+<span class="w">  </span><span class="nt">authentication</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SignedJwt</span>
+<span class="w">    </span><span class="nt">signedJwt</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">certificateSecretRef</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-certificate-service</span>
+<span class="w">        </span><span class="nt">secretKey</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tls.crt</span>
+<span class="w">      </span><span class="nt">signatureAlgorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RS256</span>
+</code></pre></div>
+<p>The operator watches the referenced certificate Secret. A certificate rotation
+triggers reconciliation and updates the managed Keycloak client attribute.</p>
 <h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
 <p>Keep the default <code>deletionPolicy: Orphan</code> for shared or production clients. This
 prevents accidental remote deletion if a manifest is removed from Git or a
