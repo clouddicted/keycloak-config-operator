@@ -44,6 +44,23 @@ Docker image behavior, or Helm chart installation:
 .venv/bin/python tests/kind/e2e.py cleanup
 ```
 
+The default and previous-minor Keycloak versions live in
+`tests/kind/keycloak-versions.json`. After changing that file, regenerate and
+check the development compatibility table:
+
+```bash
+.venv/bin/python scripts/keycloak_compatibility.py render-docs
+.venv/bin/python scripts/keycloak_compatibility.py render-docs --check
+```
+
+The scheduled latest-version workflow maintains one rolling compatibility pull
+request into `develop`. Review its test evidence and upstream release notes before
+merging; do not edit its bot-owned branch manually. Repository Actions settings
+must grant workflows read/write access and allow GitHub Actions to create pull
+requests. The workflow explicitly dispatches `ci.yml` for the generated branch so
+the pull request receives the normal required checks even though its commits use
+the repository `GITHUB_TOKEN`.
+
 When changing CRD fields or reconciliation behavior, update
 `docs/configuration-support.md` in the same commit. When changing the tested
 Keycloak version or release support policy, update `docs/compatibility.md`.

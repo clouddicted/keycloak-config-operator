@@ -28,10 +28,23 @@ env:
   CHART_PATH: charts/keycloak-config-operator
   CHART_REGISTRY: oci://ghcr.io/clouddicted/charts
   IMAGE_NAME: ghcr.io/clouddicted/keycloak-config-operator
-  KEYCLOAK_VERSION: "26.6.2"
-  KEYCLOAK_COMPATIBILITY_VERSION: "26.5.3"
 
 jobs:
+  versions:
+    name: Resolve tested Keycloak versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      default: ${{ steps.versions.outputs.default }}
+      compatibility: ${{ steps.versions.outputs.compatibility }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read tested versions
+        id: versions
+        run: python scripts/keycloak_compatibility.py github-output >> "$GITHUB_OUTPUT"
+
   python:
     name: Python lint and tests
     runs-on: ubuntu-latest
@@ -113,6 +126,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[docs]"
+
+      - name: Check generated compatibility documentation
+        run: python scripts/keycloak_compatibility.py render-docs --check
 
       - name: Build docs
         run: mkdocs build --strict
@@ -246,6 +262,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs:
+      - versions
       - python
       - helm
       - docs
@@ -280,12 +297,12 @@ jobs:
 
       - name: Prepare kind cluster
         env:
-          KEYCLOAK_VERSION: ${{ env.KEYCLOAK_VERSION }}
+          KEYCLOAK_VERSION: ${{ needs.versions.outputs.default }}
         run: python tests/kind/e2e.py prepare
 
       - name: Run kind tests
         env:
-          KEYCLOAK_VERSION: ${{ env.KEYCLOAK_VERSION }}
+          KEYCLOAK_VERSION: ${{ needs.versions.outputs.default }}
         run: python tests/kind/e2e.py test
 
       - name: Collect diagnostics
@@ -309,6 +326,7 @@ jobs:
     timeout-minutes: 30
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')
     needs:
+      - versions
       - python
       - helm
       - docs
@@ -316,8 +334,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keycloak-version:
-          - "26.5.3"
+        keycloak-version: ${{ fromJSON(needs.versions.outputs.compatibility) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

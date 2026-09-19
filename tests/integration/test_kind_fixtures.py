@@ -96,7 +96,10 @@ OPERATOR_IMAGE = os.getenv(
     "KIND_OPERATOR_IMAGE",
     "clouddicted-keycloak-config-operator:e2e",
 )
-DEFAULT_KEYCLOAK_VERSION = "26.6.2"
+KEYCLOAK_VERSIONS = json.loads(
+    (REPO_ROOT / "tests" / "kind" / "keycloak-versions.json").read_text()
+)
+DEFAULT_KEYCLOAK_VERSION = KEYCLOAK_VERSIONS["default"]
 KEYCLOAK_VERSION = os.getenv("KEYCLOAK_VERSION", DEFAULT_KEYCLOAK_VERSION)
 KEYCLOAK_IMAGE = f"quay.io/keycloak/keycloak:{KEYCLOAK_VERSION}"
 TARGET_NAME = "example-keycloak"
