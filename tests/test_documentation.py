@@ -1,4 +1,4 @@
-import ast
+import json
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -19,8 +19,7 @@ LICENSE = REPO_ROOT / "LICENSE"
 NOTICE = REPO_ROOT / "NOTICE"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 KEYCLOAK_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "keycloak.yaml"
-KIND_FIXTURES_MODULE = REPO_ROOT / "tests" / "integration" / "test_kind_fixtures.py"
-CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+KEYCLOAK_VERSIONS = REPO_ROOT / "tests" / "kind" / "keycloak-versions.json"
 
 
 def test_readme_links_compatibility_and_configuration_support_docs() -> None:
@@ -125,8 +124,8 @@ def test_license_notice_and_package_metadata_are_aligned() -> None:
     )
 
 
-def test_compatibility_doc_matches_ci_and_kind_fixture_versions() -> None:
-    workflow = _load_one(CI_WORKFLOW)
+def test_compatibility_doc_matches_version_source_and_kind_fixture() -> None:
+    versions = json.loads(KEYCLOAK_VERSIONS.read_text())
     compatibility = COMPATIBILITY_DOC.read_text()
     fixture_images = [
         container["image"]
@@ -135,14 +134,15 @@ def test_compatibility_doc_matches_ci_and_kind_fixture_versions() -> None:
         for container in document["spec"]["template"]["spec"]["containers"]
     ]
 
-    default_version = workflow["env"]["KEYCLOAK_VERSION"]
-    compatibility_version = workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"]
+    default_version = versions["default"]
+    compatibility_version = versions["previousMinor"]
 
-    assert _module_constant(KIND_FIXTURES_MODULE, "DEFAULT_KEYCLOAK_VERSION") == default_version
     assert fixture_images == [f"quay.io/keycloak/keycloak:{default_version}"]
+    assert "<!-- BEGIN GENERATED DEVELOPMENT COMPATIBILITY -->" in compatibility
+    assert "<!-- END GENERATED DEVELOPMENT COMPATIBILITY -->" in compatibility
     assert f"`{default_version}`" in compatibility
     assert f"`{compatibility_version}`" in compatibility
-    assert "KEYCLOAK_VERSION" in compatibility
+    assert "tests/kind/keycloak-versions.json" in compatibility
 
 
 def _crd_spec_fields() -> dict[str, set[str]]:
@@ -193,19 +193,3 @@ def _load_one(path: Path) -> dict[str, Any]:
 def _load_yaml_documents(path: Path) -> list[dict[str, Any]]:
     with path.open() as stream:
         return [document for document in yaml.safe_load_all(stream) if document is not None]
-
-
-def _module_constant(path: Path, name: str) -> str:
-    module = ast.parse(path.read_text())
-    for statement in module.body:
-        if (
-            isinstance(statement, ast.Assign)
-            and len(statement.targets) == 1
-            and isinstance(statement.targets[0], ast.Name)
-            and statement.targets[0].id == name
-            and isinstance(statement.value, ast.Constant)
-            and isinstance(statement.value.value, str)
-        ):
-            return statement.value.value
-
-    raise AssertionError(f"{name} was not found in {path}")
