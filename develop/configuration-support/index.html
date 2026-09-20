@@ -311,6 +311,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt Existing Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reconciliation/" class="md-nav__link">
         
   
@@ -351,10 +378,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -372,8 +399,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1695,7 +1722,7 @@ secret in Kubernetes.</p>
 <tr>
 <td><code>spec.secretRef</code></td>
 <td>Supported</td>
-<td>Required for confidential clients using the default or explicit <code>ClientSecret</code> authentication method.</td>
+<td>Required for confidential clients using the default or explicit <code>ClientSecret</code> authentication method. It may be omitted for a confidential client only while <code>managementPolicy</code> is <code>ObserveOnly</code>.</td>
 </tr>
 <tr>
 <td><code>spec.secretRef.name</code></td>
@@ -1785,6 +1812,9 @@ blocked state: managed scope changes trigger a check, and periodic reconciliatio
 detects scopes created directly in Keycloak. After a client write, the operator
 reads back the modeled fields; remaining drift produces <code>ClientNotConverged</code> with
 the same condition statuses and a failure retry.</p>
+<p>An adopted confidential client can omit both <code>spec.secretRef</code> and
+<code>spec.authentication</code> while it remains <code>ObserveOnly</code>. Before changing that
+resource to <code>Reconcile</code>, configure <code>ClientSecret</code> or <code>SignedJwt</code> authentication.</p>
 <h2 id="keycloakclientrole">KeycloakClientRole<a class="headerlink" href="#keycloakclientrole" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

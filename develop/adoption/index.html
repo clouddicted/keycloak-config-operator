@@ -10,28 +10,28 @@
       
       
       
-        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/resources/keycloak-client-scope/">
+        <link rel="canonical" href="https://clouddicted.github.io/keycloak-config-operator/develop/adoption/">
       
       
-        <link rel="prev" href="../keycloak-role/">
+        <link rel="prev" href="../usage/">
       
       
-        <link rel="next" href="../keycloak-protocol-mapper/">
+        <link rel="next" href="../reconciliation/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>KeycloakClientScope - Keycloak Config Operator</title>
+        <title>Adopt Existing Configuration - Keycloak Config Operator</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -50,9 +50,9 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/mkdocs-crd-viewer/crd-viewer.css">
+      <link rel="stylesheet" href="../assets/mkdocs-crd-viewer/crd-viewer.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#keycloakclientscope" class="md-skip">
+        <a href="#adopt-existing-keycloak-configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -90,7 +90,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Keycloak Config Operator" class="md-header__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+    <a href=".." title="Keycloak Config Operator" class="md-header__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              KeycloakClientScope
+              Adopt Existing Configuration
             
           </span>
         </div>
@@ -200,7 +200,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Keycloak Config Operator" class="md-nav__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
+    <a href=".." title="Keycloak Config Operator" class="md-nav__button md-logo" aria-label="Keycloak Config Operator" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -230,7 +230,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -257,7 +257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/" class="md-nav__link">
+      <a href="../getting-started/" class="md-nav__link">
         
   
   
@@ -284,7 +284,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../usage/" class="md-nav__link">
+      <a href="../usage/" class="md-nav__link">
         
   
   
@@ -308,10 +308,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../adoption/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt Existing Configuration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -327,6 +354,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preview-the-adoption-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preview The Adoption Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#render-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render Manifests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-and-apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review And Apply
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -338,7 +440,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reconciliation/" class="md-nav__link">
+      <a href="../reconciliation/" class="md-nav__link">
         
   
   
@@ -362,8 +464,6 @@
       
   
   
-    
-  
   
   
     
@@ -376,11 +476,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
@@ -401,7 +501,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -419,7 +519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../resources/" class="md-nav__link">
         
   
   
@@ -447,7 +547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-target/" class="md-nav__link">
+      <a href="../resources/keycloak-target/" class="md-nav__link">
         
   
   
@@ -475,7 +575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-realm/" class="md-nav__link">
+      <a href="../resources/keycloak-realm/" class="md-nav__link">
         
   
   
@@ -503,7 +603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-identity-provider/" class="md-nav__link">
+      <a href="../resources/keycloak-identity-provider/" class="md-nav__link">
         
   
   
@@ -531,7 +631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-identity-provider-mapper/" class="md-nav__link">
+      <a href="../resources/keycloak-identity-provider-mapper/" class="md-nav__link">
         
   
   
@@ -559,7 +659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-client/" class="md-nav__link">
+      <a href="../resources/keycloak-client/" class="md-nav__link">
         
   
   
@@ -587,7 +687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-client-role/" class="md-nav__link">
+      <a href="../resources/keycloak-client-role/" class="md-nav__link">
         
   
   
@@ -615,7 +715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-group/" class="md-nav__link">
+      <a href="../resources/keycloak-group/" class="md-nav__link">
         
   
   
@@ -643,7 +743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-group-role-mapping/" class="md-nav__link">
+      <a href="../resources/keycloak-group-role-mapping/" class="md-nav__link">
         
   
   
@@ -671,7 +771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-role/" class="md-nav__link">
+      <a href="../resources/keycloak-role/" class="md-nav__link">
         
   
   
@@ -696,37 +796,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    KeycloakClientScope
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../resources/keycloak-client-scope/" class="md-nav__link">
         
   
   
@@ -742,70 +815,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Practices
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#lifecycle-choices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lifecycle Choices
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Operations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -818,7 +827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keycloak-protocol-mapper/" class="md-nav__link">
+      <a href="../resources/keycloak-protocol-mapper/" class="md-nav__link">
         
   
   
@@ -853,7 +862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../compatibility/" class="md-nav__link">
+      <a href="../compatibility/" class="md-nav__link">
         
   
   
@@ -880,7 +889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-support/" class="md-nav__link">
+      <a href="../configuration-support/" class="md-nav__link">
         
   
   
@@ -907,7 +916,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api-reference/" class="md-nav__link">
+      <a href="../api-reference/" class="md-nav__link">
         
   
   
@@ -954,10 +963,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example
+        Prerequisites
       
     </span>
   </a>
@@ -965,10 +974,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#practices" class="md-nav__link">
+  <a href="#preview-the-adoption-plan" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Practices
+        Preview The Adoption Plan
       
     </span>
   </a>
@@ -976,10 +985,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lifecycle-choices" class="md-nav__link">
+  <a href="#render-manifests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lifecycle Choices
+        Render Manifests
       
     </span>
   </a>
@@ -987,10 +996,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#operations" class="md-nav__link">
+  <a href="#review-and-apply" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Operations
+        Review And Apply
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial Scope
       
     </span>
   </a>
@@ -1017,51 +1037,109 @@
   
 
 
-<h1 id="keycloakclientscope">KeycloakClientScope<a class="headerlink" href="#keycloakclientscope" title="Permanent link">&para;</a></h1>
-<p><code>KeycloakClientScope</code> manages a realm-level client scope. Use scopes to define
-reusable protocol behavior that can be shared by multiple clients.</p>
-<p>Client scopes are especially useful when several applications need the same
-claims or mapper setup. Model the scope once, then attach mappers to it.</p>
-<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keycloak.clouddicted.com/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KeycloakClientScope</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-keycloak</span>
-<span class="w">  </span><span class="nt">realm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-profile</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile client scope</span>
-<span class="w">  </span><span class="nt">displayOnConsentScreen</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">consentScreenText</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example profile access</span>
-<span class="w">  </span><span class="nt">includeInTokenScope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<h1 id="adopt-existing-keycloak-configuration">Adopt Existing Keycloak Configuration<a class="headerlink" href="#adopt-existing-keycloak-configuration" title="Permanent link">&para;</a></h1>
+<p>The operator image includes a read-only adoption CLI that inspects one existing
+Keycloak realm and renders Kubernetes resources for the configuration the
+operator understands. It does not change Keycloak or apply resources to a
+cluster.</p>
+<p>Generated resources use <code>managementPolicy: ObserveOnly</code> and, where supported,
+<code>deletionPolicy: Orphan</code>. Review the generated YAML and its warnings before
+applying it. The CLI never renders <code>KeycloakTarget</code>, Kubernetes <code>Secret</code>, or
+secret values.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Create a confidential Keycloak client with service accounts enabled and grant
+its service account read access to the realm configuration. Save its client
+secret in a local file readable only by you. The examples below use Docker; the
+same arguments work with Podman.</p>
+<p>Set values for your environment:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">KEYCLOAK_URL</span><span class="o">=</span><span class="s1">'https://keycloak.example.com'</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">AUTH_REALM</span><span class="o">=</span><span class="s1">'master'</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">CLIENT_ID</span><span class="o">=</span><span class="s1">'keycloak-adoption'</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">REALM</span><span class="o">=</span><span class="s1">'example'</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">NAMESPACE</span><span class="o">=</span><span class="s1">'keycloak-config'</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">TARGET_REF</span><span class="o">=</span><span class="s1">'production-keycloak'</span>
 </code></pre></div>
-<h2 id="practices">Practices<a class="headerlink" href="#practices" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Create client scopes before protocol mappers that reference them.</li>
-<li>Prefer small, purpose-specific scopes over broad scopes that mix unrelated
-  claims.</li>
-<li>Use clear names that describe the claims or behavior the scope provides.</li>
-<li>Keep shared scopes stable. Changes can affect every client that uses them.</li>
-<li>Set <code>displayOnConsentScreen</code> and <code>consentScreenText</code> when a client that requires
-  consent should explain this scope to users.</li>
-<li>Set <code>includeInTokenScope</code> to control whether the scope name appears in token,
-  token response, and introspection <code>scope</code> claims.</li>
-</ul>
-<p>Only declared attributes are owned. If one of these fields is omitted, an
-existing value in Keycloak is preserved.</p>
-<h2 id="lifecycle-choices">Lifecycle Choices<a class="headerlink" href="#lifecycle-choices" title="Permanent link">&para;</a></h2>
-<p>The operator creates the client scope if it is missing and updates the modeled
-fields when they drift.</p>
-<p>Use <code>managementPolicy: ObserveOnly</code> during adoption if a scope already exists or
-is shared. The operator reports missing scopes and modeled drift without
-changing Keycloak.</p>
-<p>Remote deletion is opt-in. Keep <code>Orphan</code> for shared scopes. Use <code>Delete</code> for
-test scopes or scopes that are owned by one application lifecycle.</p>
-<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
-<p><code>.status.remoteId</code> contains the Keycloak internal client scope ID. This ID is
-also used by protocol mapper operations under the hood.</p>
+<p>The <code>KeycloakTarget</code> named by <code>TARGET_REF</code> must already exist, or you must create
+it separately before applying the rendered resources. The CLI uses the URL and
+credentials passed on the command line for discovery; <code>--target-ref</code> is only
+written into the manifests.</p>
+<h2 id="preview-the-adoption-plan">Preview The Adoption Plan<a class="headerlink" href="#preview-the-adoption-plan" title="Permanent link">&para;</a></h2>
+<p>Mount the client secret file and run <code>adopt plan</code>:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mount<span class="w"> </span><span class="nv">type</span><span class="o">=</span>bind,src<span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/client-secret"</span>,dst<span class="o">=</span>/run/secrets/client-secret,readonly<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>ghcr.io/clouddicted/keycloak-config-operator:v0.9.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>adopt<span class="w"> </span>plan<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--url<span class="w"> </span><span class="s2">"</span><span class="nv">$KEYCLOAK_URL</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--auth-realm<span class="w"> </span><span class="s2">"</span><span class="nv">$AUTH_REALM</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--client-id<span class="w"> </span><span class="s2">"</span><span class="nv">$CLIENT_ID</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--client-secret-file<span class="w"> </span>/run/secrets/client-secret<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--realm<span class="w"> </span><span class="s2">"</span><span class="nv">$REALM</span><span class="s2">"</span>
+</code></pre></div>
+<p>The plan lists discovered and rendered resources, skipped Keycloak built-ins,
+unsupported fields, omitted secrets, and any references or names that cannot be
+resolved safely.</p>
+<p>TLS verification is enabled. For a private certificate authority, mount its CA
+file and add <code>--ca-file /run/secrets/keycloak-ca.crt</code>.</p>
+<h2 id="render-manifests">Render Manifests<a class="headerlink" href="#render-manifests" title="Permanent link">&para;</a></h2>
+<p>After reviewing the plan, render deterministic multi-document YAML:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mount<span class="w"> </span><span class="nv">type</span><span class="o">=</span>bind,src<span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/client-secret"</span>,dst<span class="o">=</span>/run/secrets/client-secret,readonly<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>ghcr.io/clouddicted/keycloak-config-operator:v0.9.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>adopt<span class="w"> </span>render<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--url<span class="w"> </span><span class="s2">"</span><span class="nv">$KEYCLOAK_URL</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--auth-realm<span class="w"> </span><span class="s2">"</span><span class="nv">$AUTH_REALM</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--client-id<span class="w"> </span><span class="s2">"</span><span class="nv">$CLIENT_ID</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--client-secret-file<span class="w"> </span>/run/secrets/client-secret<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--realm<span class="w"> </span><span class="s2">"</span><span class="nv">$REALM</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--namespace<span class="w"> </span><span class="s2">"</span><span class="nv">$NAMESPACE</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--target-ref<span class="w"> </span><span class="s2">"</span><span class="nv">$TARGET_REF</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output<span class="w"> </span>-<span class="w"> </span>&gt;<span class="w"> </span>adopted-keycloak.yaml
+</code></pre></div>
+<p>YAML is written to stdout. The report and warnings are written to stderr, so
+shell redirection captures only the manifests. Repeating the command against an
+unchanged realm produces the same output.</p>
+<p>The command exits with:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Discovery completed and the plan or complete YAML was produced.</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Input, TLS, authentication, or Keycloak API discovery failed.</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>A name collision or unresolved reference made rendering unsafe. No partial YAML is emitted.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="review-and-apply">Review And Apply<a class="headerlink" href="#review-and-apply" title="Permanent link">&para;</a></h2>
+<p>Inspect the report and YAML. Add the omitted Secret references where needed,
+especially identity-provider configuration. Confidential clients are valid
+without a client secret while they remain <code>ObserveOnly</code>; add an authentication
+configuration before changing one to <code>Reconcile</code>.</p>
+<p>Validate and apply the file when it is ready:</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>--server-side<span class="w"> </span>--dry-run<span class="o">=</span>server<span class="w"> </span>-f<span class="w"> </span>adopted-keycloak.yaml
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>adopted-keycloak.yaml
+</code></pre></div>
+<p>Promote resources from <code>ObserveOnly</code> to <code>Reconcile</code> gradually and in dependency
+order: realm, client scopes, clients, roles and groups, then mappers and role
+mappings. Unsupported Keycloak settings remain outside the operator's ownership.</p>
+<h2 id="initial-scope">Initial Scope<a class="headerlink" href="#initial-scope" title="Permanent link">&para;</a></h2>
+<p>Version 0.9 supports one explicitly named realm and client-credentials
+authentication. It renders all currently managed resource kinds except
+<code>KeycloakTarget</code>, excludes known Keycloak built-ins, and omits nested groups and
+unsupported fields with warnings. Multiple realms, filters, directory output,
+machine-readable reports, and password authentication are planned for a later
+release.</p>
 
 
 
@@ -1117,12 +1195,12 @@ also used by protocol mapper operations under the hood.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.top"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
+        <script src="../assets/mkdocs-crd-viewer/crd-viewer.js"></script>
       
     
   </body>
