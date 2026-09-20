@@ -804,10 +804,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#development-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tested-versions" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tested Versions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#latest-stable-version-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latest Stable Version Automation
       
     </span>
   </a>
@@ -936,10 +958,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#development-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tested-versions" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tested Versions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#latest-stable-version-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latest Stable Version Automation
       
     </span>
   </a>
@@ -1001,6 +1045,37 @@ It does not replace the Keycloak project's own supported-platform policy.</p>
   and testing every release would slow delivery without creating a useful support
   promise.</li>
 </ul>
+<h2 id="development-compatibility">Development Compatibility<a class="headerlink" href="#development-compatibility" title="Permanent link">&para;</a></h2>
+<!-- BEGIN GENERATED DEVELOPMENT COMPATIBILITY -->
+<table>
+<thead>
+<tr>
+<th>Branch</th>
+<th>Keycloak version</th>
+<th>Status</th>
+<th>Test scope</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>develop</code></td>
+<td><code>26.6.2</code></td>
+<td>Default tested</td>
+<td>PR, branch, tag, manual, and latest-version kind e2e</td>
+<td>Default version from <code>tests/kind/keycloak-versions.json</code>.</td>
+</tr>
+<tr>
+<td><code>develop</code></td>
+<td><code>26.5.3</code></td>
+<td>Compatibility tested</td>
+<td>Tag, manual, and new-minor latest-version kind e2e</td>
+<td>Previous-minor smoke coverage.</td>
+</tr>
+</tbody>
+</table>
+<!-- END GENERATED DEVELOPMENT COMPATIBILITY -->
+
 <h2 id="tested-versions">Tested Versions<a class="headerlink" href="#tested-versions" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1036,6 +1111,21 @@ It does not replace the Keycloak project's own supported-platform policy.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="latest-stable-version-automation">Latest Stable Version Automation<a class="headerlink" href="#latest-stable-version-automation" title="Permanent link">&para;</a></h2>
+<p>The <code>Latest Keycloak compatibility</code> workflow checks the latest stable upstream
+release every night and can also test an exact version through a manual workflow
+dispatch. It validates only immutable version tags such as <code>26.7.4</code>; mutable
+<code>latest</code>, prerelease, and nightly tags do not create compatibility claims.</p>
+<p>When a newer stable release passes the full kind e2e suite, automation creates or
+updates one pull request from <code>automation/keycloak-latest</code> into <code>develop</code>. Newer
+passing patches replace older unmerged patches in that pull request. A new minor
+release is tested together with the latest patch of the immediately preceding
+minor. Failed candidates leave the newest passing proposal unchanged and update
+one diagnostic issue for that version.</p>
+<p>Merging the pull request updates the development test defaults. A nightly pass is
+reported as compatibility-tested; <code>Supported</code> remains a release decision. The
+workflow never commits directly to <code>develop</code> or rewrites documentation for an
+already published operator version.</p>
 <h2 id="local-compatibility-testing">Local Compatibility Testing<a class="headerlink" href="#local-compatibility-testing" title="Permanent link">&para;</a></h2>
 <p>Run the same e2e suite against a specific Keycloak image tag:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">KEYCLOAK_VERSION</span><span class="o">=</span><span class="m">26</span>.6.2<span class="w"> </span>.venv/bin/python<span class="w"> </span>tests/kind/e2e.py<span class="w"> </span>prepare
