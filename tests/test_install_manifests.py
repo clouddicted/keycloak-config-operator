@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 INSTALL_DIR = CONFIG_DIR / "install"
 OPERATOR_NAMESPACE = "keycloak-config-operator-system"
 OPERATOR_NAME = "keycloak-config-operator"
-OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.8.0"
+OPERATOR_IMAGE = "ghcr.io/clouddicted/keycloak-config-operator:v0.9.0"
 OPERATOR_ARGS = [
     "run",
     "-m",
@@ -120,9 +121,13 @@ def test_keycloak_client_crd_validates_common_user_mistakes() -> None:
         {
             "rule": (
                 "!has(self.clientType) || self.clientType != 'Confidential' || "
+                "(has(self.managementPolicy) && self.managementPolicy == 'ObserveOnly') || "
                 "has(self.authentication) || has(self.secretRef)"
             ),
-            "message": "Confidential clients require authentication or secretRef.",
+            "message": (
+                "Confidential clients require authentication or secretRef unless "
+                "managementPolicy is ObserveOnly."
+            ),
         },
         {
             "rule": (
@@ -204,11 +209,13 @@ def test_dockerfile_defaults_to_all_namespaces_with_overridable_args() -> None:
     dockerfile = (REPO_ROOT / "Dockerfile").read_text()
 
     assert "COPY pyproject.toml README.md LICENSE NOTICE ./" in dockerfile
-    assert (
-        'ENTRYPOINT ["kopf", "run", "-m", '
-        '"clouddicted_keycloak_config_operator.main"]'
-    ) in dockerfile
+    assert 'ENTRYPOINT ["keycloak-config-operator"]' in dockerfile
     assert 'CMD ["--all-namespaces"]' in dockerfile
+
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    assert pyproject["project"]["scripts"] == {
+        "keycloak-config-operator": "clouddicted_keycloak_config_operator.cli:main"
+    }
 
 
 def test_rbac_grants_current_operator_permissions_without_wildcards() -> None:

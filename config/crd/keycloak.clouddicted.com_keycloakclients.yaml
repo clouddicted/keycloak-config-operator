@@ -57,8 +57,9 @@ spec:
                   message: authentication can be set only when clientType is Confidential.
                 - rule: >-
                     !has(self.clientType) || self.clientType != 'Confidential' ||
+                    (has(self.managementPolicy) && self.managementPolicy == 'ObserveOnly') ||
                     has(self.authentication) || has(self.secretRef)
-                  message: Confidential clients require authentication or secretRef.
+                  message: Confidential clients require authentication or secretRef unless managementPolicy is ObserveOnly.
                 - rule: >-
                     !has(self.authentication) ||
                     self.authentication.method != 'ClientSecret' || has(self.secretRef)

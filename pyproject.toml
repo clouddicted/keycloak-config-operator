@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clouddicted-keycloak-config-operator"
-version = "0.8.0"
+version = "0.9.0"
 description = "Kopf-based Kubernetes operator for managing Keycloak configuration."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -19,7 +19,11 @@ dependencies = [
   "httpx>=0.27,<1",
   "kopf>=1.37,<2",
   "kubernetes>=31,<34",
+  "PyYAML>=6,<7",
 ]
+
+[project.scripts]
+keycloak-config-operator = "clouddicted_keycloak_config_operator.cli:main"
 
 [project.optional-dependencies]
 dev = [

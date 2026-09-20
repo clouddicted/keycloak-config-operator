@@ -763,6 +763,41 @@ def test_patch_keycloak_client_status_reports_observe_only_matching_client_witho
     ]
 
 
+def test_observe_only_confidential_client_does_not_require_or_load_a_secret() -> None:
+    keycloak_client = FakeKeycloakClient(
+        lookup_result=[
+            _existing_confidential_client(
+                clientId="example-service",
+                clientAuthenticatorType="client-secret",
+            )
+        ]
+    )
+    patch: dict[str, Any] = {}
+
+    retry = keycloak_client_handler.patch_keycloak_client_status(
+        spec=_client_spec(
+            client_id="example-service",
+            client_type=keycloak_client_handler.CLIENT_TYPE_CONFIDENTIAL,
+            management_policy=keycloak_client_handler.MANAGEMENT_POLICY_OBSERVE_ONLY,
+        ),
+        status={},
+        patch=patch,
+        namespace="apps",
+        target_resolver=_target_resolver(),
+        core_v1_api=FakeCoreV1Api(),
+        keycloak_client_factory=FakeKeycloakClientFactory(keycloak_client),
+        now=NOW,
+    )
+
+    assert retry is None
+    conditions = _conditions_by_type(patch)
+    assert conditions[CONDITION_READY]["reason"] == (
+        keycloak_client_handler.CLIENT_OBSERVED_REASON
+    )
+    assert conditions[CONDITION_DRIFT_DETECTED]["status"] == "False"
+    assert [method for method, _, _ in keycloak_client.requests] == ["GET"]
+
+
 def test_patch_keycloak_client_status_reports_observe_only_missing_client_without_post() -> None:
     keycloak_client = FakeKeycloakClient()
     patch: dict[str, Any] = {}

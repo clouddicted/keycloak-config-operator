@@ -1101,7 +1101,14 @@ def _parse_client_spec(spec: Mapping[str, Any] | None) -> ClientSpec | None:
     if parsed_client_type == CLIENT_TYPE_PUBLIC and authentication_declared:
         return None
 
-    if parsed_client_type == CLIENT_TYPE_CONFIDENTIAL and not authentication_declared:
+    if (
+        parsed_client_type == CLIENT_TYPE_CONFIDENTIAL
+        and not authentication_declared
+        and (
+            parsed_management_policy != MANAGEMENT_POLICY_OBSERVE_ONLY
+            or secret_ref is not None
+        )
+    ):
         parsed_authentication_method = AUTHENTICATION_METHOD_CLIENT_SECRET
 
     parsed_secret_ref = None
@@ -1410,6 +1417,7 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
         missing_fields.append("clientId")
 
     client_type = spec.get("clientType", DEFAULT_CLIENT_TYPE)
+    management_policy = spec.get("managementPolicy", DEFAULT_MANAGEMENT_POLICY)
     authentication = spec.get("authentication")
     authentication_method = (
         authentication.get("method") if isinstance(authentication, Mapping) else None
@@ -1417,7 +1425,10 @@ def _missing_required_fields(spec: Mapping[str, Any] | None) -> list[str]:
     secret_ref = spec.get("secretRef")
     secret_name = secret_ref.get("name") if isinstance(secret_ref, Mapping) else None
 
-    if client_type == CLIENT_TYPE_CONFIDENTIAL:
+    if (
+        client_type == CLIENT_TYPE_CONFIDENTIAL
+        and management_policy != MANAGEMENT_POLICY_OBSERVE_ONLY
+    ):
         if "authentication" in spec and not _is_non_empty_string(authentication_method):
             missing_fields.append("authentication.method")
         elif authentication_method == AUTHENTICATION_METHOD_SIGNED_JWT:

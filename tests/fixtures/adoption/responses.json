@@ -1,0 +1,177 @@
+{
+  "realms/example": {
+    "realm": "example",
+    "displayName": "Example Realm",
+    "sslRequired": "external"
+  },
+  "realms/example/client-scopes": [
+    {
+      "id": "scope-profile",
+      "name": "profile",
+      "protocol": "openid-connect"
+    },
+    {
+      "id": "scope-organization",
+      "name": "organization",
+      "protocol": "openid-connect"
+    },
+    {
+      "id": "scope-audience",
+      "name": "application-audience",
+      "description": "Application audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "display.on.consent.screen": "true",
+        "include.in.token.scope": "false"
+      }
+    }
+  ],
+  "realms/example/clients": [
+    {
+      "id": "client-admin",
+      "clientId": "admin-cli"
+    },
+    {
+      "id": "client-web",
+      "clientId": "example-web"
+    },
+    {
+      "id": "client-service",
+      "clientId": "example-service"
+    },
+    {
+      "id": "client-signed-jwt",
+      "clientId": "example-signed-jwt"
+    }
+  ],
+  "realms/example/clients/client-web": {
+    "id": "client-web",
+    "clientId": "example-web",
+    "name": "Example Web",
+    "protocol": "openid-connect",
+    "publicClient": true,
+    "enabled": true,
+    "standardFlowEnabled": true,
+    "redirectUris": ["https://app.example.com/*"],
+    "attributes": {
+      "pkce.code.challenge.method": "S256",
+      "post.logout.redirect.uris": "https://app.example.com/out##https://app.example.com/done"
+    }
+  },
+  "realms/example/clients/client-service": {
+    "id": "client-service",
+    "clientId": "example-service",
+    "protocol": "openid-connect",
+    "publicClient": false,
+    "enabled": true,
+    "serviceAccountsEnabled": true,
+    "clientAuthenticatorType": "client-secret",
+    "secret": "must-never-render"
+  },
+  "realms/example/clients/client-signed-jwt": {
+    "id": "client-signed-jwt",
+    "clientId": "example-signed-jwt",
+    "protocol": "openid-connect",
+    "publicClient": false,
+    "enabled": true,
+    "clientAuthenticatorType": "client-jwt",
+    "attributes": {
+      "use.jwks.url": "true",
+      "jwks.url": "https://service.example.com/.well-known/jwks.json",
+      "token.endpoint.auth.signing.alg": "RS256"
+    }
+  },
+  "realms/example/clients/client-web/default-client-scopes": [
+    {"id": "scope-profile", "name": "profile"}
+  ],
+  "realms/example/clients/client-web/optional-client-scopes": [
+    {"id": "scope-audience", "name": "application-audience"}
+  ],
+  "realms/example/clients/client-service/default-client-scopes": [],
+  "realms/example/clients/client-service/optional-client-scopes": [],
+  "realms/example/clients/client-signed-jwt/default-client-scopes": [],
+  "realms/example/clients/client-signed-jwt/optional-client-scopes": [],
+  "realms/example/roles": [
+    {"id": "role-offline", "name": "offline_access"},
+    {"id": "role-admin", "name": "application-admin", "description": "Admin"}
+  ],
+  "realms/example/clients/client-web/roles": [
+    {"id": "role-reader", "name": "reader", "description": "Reader"}
+  ],
+  "realms/example/clients/client-service/roles": [],
+  "realms/example/clients/client-signed-jwt/roles": [],
+  "realms/example/clients/client-web/protocol-mappers/models": [
+    {
+      "id": "mapper-client-audience",
+      "name": "audience",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "config": {"included.client.audience": "example-api"}
+    }
+  ],
+  "realms/example/clients/client-service/protocol-mappers/models": [],
+  "realms/example/clients/client-signed-jwt/protocol-mappers/models": [],
+  "realms/example/client-scopes/scope-audience/protocol-mappers/models": [
+    {
+      "id": "mapper-scope-audience",
+      "name": "application-audience",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "config": {"included.client.audience": "example-service"}
+    }
+  ],
+  "realms/example/identity-provider/instances": [
+    {
+      "internalId": "idp-oidc",
+      "alias": "corporate",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "config": {
+        "clientId": "corporate-client",
+        "clientSecret": "**********",
+        "signingPrivateKey": "another-value-that-must-never-render",
+        "authorizationUrl": "https://login.example.com/authorize",
+        "tokenUrl": "https://login.example.com/token"
+      }
+    }
+  ],
+  "realms/example/identity-provider/instances/corporate/mappers": [
+    {
+      "id": "idp-mapper-email",
+      "name": "email",
+      "identityProviderAlias": "corporate",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {"claim": "email", "user.attribute": "email"}
+    }
+  ],
+  "realms/example/groups": [
+    {
+      "id": "group-team",
+      "name": "team",
+      "path": "/team",
+      "attributes": {"department": ["platform"]},
+      "subGroups": [
+        {"id": "group-nested", "name": "nested", "path": "/team/nested"}
+      ]
+    }
+  ],
+  "realms/example/groups/group-team/role-mappings": {
+    "realmMappings": [
+      {"id": "role-offline", "name": "offline_access"},
+      {"id": "role-admin", "name": "application-admin"}
+    ],
+    "clientMappings": {
+      "client-web": {
+        "id": "client-web",
+        "client": "example-web",
+        "mappings": [{"id": "role-reader", "name": "reader"}]
+      },
+      "client-admin": {
+        "id": "client-admin",
+        "client": "admin-cli",
+        "mappings": [{"id": "role-admin-view", "name": "view-users"}]
+      }
+    }
+  }
+}
