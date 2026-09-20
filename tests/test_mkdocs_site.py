@@ -29,6 +29,7 @@ def test_mkdocs_nav_points_to_existing_docs() -> None:
 
     assert nav_paths == {
         "api-reference.md",
+        "adoption.md",
         "compatibility.md",
         "configuration-support.md",
         "getting-started.md",

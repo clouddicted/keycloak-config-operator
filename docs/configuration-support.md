@@ -128,7 +128,7 @@ secret in Kubernetes.
 | `spec.backchannelLogoutRevokeOfflineTokens` | Supported | Reconciled when set. |
 | `spec.useRefreshTokens` | Supported | Reconciled when set. |
 | `spec.useRefreshTokensForClientCredentials` | Supported | Reconciled when set. Keycloak recommends leaving this disabled for ordinary client-credentials use. |
-| `spec.secretRef` | Supported | Required for confidential clients using the default or explicit `ClientSecret` authentication method. |
+| `spec.secretRef` | Supported | Required for confidential clients using the default or explicit `ClientSecret` authentication method. It may be omitted for a confidential client only while `managementPolicy` is `ObserveOnly`. |
 | `spec.secretRef.name` | Supported | Secret name containing the client secret. |
 | `spec.secretRef.namespace` | Supported | Optional; defaults to the client resource namespace. |
 | `spec.secretRef.secretKey` | Supported | Optional key name containing the secret value. |
@@ -152,6 +152,10 @@ blocked state: managed scope changes trigger a check, and periodic reconciliatio
 detects scopes created directly in Keycloak. After a client write, the operator
 reads back the modeled fields; remaining drift produces `ClientNotConverged` with
 the same condition statuses and a failure retry.
+
+An adopted confidential client can omit both `spec.secretRef` and
+`spec.authentication` while it remains `ObserveOnly`. Before changing that
+resource to `Reconcile`, configure `ClientSecret` or `SignedJwt` authentication.
 
 ## KeycloakClientRole
 

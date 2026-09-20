@@ -1,3 +1,4 @@
+import base64
 import contextlib
 import json
 import os
@@ -680,6 +681,9 @@ def test_operator_reconciles_keycloak_entities_e2e(kind_cluster_env: dict[str, s
             )
         )
 
+        _log("rendering observe-only adoption manifests from the operator image")
+        _assert_adoption_render(kind_cluster_env, realm)
+
         _log("verifying steady reconciliation performs reads without configuration writes")
         group_path = f"/admin/realms/{realm}/groups/{_group(keycloak_url, realm)['id']}"
         provider_path = (
@@ -1177,6 +1181,108 @@ def _assert_client_credentials_secret(env: dict[str, str]) -> None:
 
     assert isinstance(secret["data"]["clientSecret"], str)
     assert secret["data"]["clientSecret"]
+
+
+def _assert_adoption_render(env: dict[str, str], realm: str) -> None:
+    secret_result = _run(
+        [
+            "kubectl",
+            "get",
+            "secret",
+            OPERATOR_CLIENT_SECRET_NAME,
+            "--namespace",
+            NAMESPACE,
+            "--output=json",
+        ],
+        env=env,
+    )
+    encoded_secret = json.loads(secret_result.stdout)["data"]["clientSecret"]
+    client_secret = base64.b64decode(encoded_secret, validate=True).decode()
+    operator_pod = _operator_pod_name(env)
+    script = (
+        "secret_file=$(mktemp); "
+        "trap 'rm -f \"$secret_file\"' EXIT; "
+        "cat > \"$secret_file\"; "
+        "keycloak-config-operator adopt render "
+        "--client-secret-file \"$secret_file\" \"$@\""
+    )
+    rendered = _run_with_input(
+        [
+            "kubectl",
+            "exec",
+            "-i",
+            f"pod/{operator_pod}",
+            "--namespace",
+            OPERATOR_NAMESPACE,
+            "--",
+            "sh",
+            "-c",
+            script,
+            "adoption-e2e",
+            "--url",
+            f"http://keycloak.{NAMESPACE}.svc.cluster.local:8080",
+            "--auth-realm",
+            "master",
+            "--client-id",
+            OPERATOR_CLIENT_ID,
+            "--realm",
+            realm,
+            "--namespace",
+            NAMESPACE,
+            "--target-ref",
+            TARGET_NAME,
+            "--output",
+            "-",
+        ],
+        env=env,
+        input_text=client_secret,
+    )
+
+    documents = [
+        document
+        for document in yaml.safe_load_all(rendered.stdout)
+        if isinstance(document, dict)
+    ]
+    assert documents
+    kinds = {document["kind"] for document in documents}
+    assert {
+        "KeycloakRealm",
+        "KeycloakClient",
+        "KeycloakClientRole",
+        "KeycloakGroup",
+        "KeycloakGroupRoleMapping",
+        "KeycloakRole",
+        "KeycloakClientScope",
+        "KeycloakProtocolMapper",
+        "KeycloakIdentityProvider",
+        "KeycloakIdentityProviderMapper",
+    } <= kinds
+    assert all(
+        document["spec"]["managementPolicy"] == "ObserveOnly"
+        for document in documents
+    )
+    assert client_secret not in rendered.stdout
+    assert CONFIDENTIAL_CLIENT_SECRET not in rendered.stdout
+    assert IDENTITY_PROVIDER_SECRET not in rendered.stdout
+    assert "Adoption plan for Keycloak realm" in rendered.stderr
+
+    # Several rendered resources intentionally overlap with the reconciled CRs above and
+    # change managementPolicy to ObserveOnly. Force ownership only for this server-side
+    # dry-run so Kubernetes validates the manifests without persisting those changes.
+    _run_with_input(
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "--force-conflicts",
+            "--field-manager=adoption-e2e-validation",
+            "-f",
+            "-",
+        ],
+        env=env,
+        input_text=rendered.stdout,
+    )
 
 
 def _assert_remote_id_matches(

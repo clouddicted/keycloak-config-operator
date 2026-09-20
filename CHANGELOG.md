@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.9.0 - 2026-09-19
+
+### Highlights
+
+- Added `adopt plan` and `adopt render` to the normal operator image for
+  read-only discovery of one existing Keycloak realm.
+- Render deterministic, multi-document YAML for every representable managed
+  resource kind with `ObserveOnly` management and orphan deletion.
+- Exclude known Keycloak built-ins, omit secrets, and report unsupported fields,
+  skipped objects, unresolved references, and Kubernetes-name collisions.
+
+### Safety
+
+- Use only GET requests during Keycloak discovery and never apply generated
+  resources automatically.
+- Refuse partial YAML when references cannot be resolved or generated names
+  collide.
+- Allow secretless confidential clients only in `ObserveOnly`; moving them to
+  `Reconcile` still requires client-secret or Signed JWT configuration.
+
+### Testing and Documentation
+
+- Added fixture-driven coverage for discovery, normalization, references,
+  deterministic rendering, secret masking, and safe failures.
+- Added a kind path that runs the CLI from the operator image and validates the
+  generated resources with the installed CRDs.
+- Added an adoption guide covering arguments, TLS, exit codes, review, and
+  gradual promotion to reconciliation.
+
 ## v0.8.0 - 2026-09-19
 
 ### Highlights

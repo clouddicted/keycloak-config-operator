@@ -29,6 +29,7 @@ dependency is not ready yet.
 
 - [Getting started](getting-started.md) for a minimal working example.
 - [Usage guide](usage.md) for install options, authentication modes, and deletion behavior.
+- [Adoption guide](adoption.md) for generating observe-only resources from an existing realm.
 - [Reconciliation](reconciliation.md) for triggers, drift-check timing, retries, and tuning.
 - [Resources](resources/index.md) for practical CRD field explanations and examples.
 - [API reference](api-reference.md) for the generated CRD schema.
@@ -38,7 +39,7 @@ Install the released Helm chart from GitHub Container Registry:
 ```bash
 helm upgrade --install keycloak-config-operator \
   oci://ghcr.io/clouddicted/charts/keycloak-config-operator \
-  --version 0.8.0 \
+  --version 0.9.0 \
   --namespace keycloak-config-operator-system \
   --create-namespace
 ```
