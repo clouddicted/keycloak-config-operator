@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -5,6 +6,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+LATEST_KEYCLOAK_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "keycloak-latest.yml"
+)
+KEYCLOAK_VERSIONS = REPO_ROOT / "tests" / "kind" / "keycloak-versions.json"
 CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
 
 
@@ -25,6 +30,7 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     assert workflow["env"]["IMAGE_NAME"] == "ghcr.io/clouddicted/keycloak-config-operator"
     assert workflow["env"]["CHART_REGISTRY"] == "oci://ghcr.io/clouddicted/charts"
     assert {
+        "versions",
         "python",
         "helm",
         "docs",
@@ -35,14 +41,22 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
         "keycloak-compatibility",
         "release",
     } <= set(jobs)
-    assert workflow["env"]["KEYCLOAK_VERSION"] == "26.6.2"
-    assert workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"] == "26.5.3"
+    versions = json.loads(KEYCLOAK_VERSIONS.read_text())
+    assert "KEYCLOAK_VERSION" not in workflow["env"]
+    assert "KEYCLOAK_COMPATIBILITY_VERSION" not in workflow["env"]
+    assert "python scripts/keycloak_compatibility.py github-output" in _job_run_commands(
+        jobs["versions"]
+    )
     assert "ruff check ." in _job_run_commands(jobs["python"])
     assert "pytest" in _job_run_commands(jobs["python"])
     assert "python -m build" in _job_run_commands(jobs["python"])
     assert 'helm lint "$CHART_PATH"' in _job_run_commands(jobs["helm"])
     assert "helm template keycloak-config-operator" in _job_run_commands(jobs["helm"])
     assert 'python -m pip install -e ".[docs]"' in _job_run_commands(jobs["docs"])
+    assert (
+        "python scripts/keycloak_compatibility.py render-docs --check"
+        in _job_run_commands(jobs["docs"])
+    )
     assert "mkdocs build --strict" in _job_run_commands(jobs["docs"])
     assert "actions/upload-pages-artifact@v3" not in _job_uses(jobs["docs"])
     assert jobs["docs-develop"]["if"] == (
@@ -76,15 +90,26 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
     assert "python tests/kind/e2e.py test" in _job_run_commands(jobs["kind"])
     assert "kind delete cluster" in _job_run_commands(jobs["kind"])
     assert "if" not in jobs["kind"]
-    assert jobs["kind"]["needs"] == ["python", "helm", "docs", "image"]
+    assert jobs["kind"]["needs"] == ["versions", "python", "helm", "docs", "image"]
+    assert _step_env(jobs["kind"], "Prepare kind cluster")["KEYCLOAK_VERSION"] == (
+        "${{ needs.versions.outputs.default }}"
+    )
     assert jobs["keycloak-compatibility"]["if"] == (
         "github.event_name == 'workflow_dispatch' || "
         "(github.event_name == 'push' && github.ref_type == 'tag')"
     )
-    assert jobs["keycloak-compatibility"]["needs"] == ["python", "helm", "docs", "image"]
-    assert jobs["keycloak-compatibility"]["strategy"]["matrix"]["keycloak-version"] == [
-        workflow["env"]["KEYCLOAK_COMPATIBILITY_VERSION"],
+    assert jobs["keycloak-compatibility"]["needs"] == [
+        "versions",
+        "python",
+        "helm",
+        "docs",
+        "image",
     ]
+    assert jobs["keycloak-compatibility"]["strategy"]["matrix"][
+        "keycloak-version"
+    ] == "${{ fromJSON(needs.versions.outputs.compatibility) }}"
+    assert set(versions) == {"default", "previousMinor"}
+    assert all(isinstance(version, str) for version in versions.values())
     assert _step_env(
         jobs["keycloak-compatibility"],
         "Prepare kind cluster",
@@ -93,6 +118,63 @@ def test_ci_workflow_runs_required_quality_gates() -> None:
         jobs["keycloak-compatibility"],
         "Run kind tests",
     )["KEYCLOAK_VERSION"] == "${{ matrix.keycloak-version }}"
+
+
+def test_latest_keycloak_workflow_discovers_and_tests_exact_stable_versions() -> None:
+    workflow = _load_workflow(LATEST_KEYCLOAK_WORKFLOW)
+    jobs = workflow["jobs"]
+
+    assert workflow["on"]["schedule"] == [{"cron": "37 2 * * *"}]
+    assert "workflow_dispatch" in workflow["on"]
+    assert workflow["concurrency"] == {
+        "group": "latest-keycloak-compatibility",
+        "cancel-in-progress": False,
+    }
+    assert {"discover", "e2e", "report-failure", "promote"} == set(jobs)
+
+    discover = _job_run_commands(jobs["discover"])
+    assert "repos/keycloak/keycloak/releases/latest" in discover
+    assert "scripts/keycloak_compatibility.py plan" in discover
+    assert 'quay.io/keycloak/keycloak:${candidate}' in discover
+    assert "docker buildx imagetools inspect" in discover
+
+    e2e = jobs["e2e"]
+    assert e2e["strategy"]["fail-fast"] is False
+    assert e2e["strategy"]["matrix"]["keycloak-version"] == (
+        "${{ fromJSON(needs.discover.outputs.test-versions) }}"
+    )
+    assert "python tests/kind/e2e.py prepare" in _job_run_commands(e2e)
+    assert "python tests/kind/e2e.py test" in _job_run_commands(e2e)
+    assert "kind delete cluster" in _job_run_commands(e2e)
+
+
+def test_latest_keycloak_workflow_uses_one_reviewed_rolling_pr() -> None:
+    jobs = _load_workflow(LATEST_KEYCLOAK_WORKFLOW)["jobs"]
+    failure_commands = _job_run_commands(jobs["report-failure"])
+    promote_commands = _job_run_commands(jobs["promote"])
+
+    assert jobs["report-failure"]["permissions"] == {
+        "contents": "read",
+        "issues": "write",
+        "pull-requests": "write",
+    }
+    assert "keycloak-compatibility" in failure_commands
+    assert "gh issue create" in failure_commands
+    assert "gh issue comment" in failure_commands
+    assert "scripts/keycloak_compatibility.py pr-body" in failure_commands
+
+    assert jobs["promote"]["permissions"] == {
+        "actions": "write",
+        "contents": "write",
+        "issues": "write",
+        "pull-requests": "write",
+    }
+    assert 'git switch -C "$AUTOMATION_BRANCH"' in promote_commands
+    assert "git push --force-with-lease" in promote_commands
+    assert "gh pr create --base develop" in promote_commands
+    assert "gh pr edit" in promote_commands
+    assert 'gh workflow run ci.yml --ref "$AUTOMATION_BRANCH"' in promote_commands
+    assert "scripts/keycloak_compatibility.py promote" in promote_commands
 
 
 def test_release_job_publishes_image_and_chart_only_for_tags() -> None:
@@ -139,8 +221,8 @@ def test_contributing_documents_minimal_gitflow_and_local_file_rules() -> None:
     assert "Do not add them to `.gitignore`" in text
 
 
-def _load_workflow() -> dict[str, Any]:
-    with WORKFLOW.open() as stream:
+def _load_workflow(path: Path = WORKFLOW) -> dict[str, Any]:
+    with path.open() as stream:
         workflow = yaml.safe_load(stream)
 
     assert isinstance(workflow, dict)

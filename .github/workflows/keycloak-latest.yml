@@ -1,0 +1,435 @@
+name: Latest Keycloak compatibility
+
+"on":
+  schedule:
+    - cron: "37 2 * * *"
+  workflow_dispatch:
+    inputs:
+      keycloak_version:
+        description: Exact Keycloak version; leave empty to test the latest stable release
+        required: false
+        type: string
+
+concurrency:
+  group: latest-keycloak-compatibility
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KIND_VERSION: "v0.31.0"
+  KUBECTL_VERSION: "v1.35.0"
+  AUTOMATION_BRANCH: automation/keycloak-latest
+
+jobs:
+  discover:
+    name: Discover compatibility candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      candidate: ${{ steps.plan.outputs.candidate }}
+      repository-default: ${{ steps.plan.outputs.repository-default }}
+      rolling-default: ${{ steps.plan.outputs.rolling-default }}
+      rolling-previous: ${{ steps.plan.outputs.rolling-previous }}
+      proposed-previous: ${{ steps.plan.outputs.proposed-previous }}
+      test-versions: ${{ steps.plan.outputs.test-versions }}
+      should-test: ${{ steps.plan.outputs.should-test }}
+      promotable: ${{ steps.plan.outputs.promotable }}
+      reason: ${{ steps.plan.outputs.reason }}
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Discover and plan versions
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL_VERSION: ${{ inputs.keycloak_version }}
+          MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+
+          repository_default="$(python scripts/keycloak_compatibility.py get default)"
+          repository_previous="$(python scripts/keycloak_compatibility.py get previousMinor)"
+          rolling_default=""
+          rolling_previous=""
+
+          if git ls-remote --exit-code --heads origin \
+            "refs/heads/${AUTOMATION_BRANCH}" >/dev/null 2>&1; then
+            git fetch origin \
+              "refs/heads/${AUTOMATION_BRANCH}:refs/remotes/origin/${AUTOMATION_BRANCH}"
+            git show \
+              "refs/remotes/origin/${AUTOMATION_BRANCH}:tests/kind/keycloak-versions.json" \
+              > "$RUNNER_TEMP/rolling-versions.json"
+            rolling_default="$(python scripts/keycloak_compatibility.py \
+              --versions-file "$RUNNER_TEMP/rolling-versions.json" get default)"
+            rolling_previous="$(python scripts/keycloak_compatibility.py \
+              --versions-file "$RUNNER_TEMP/rolling-versions.json" get previousMinor)"
+          fi
+
+          if [[ -n "$MANUAL_VERSION" ]]; then
+            candidate="$MANUAL_VERSION"
+          else
+            candidate="$(gh api repos/keycloak/keycloak/releases/latest --jq .tag_name)"
+          fi
+          candidate="$(python scripts/keycloak_compatibility.py validate "$candidate")"
+
+          gh api "repos/keycloak/keycloak/releases?per_page=100" \
+            > "$RUNNER_TEMP/keycloak-releases.json"
+
+          plan_args=(
+            --candidate "$candidate"
+            --releases-file "$RUNNER_TEMP/keycloak-releases.json"
+          )
+          if [[ -n "$rolling_default" ]]; then
+            plan_args+=(
+              --rolling-default "$rolling_default"
+              --rolling-previous-minor "$rolling_previous"
+            )
+          fi
+          if [[ "$MANUAL_RUN" == "true" ]]; then
+            plan_args+=(--manual)
+          fi
+
+          python scripts/keycloak_compatibility.py plan "${plan_args[@]}" \
+            > "$RUNNER_TEMP/keycloak-plan.json"
+
+          read_plan() {
+            python -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' \
+              "$RUNNER_TEMP/keycloak-plan.json" "$1"
+          }
+
+          should_test="$(read_plan shouldTest)"
+          if [[ "$should_test" == "True" ]]; then
+            should_test=true
+          else
+            should_test=false
+          fi
+          promotable="$(read_plan promotable)"
+          if [[ "$promotable" == "True" && "$MANUAL_RUN" != "true" ]]; then
+            promotable=true
+          else
+            promotable=false
+          fi
+
+          if [[ "$should_test" == "true" ]] && ! docker buildx imagetools inspect \
+            "quay.io/keycloak/keycloak:${candidate}" >/dev/null 2>&1; then
+            should_test=false
+            promotable=false
+            reason="exact image quay.io/keycloak/keycloak:${candidate} is not available yet"
+          else
+            reason="$(read_plan reason)"
+          fi
+
+          test_versions="$(python -c \
+            'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["testVersions"]))' \
+            "$RUNNER_TEMP/keycloak-plan.json")"
+          proposed_previous="$(read_plan proposedPreviousMinor)"
+
+          {
+            echo "candidate=$candidate"
+            echo "repository-default=$repository_default"
+            echo "rolling-default=$rolling_default"
+            echo "rolling-previous=${rolling_previous:-$repository_previous}"
+            echo "proposed-previous=$proposed_previous"
+            echo "test-versions=$test_versions"
+            echo "should-test=$should_test"
+            echo "promotable=$promotable"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Latest Keycloak compatibility plan"
+            echo
+            echo "- Candidate: \`$candidate\`"
+            echo "- Versions selected: \`$test_versions\`"
+            echo "- Test required: \`$should_test\`"
+            echo "- Rolling PR update allowed: \`$promotable\`"
+            echo "- Reason: $reason"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: Keycloak ${{ matrix.keycloak-version }} e2e
+    if: needs.discover.outputs.should-test == 'true'
+    needs:
+      - discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak-version: ${{ fromJSON(needs.discover.outputs.test-versions) }}
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install kind and kubectl
+        run: |
+          curl -fsSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+
+          curl -fsSLo kubectl \
+            "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+          kind version
+          kubectl version --client=true
+
+      - name: Prepare kind cluster
+        env:
+          KEYCLOAK_VERSION: ${{ matrix.keycloak-version }}
+        run: python tests/kind/e2e.py prepare
+
+      - name: Run kind tests
+        env:
+          KEYCLOAK_VERSION: ${{ matrix.keycloak-version }}
+        run: python tests/kind/e2e.py test
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          mkdir -p diagnostics
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            get pods -A -o wide > diagnostics/pods.txt 2>&1 || true
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            describe pods -A > diagnostics/pod-descriptions.txt 2>&1 || true
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            -n keycloak-config-operator-system \
+            logs deployment/keycloak-config-operator \
+            > diagnostics/operator.log 2>&1 || true
+          kubectl --context kind-clouddicted-keycloak-config-operator-it \
+            -n keycloak-operator-test logs deployment/keycloak \
+            > diagnostics/keycloak.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keycloak-${{ matrix.keycloak-version }}-diagnostics
+          path: diagnostics
+          if-no-files-found: warn
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name clouddicted-keycloak-config-operator-it || true
+
+  report-failure:
+    name: Report compatibility failure
+    if: >-
+      always() &&
+      needs.discover.outputs.should-test == 'true' &&
+      needs.e2e.result == 'failure'
+    needs:
+      - discover
+      - e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Create or update failure issue
+        id: issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Compatibility failure with Keycloak ${CANDIDATE}"
+          gh label create keycloak-compatibility \
+            --description "Automated Keycloak compatibility results" \
+            --color D93F0B --force
+
+          existing="$(gh issue list --state open --label keycloak-compatibility \
+            --search "\"${title}\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"${title}\") | .number" | head -n 1)"
+          printf '%s\n\nRun: %s\n\n%s\n' \
+            "The latest stable Keycloak compatibility suite failed." \
+            "$RUN_URL" \
+            "Diagnostics are attached to the workflow run." \
+            > "$RUNNER_TEMP/issue-body.md"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/issue-body.md"
+            issue_url="$(gh issue view "$existing" --json url --jq .url)"
+          else
+            issue_url="$(gh issue create --title "$title" \
+              --body-file "$RUNNER_TEMP/issue-body.md" \
+              --label keycloak-compatibility)"
+          fi
+          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+
+      - name: Add failure to rolling PR audit
+        if: needs.discover.outputs.rolling-default != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+          ROLLING_DEFAULT: ${{ needs.discover.outputs.rolling-default }}
+          ROLLING_PREVIOUS: ${{ needs.discover.outputs.rolling-previous }}
+          REPOSITORY_DEFAULT: ${{ needs.discover.outputs.repository-default }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+        run: |
+          set -euo pipefail
+          gh pr list --state open --head "$AUTOMATION_BRANCH" --base develop \
+            --json number,body --limit 1 > "$RUNNER_TEMP/pr.json"
+          pr_number="$(python -c \
+            'import json,sys; data=json.load(open(sys.argv[1])); print(data[0]["number"] if data else "")' \
+            "$RUNNER_TEMP/pr.json")"
+          if [[ -z "$pr_number" ]]; then
+            exit 0
+          fi
+          python -c \
+            'import json,sys; data=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write(data[0]["body"])' \
+            "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/existing-body.md"
+          python scripts/keycloak_compatibility.py pr-body \
+            --candidate "$ROLLING_DEFAULT" \
+            --observed-version "$CANDIDATE" \
+            --previous-minor "$ROLLING_PREVIOUS" \
+            --repository-default "$REPOSITORY_DEFAULT" \
+            --result Failed \
+            --evidence "[failure issue](${ISSUE_URL})" \
+            --existing-body "$RUNNER_TEMP/existing-body.md" \
+            > "$RUNNER_TEMP/pr-body.md"
+          gh pr edit "$pr_number" --body-file "$RUNNER_TEMP/pr-body.md"
+
+  promote:
+    name: Propose compatibility update
+    if: >-
+      needs.discover.outputs.promotable == 'true' &&
+      needs.e2e.result == 'success'
+    needs:
+      - discover
+      - e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Read existing rolling PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --state open --head "$AUTOMATION_BRANCH" --base develop \
+            --json number,body --limit 1 > "$RUNNER_TEMP/pr.json"
+          python -c \
+            'import json,sys; data=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write(data[0]["body"] if data else "")' \
+            "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/existing-body.md"
+          git fetch origin \
+            "refs/heads/${AUTOMATION_BRANCH}:refs/remotes/origin/${AUTOMATION_BRANCH}" \
+            || true
+
+      - name: Generate compatibility update
+        shell: bash
+        env:
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+          PREVIOUS_MINOR: ${{ needs.discover.outputs.proposed-previous }}
+          REPOSITORY_DEFAULT: ${{ needs.discover.outputs.repository-default }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python scripts/keycloak_compatibility.py promote \
+            --candidate "$CANDIDATE" \
+            --previous-minor "$PREVIOUS_MINOR"
+          python scripts/keycloak_compatibility.py pr-body \
+            --candidate "$CANDIDATE" \
+            --previous-minor "$PREVIOUS_MINOR" \
+            --repository-default "$REPOSITORY_DEFAULT" \
+            --evidence "[workflow run](${RUN_URL})" \
+            --existing-body "$RUNNER_TEMP/existing-body.md" \
+            > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Push rolling branch
+        shell: bash
+        env:
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$AUTOMATION_BRANCH"
+          git add \
+            tests/kind/keycloak-versions.json \
+            tests/fixtures/keycloak.yaml \
+            docs/compatibility.md
+          git commit -m "test(compatibility): verify Keycloak ${CANDIDATE}"
+          git push --force-with-lease origin "HEAD:refs/heads/${AUTOMATION_BRANCH}"
+
+      - name: Create or update rolling pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          pr_number="$(python -c \
+            'import json,sys; data=json.load(open(sys.argv[1])); print(data[0]["number"] if data else "")' \
+            "$RUNNER_TEMP/pr.json")"
+          title="test(compatibility): verify latest Keycloak ${CANDIDATE}"
+          if [[ -n "$pr_number" ]]; then
+            gh pr edit "$pr_number" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md"
+          else
+            gh pr create --base develop --head "$AUTOMATION_BRANCH" \
+              --title "$title" --body-file "$RUNNER_TEMP/pr-body.md"
+          fi
+
+      - name: Run CI for rolling branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "$AUTOMATION_BRANCH"
+
+      - name: Close superseded compatibility failures
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.discover.outputs.candidate }}
+        run: |
+          title="Compatibility failure with Keycloak ${CANDIDATE}"
+          gh issue list --state open --label keycloak-compatibility \
+            --search "\"${title}\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"${title}\") | .number" | while read -r issue; do
+              gh issue close "$issue" \
+                --comment "Superseded by successful compatibility run for Keycloak ${CANDIDATE}."
+            done

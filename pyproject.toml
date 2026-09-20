@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clouddicted-keycloak-config-operator"
-version = "0.7.0"
+version = "0.8.0"
 description = "Kopf-based Kubernetes operator for managing Keycloak configuration."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -34,6 +34,7 @@ docs = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
   "integration: opt-in tests that require kind and kubectl",

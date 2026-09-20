@@ -13,6 +13,15 @@ It does not replace the Keycloak project's own supported-platform policy.
   and testing every release would slow delivery without creating a useful support
   promise.
 
+## Development Compatibility
+
+<!-- BEGIN GENERATED DEVELOPMENT COMPATIBILITY -->
+| Branch | Keycloak version | Status | Test scope | Notes |
+| --- | --- | --- | --- | --- |
+| `develop` | `26.6.2` | Default tested | PR, branch, tag, manual, and latest-version kind e2e | Default version from `tests/kind/keycloak-versions.json`. |
+| `develop` | `26.5.3` | Compatibility tested | Tag, manual, and new-minor latest-version kind e2e | Previous-minor smoke coverage. |
+<!-- END GENERATED DEVELOPMENT COMPATIBILITY -->
+
 ## Tested Versions
 
 | Operator version | Keycloak version | Status | Test scope | Notes |
@@ -20,6 +29,25 @@ It does not replace the Keycloak project's own supported-platform policy.
 | `0.7.0` | `26.6.2` | Supported | PR, branch, tag, and manual kind e2e | Default `KEYCLOAK_VERSION`. |
 | `0.7.0` | `26.5.3` | Compatibility tested | Tag and manual kind e2e | Previous-minor smoke coverage. |
 | `0.7.0` | `<26.5` | Unsupported | Not tested | Upgrade Keycloak or validate locally before use. |
+
+## Latest Stable Version Automation
+
+The `Latest Keycloak compatibility` workflow checks the latest stable upstream
+release every night and can also test an exact version through a manual workflow
+dispatch. It validates only immutable version tags such as `26.7.4`; mutable
+`latest`, prerelease, and nightly tags do not create compatibility claims.
+
+When a newer stable release passes the full kind e2e suite, automation creates or
+updates one pull request from `automation/keycloak-latest` into `develop`. Newer
+passing patches replace older unmerged patches in that pull request. A new minor
+release is tested together with the latest patch of the immediately preceding
+minor. Failed candidates leave the newest passing proposal unchanged and update
+one diagnostic issue for that version.
+
+Merging the pull request updates the development test defaults. A nightly pass is
+reported as compatibility-tested; `Supported` remains a release decision. The
+workflow never commits directly to `develop` or rewrites documentation for an
+already published operator version.
 
 ## Local Compatibility Testing
 

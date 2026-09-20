@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.8.0 - 2026-09-19
+
+### Highlights
+
+- Added manually dispatched and nightly compatibility testing against the latest
+  stable Keycloak release using its exact Quay image tag.
+- Added a single rolling compatibility pull request that supersedes unmerged
+  patch candidates and preserves the newest passing version.
+- Added failure issue deduplication and workflow diagnostics for incompatible
+  Keycloak releases.
+
+### Configuration and Documentation
+
+- Centralized the default and previous-minor Keycloak test versions in
+  `tests/kind/keycloak-versions.json`.
+- Generated the development compatibility table from the version file and added
+  a CI consistency check.
+- Kept released compatibility claims immutable; nightly results remain candidates
+  until their pull request is reviewed and merged.
+
+### Testing
+
+- Reused the existing kind e2e scenario for normal, previous-minor, manual, and
+  latest-stable compatibility runs.
+- Added deterministic tests for semantic version selection, previous-minor
+  promotion, documentation generation, and rolling pull-request history.
+
 ## v0.7.0 - 2026-09-18
 
 ### Highlights
