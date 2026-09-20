@@ -1266,8 +1266,20 @@ def _assert_adoption_render(env: dict[str, str], realm: str) -> None:
     assert IDENTITY_PROVIDER_SECRET not in rendered.stdout
     assert "Adoption plan for Keycloak realm" in rendered.stderr
 
+    # Several rendered resources intentionally overlap with the reconciled CRs above and
+    # change managementPolicy to ObserveOnly. Force ownership only for this server-side
+    # dry-run so Kubernetes validates the manifests without persisting those changes.
     _run_with_input(
-        ["kubectl", "apply", "--server-side", "--dry-run=server", "-f", "-"],
+        [
+            "kubectl",
+            "apply",
+            "--server-side",
+            "--dry-run=server",
+            "--force-conflicts",
+            "--field-manager=adoption-e2e-validation",
+            "-f",
+            "-",
+        ],
         env=env,
         input_text=rendered.stdout,
     )
